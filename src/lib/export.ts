@@ -40,7 +40,9 @@ export function exportToPDF(projectName: string, result: AnalysisResult) {
 
   if (result.estrutura?.length) y = addTable("Estrutura", result.estrutura, y + 5);
   if (result.acabamento?.length) y = addTable("Acabamento", result.acabamento, y + 5);
-  if (result.instalacoes?.length) y = addTable("Instalações", result.instalacoes, y + 5);
+  if (result.instalacoes_eletricas?.length) y = addTable("Instalações Elétricas", result.instalacoes_eletricas, y + 5);
+  else if (result.instalacoes?.length) y = addTable("Instalações", result.instalacoes, y + 5);
+  if (result.instalacoes_hidraulicas?.length) y = addTable("Instalações Hidráulicas", result.instalacoes_hidraulicas, y + 5);
 
   if (result.recomendacoes?.length) {
     doc.addPage();
