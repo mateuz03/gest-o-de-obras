@@ -16,6 +16,7 @@ export default function NovaAnalise() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
+  const [dwgFile, setDwgFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,15 +28,26 @@ export default function NovaAnalise() {
     instrucoes_adicionais: "",
   });
 
+  const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
+
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
+    if (f) handleFileSelection(f);
   }, []);
 
-  const handleFile = (f: File) => {
+  const handleFileSelection = (f: File) => {
+    if (isDwg(f)) {
+      if (f.size > 50 * 1024 * 1024) {
+        toast.error("Arquivo DWG máximo de 50MB");
+        return;
+      }
+      setDwgFile(f);
+      toast.success("Arquivo DWG anexado! Envie também uma imagem ou PDF da planta para a IA analisar.");
+      return;
+    }
     if (!f.type.startsWith("image/") && f.type !== "application/pdf") {
-      toast.error("Envie uma imagem (JPG, PNG) ou PDF");
+      toast.error("Envie uma imagem (JPG, PNG), PDF ou arquivo DWG");
       return;
     }
     if (f.size > 10 * 1024 * 1024) {
@@ -57,7 +69,7 @@ export default function NovaAnalise() {
     setLoading(true);
 
     try {
-      // Upload file to storage
+      // Upload image/PDF to storage
       const ext = file.name.split(".").pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage
@@ -66,6 +78,12 @@ export default function NovaAnalise() {
       if (uploadErr) throw uploadErr;
 
       const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
+
+      // Upload DWG if provided
+      if (dwgFile) {
+        const dwgPath = `${user.id}/${Date.now()}.dwg`;
+        await supabase.storage.from("blueprints").upload(dwgPath, dwgFile);
+      }
 
       // Convert to base64 for AI
       const base64 = await new Promise<string>((resolve) => {
@@ -159,7 +177,7 @@ export default function NovaAnalise() {
           <Card>
             <CardHeader>
               <CardTitle>Upload da Planta Baixa</CardTitle>
-              <CardDescription>Envie uma imagem (JPG, PNG) ou PDF da planta baixa</CardDescription>
+             <CardDescription>Envie uma imagem (JPG, PNG), PDF ou arquivo DWG da planta baixa</CardDescription>
             </CardHeader>
             <CardContent>
               <div
@@ -171,9 +189,9 @@ export default function NovaAnalise() {
                 <input
                   id="file-input"
                   type="file"
-                  accept="image/*,.pdf"
+                  accept="image/*,.pdf,.dwg"
                   className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                  onChange={(e) => e.target.files?.[0] && handleFileSelection(e.target.files[0])}
                 />
                 {preview ? (
                   <img src={preview} alt="Preview" className="max-h-[260px] rounded-lg object-contain" />
@@ -187,10 +205,22 @@ export default function NovaAnalise() {
                   <>
                     <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />
                     <p className="font-medium">Arraste a planta aqui ou clique para selecionar</p>
-                    <p className="text-sm text-muted-foreground">JPG, PNG ou PDF (máx. 10MB)</p>
+                    <p className="text-sm text-muted-foreground">JPG, PNG, PDF ou DWG (máx. 10MB / DWG 50MB)</p>
                   </>
                 )}
               </div>
+
+              {dwgFile && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+                  <FileImage className="h-5 w-5 text-primary" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{dwgFile.name}</p>
+                    <p className="text-xs text-muted-foreground">Arquivo DWG anexado — envie também uma imagem ou PDF para a IA analisar</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDwgFile(null); }}>✕</Button>
+                </div>
+              )}
+
               <div className="mt-6 flex justify-end">
                 <Button onClick={() => setStep(2)} disabled={!file}>
                   Próximo
