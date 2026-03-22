@@ -166,7 +166,8 @@ export default function AnaliseResultado() {
           <TabsList>
             <TabsTrigger value="estrutura">Estrutura</TabsTrigger>
             <TabsTrigger value="acabamento">Acabamento</TabsTrigger>
-            <TabsTrigger value="instalacoes">Instalações</TabsTrigger>
+            <TabsTrigger value="eletrica">Elétrica</TabsTrigger>
+            <TabsTrigger value="hidraulica">Hidráulica</TabsTrigger>
             <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
           </TabsList>
           <TabsContent value="estrutura">
@@ -175,8 +176,11 @@ export default function AnaliseResultado() {
           <TabsContent value="acabamento">
             <MaterialTable items={result.acabamento} title="Materiais de Acabamento" icon={Paintbrush} />
           </TabsContent>
-          <TabsContent value="instalacoes">
-            <MaterialTable items={result.instalacoes} title="Instalações Elétricas e Hidráulicas" icon={Zap} />
+          <TabsContent value="eletrica">
+            <MaterialTable items={result.instalacoes_eletricas || result.instalacoes || []} title="Instalações Elétricas" icon={Zap} />
+          </TabsContent>
+          <TabsContent value="hidraulica">
+            <MaterialTable items={result.instalacoes_hidraulicas || []} title="Instalações Hidráulicas" icon={Ruler} />
           </TabsContent>
           <TabsContent value="recomendacoes">
             <RecommendationsTable items={result.recomendacoes} />

@@ -19,7 +19,9 @@ export interface AnalysisResult {
   escala_detectada: string;
   estrutura: MaterialItem[];
   acabamento: MaterialItem[];
-  instalacoes: MaterialItem[];
+  instalacoes?: MaterialItem[];
+  instalacoes_eletricas?: MaterialItem[];
+  instalacoes_hidraulicas?: MaterialItem[];
   recomendacoes: BrandRecommendation[];
 }
 
