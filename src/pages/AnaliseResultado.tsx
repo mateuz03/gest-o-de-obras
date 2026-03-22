@@ -27,6 +27,7 @@ function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
           <TableRow>
             <TableHead className="w-16">Item</TableHead>
             <TableHead>Descrição</TableHead>
+            <TableHead>Local</TableHead>
             <TableHead>Fornec.</TableHead>
             <TableHead>Marca</TableHead>
             <TableHead className="text-right">Quant</TableHead>
