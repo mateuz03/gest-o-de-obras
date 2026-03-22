@@ -1,6 +1,7 @@
 export interface BudgetItem {
   item: string;
   descricao: string;
+  local_aplicacao?: string;
   fornecedor: string;
   marca: string;
   quantidade: number | string;

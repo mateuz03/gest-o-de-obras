@@ -45,6 +45,11 @@ function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
                 {item.descricao}
                 {item.perda_aplicada && <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>}
               </TableCell>
+              <TableCell className="text-xs">
+                {item.local_aplicacao ? (
+                  <Badge variant="secondary" className="text-xs font-normal">{item.local_aplicacao}</Badge>
+                ) : "—"}
+              </TableCell>
               <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
               <TableCell className="text-right">{item.quantidade}</TableCell>
