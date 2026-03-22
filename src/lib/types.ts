@@ -1,8 +1,36 @@
-export interface MaterialItem {
-  material: string;
-  quantidade: string;
+export interface BudgetItem {
+  item: string;
+  descricao: string;
+  fornecedor: string;
+  marca: string;
+  quantidade: number | string;
   unidade: string;
-  observacao?: string;
+  preco_unitario: number | string;
+  preco_total: number | string;
+  codigo_sinapi?: string;
+  origem_preco: string;
+  perda_aplicada?: string;
+}
+
+export interface MacroEtapa {
+  nome: string;
+  itens: BudgetItem[];
+  subtotal: number | string;
+}
+
+export interface ComodoQuantitativo {
+  comodo: string;
+  itens: BudgetItem[];
+  subtotal: number | string;
+}
+
+export interface ResumoFinal {
+  total_materiais: number | string;
+  total_mao_de_obra: number | string;
+  total_geral: number | string;
+  bdi_percentual?: number | string;
+  bdi_valor?: number | string;
+  premissas_bdi?: string;
 }
 
 export interface BrandRecommendation {
@@ -17,12 +45,17 @@ export interface AnalysisResult {
   resumo: string;
   area_total_m2: number;
   escala_detectada: string;
-  estrutura: MaterialItem[];
-  acabamento: MaterialItem[];
-  instalacoes?: MaterialItem[];
-  instalacoes_eletricas?: MaterialItem[];
-  instalacoes_hidraulicas?: MaterialItem[];
+  referencia_sinapi?: string;
+  macro_etapas: MacroEtapa[];
+  quantitativo_por_comodo?: ComodoQuantitativo[];
+  resumo_final: ResumoFinal;
   recomendacoes: BrandRecommendation[];
+  // Legacy fields for backward compatibility
+  estrutura?: any[];
+  acabamento?: any[];
+  instalacoes?: any[];
+  instalacoes_eletricas?: any[];
+  instalacoes_hidraulicas?: any[];
 }
 
 export interface Analysis {
