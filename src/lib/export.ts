@@ -14,6 +14,7 @@ function budgetRows(items: BudgetItem[]) {
   return items.map((i) => [
     i.item,
     i.descricao + (i.perda_aplicada ? ` (perda: ${i.perda_aplicada})` : ""),
+    i.local_aplicacao || "—",
     i.fornecedor,
     i.marca,
     String(i.quantidade),
@@ -24,7 +25,7 @@ function budgetRows(items: BudgetItem[]) {
   ]);
 }
 
-const BUDGET_HEAD = [["Item", "Descrição", "Fornec.", "Marca", "Quant", "Unid", "R$ Unit.", "R$ Total", "SINAPI"]];
+const BUDGET_HEAD = [["Item", "Descrição", "Local", "Fornec.", "Marca", "Quant", "Unid", "R$ Unit.", "R$ Total", "SINAPI"]];
 
 export function exportToPDF(projectName: string, result: AnalysisResult) {
   const doc = new jsPDF({ orientation: "landscape" });

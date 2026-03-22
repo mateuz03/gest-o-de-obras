@@ -125,6 +125,7 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
         {
           "item": "1.1",
           "descricao": "Descrição",
+          "local_aplicacao": "Sala",
           "fornecedor": "—",
           "marca": "—",
           "quantidade": 0,
