@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2 } from "lucide-react";
+import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus } from "lucide-react";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -27,13 +27,15 @@ const ESCALA_LABELS: Record<string, string> = {
   "1:200": "1:200",
 };
 
+const MAX_FILES = 5;
+
 export default function NovaAnalise() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dwgFile, setDwgFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -49,65 +51,72 @@ export default function NovaAnalise() {
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
 
-  const handleFileDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f) handleFileSelection(f);
-  }, []);
-
-  const handleFileSelection = (f: File) => {
+  const addFile = useCallback((f: File) => {
     if (isDwg(f)) {
-      if (f.size > 50 * 1024 * 1024) {
-        toast.error("Arquivo DWG máximo de 50MB");
-        return;
-      }
+      if (f.size > 50 * 1024 * 1024) { toast.error("Arquivo DWG máximo de 50MB"); return; }
       setDwgFile(f);
-      toast.success("Arquivo DWG anexado! Envie também uma imagem ou PDF da planta para a IA analisar.");
+      toast.success("Arquivo DWG anexado! Envie também imagens ou PDFs para a IA analisar.");
       return;
     }
     if (!f.type.startsWith("image/") && f.type !== "application/pdf") {
-      toast.error("Envie uma imagem (JPG, PNG), PDF ou arquivo DWG");
+      toast.error("Envie imagens (JPG, PNG), PDF ou DWG");
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
-      toast.error("Arquivo máximo de 10MB");
-      return;
+    if (f.size > 10 * 1024 * 1024) { toast.error("Cada arquivo pode ter no máximo 10MB"); return; }
+
+    setFiles(prev => {
+      if (prev.length >= MAX_FILES) { toast.error(`Máximo de ${MAX_FILES} arquivos`); return prev; }
+      const next = [...prev, f];
+      // Generate preview
+      if (f.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (e) => setPreviews(p => { const n = [...p]; n[next.length - 1] = e.target?.result as string; return n; });
+        reader.readAsDataURL(f);
+      } else {
+        setPreviews(p => [...p, null]);
+      }
+      return next;
+    });
+  }, []);
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    droppedFiles.forEach(f => addFile(f));
+  }, [addFile]);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      Array.from(e.target.files).forEach(f => addFile(f));
     }
-    setFile(f);
-    if (f.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (e) => setPreview(e.target?.result as string);
-      reader.readAsDataURL(f);
-    } else {
-      setPreview(null);
-    }
+    e.target.value = "";
   };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.nome_projeto.trim() || formData.nome_projeto.trim().length < 3) {
+    if (!formData.nome_projeto.trim() || formData.nome_projeto.trim().length < 3)
       newErrors.nome_projeto = "Nome do projeto deve ter pelo menos 3 caracteres";
-    }
-    if (formData.nome_projeto.trim().length > 100) {
+    if (formData.nome_projeto.trim().length > 100)
       newErrors.nome_projeto = "Nome do projeto deve ter no máximo 100 caracteres";
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
-    if (!validate()) return;
-    setShowSummary(true);
-  };
+  const handleNext = () => { if (validate()) setShowSummary(true); };
 
   const handleSaveDraft = async () => {
-    if (!file || !user) return;
+    if (!files.length || !user) return;
     setSavingDraft(true);
     try {
-      const ext = file.name.split(".").pop();
+      const firstFile = files[0];
+      const ext = firstFile.name.split(".").pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("blueprints").upload(path, file);
-      if (uploadErr) throw uploadErr;
+      await supabase.storage.from("blueprints").upload(path, firstFile);
       const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
 
       if (dwgFile) {
@@ -124,7 +133,6 @@ export default function NovaAnalise() {
         regiao: formData.regiao || null,
         status: "pending",
       });
-
       toast.success("Rascunho salvo!");
       navigate("/dashboard");
     } catch (err: any) {
@@ -134,18 +142,28 @@ export default function NovaAnalise() {
     }
   };
 
+  const fileToBase64 = (f: File): Promise<{ base64: string; mime_type: string }> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve({ base64: result.split(",")[1], mime_type: f.type });
+      };
+      reader.readAsDataURL(f);
+    });
+
   const handleSubmit = async () => {
-    if (!file || !user) return;
+    if (!files.length || !user) return;
     if (!validate()) return;
     setLoading(true);
     setShowSummary(false);
 
     try {
-      const ext = file.name.split(".").pop();
+      // Upload first file for storage reference
+      const firstFile = files[0];
+      const ext = firstFile.name.split(".").pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("blueprints").upload(path, file);
-      if (uploadErr) throw uploadErr;
-
+      await supabase.storage.from("blueprints").upload(path, firstFile);
       const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
 
       if (dwgFile) {
@@ -153,14 +171,9 @@ export default function NovaAnalise() {
         await supabase.storage.from("blueprints").upload(dwgPath, dwgFile);
       }
 
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(",")[1]);
-        };
-        reader.readAsDataURL(file);
-      });
+      // Convert all image/pdf files to base64
+      const imageFiles = files.filter(f => !isDwg(f));
+      const images = await Promise.all(imageFiles.map(fileToBase64));
 
       const { data: analysis, error: insertErr } = await supabase
         .from("analyses")
@@ -179,8 +192,7 @@ export default function NovaAnalise() {
 
       const { data: result, error: fnErr } = await supabase.functions.invoke("analyze-blueprint", {
         body: {
-          image_base64: base64,
-          mime_type: file.type,
+          images,
           escala: formData.escala,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao,
@@ -228,9 +240,7 @@ export default function NovaAnalise() {
         <div className="mb-8 flex items-center justify-center gap-4">
           {[1, 2].map((s) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                {s}
-              </div>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s}</div>
               <span className={`text-sm ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
                 {s === 1 ? "Upload" : "Detalhes"}
               </span>
@@ -243,52 +253,79 @@ export default function NovaAnalise() {
           <Card>
             <CardHeader>
               <CardTitle>Upload da Planta Baixa</CardTitle>
-              <CardDescription>Envie uma imagem (JPG, PNG), PDF ou arquivo DWG da planta baixa</CardDescription>
+              <CardDescription>Envie até {MAX_FILES} arquivos (JPG, PNG, PDF) ou DWG para uma análise mais completa</CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleFileDrop}
-                className={`relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${file ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/50"}`}
-                onClick={() => document.getElementById("file-input")?.click()}
-              >
-                <input
-                  id="file-input"
-                  type="file"
-                  accept="image/*,.pdf,.dwg"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleFileSelection(e.target.files[0])}
-                />
-                {preview ? (
-                  <img src={preview} alt="Preview" className="max-h-[260px] rounded-lg object-contain" />
-                ) : file ? (
-                  <>
-                    <FileImage className="mb-3 h-12 w-12 text-primary" />
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />
-                    <p className="font-medium">Arraste a planta aqui ou clique para selecionar</p>
-                    <p className="text-sm text-muted-foreground">JPG, PNG, PDF ou DWG (máx. 10MB / DWG 50MB)</p>
-                  </>
-                )}
-              </div>
+              {/* File grid */}
+              {files.length > 0 && (
+                <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {files.map((f, i) => (
+                    <div key={i} className="relative rounded-lg border bg-muted/30 p-2 group">
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -right-2 -top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        onClick={() => removeFile(i)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                      {previews[i] ? (
+                        <img src={previews[i]!} alt={f.name} className="h-24 w-full rounded object-cover" />
+                      ) : (
+                        <div className="flex h-24 items-center justify-center">
+                          <FileImage className="h-8 w-8 text-primary" />
+                        </div>
+                      )}
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{f.name}</p>
+                    </div>
+                  ))}
+                  {files.length < MAX_FILES && (
+                    <div
+                      className="flex h-full min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors"
+                      onClick={() => document.getElementById("file-input")?.click()}
+                    >
+                      <Plus className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground mt-1">Adicionar</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {files.length === 0 && (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleFileDrop}
+                  className="relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                  onClick={() => document.getElementById("file-input")?.click()}
+                >
+                  <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />
+                  <p className="font-medium">Arraste as plantas aqui ou clique para selecionar</p>
+                  <p className="text-sm text-muted-foreground">Até {MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 10MB cada / DWG 50MB)</p>
+                </div>
+              )}
+
+              <input
+                id="file-input"
+                type="file"
+                accept="image/*,.pdf,.dwg"
+                multiple
+                className="hidden"
+                onChange={handleFileInput}
+              />
 
               {dwgFile && (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
                   <FileImage className="h-5 w-5 text-primary" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{dwgFile.name}</p>
-                    <p className="text-xs text-muted-foreground">Arquivo DWG anexado — envie também uma imagem ou PDF para a IA analisar</p>
+                    <p className="text-xs text-muted-foreground">Arquivo DWG anexado — envie também imagens ou PDFs para a IA analisar</p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDwgFile(null); }}>✕</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setDwgFile(null)}>✕</Button>
                 </div>
               )}
 
               <div className="mt-6 flex justify-end">
-                <Button onClick={() => setStep(2)} disabled={!file}>
+                <Button onClick={() => setStep(2)} disabled={!files.length}>
                   Próximo <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
@@ -300,9 +337,7 @@ export default function NovaAnalise() {
           <Card>
             <CardHeader>
               <CardTitle>Detalhes do Projeto</CardTitle>
-              <CardDescription>
-                Campos com <span className="text-destructive font-medium">*</span> são obrigatórios
-              </CardDescription>
+              <CardDescription>Campos com <span className="text-destructive font-medium">*</span> são obrigatórios</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Section: Dados do Projeto */}
@@ -314,30 +349,16 @@ export default function NovaAnalise() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Nome do Projeto <span className="text-destructive">*</span></Label>
-                    <Input
-                      placeholder="Ex: Casa do João, Projeto Lote 45..."
-                      value={formData.nome_projeto}
-                      onChange={(e) => updateField("nome_projeto", e.target.value)}
-                      className={errors.nome_projeto ? "border-destructive" : ""}
-                      maxLength={100}
-                    />
-                    {errors.nome_projeto && (
-                      <p className="text-xs text-destructive">{errors.nome_projeto}</p>
-                    )}
+                    <Input placeholder="Ex: Casa do João, Projeto Lote 45..." value={formData.nome_projeto} onChange={(e) => updateField("nome_projeto", e.target.value)} className={errors.nome_projeto ? "border-destructive" : ""} maxLength={100} />
+                    {errors.nome_projeto && <p className="text-xs text-destructive">{errors.nome_projeto}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label>Região / Cidade</Label>
+                    <Label>Região / Cidade / UF <span className="text-destructive">*</span></Label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Ex: São Paulo, Curitiba..."
-                        value={formData.regiao}
-                        onChange={(e) => updateField("regiao", e.target.value)}
-                        className="pl-9"
-                        maxLength={100}
-                      />
+                      <Input placeholder="Ex: São Paulo - SP, Curitiba - PR..." value={formData.regiao} onChange={(e) => updateField("regiao", e.target.value)} className="pl-9" maxLength={100} />
                     </div>
-                    <p className="text-xs text-muted-foreground">Ajuda a refinar recomendações de marcas e preços</p>
+                    <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
                   </div>
                 </div>
               </div>
@@ -354,9 +375,7 @@ export default function NovaAnalise() {
                   <div className="space-y-2">
                     <Label>Escala da Planta</Label>
                     <Select value={formData.escala} onValueChange={(v) => updateField("escala", v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Automática (recomendado)" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Automática (recomendado)" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="auto">Automática (recomendado)</SelectItem>
                         <SelectItem value="1:25">1:25</SelectItem>
@@ -366,14 +385,11 @@ export default function NovaAnalise() {
                         <SelectItem value="1:200">1:200</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">A IA tentará detectar automaticamente se não informada</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Construção <span className="text-destructive">*</span></Label>
                     <Select value={formData.tipo_construcao} onValueChange={(v) => updateField("tipo_construcao", v)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="casa_terrea">Casa Térrea</SelectItem>
                         <SelectItem value="sobrado">Sobrado</SelectItem>
@@ -395,13 +411,7 @@ export default function NovaAnalise() {
                 </div>
                 <div className="space-y-2">
                   <Label>Instruções Adicionais</Label>
-                  <Textarea
-                    placeholder="Descreva suas preferências para uma análise mais precisa..."
-                    value={formData.instrucoes_adicionais}
-                    onChange={(e) => updateField("instrucoes_adicionais", e.target.value)}
-                    className="min-h-[80px]"
-                    maxLength={1000}
-                  />
+                  <Textarea placeholder="Descreva suas preferências para uma análise mais precisa..." value={formData.instrucoes_adicionais} onChange={(e) => updateField("instrucoes_adicionais", e.target.value)} className="min-h-[80px]" maxLength={1000} />
                   <div className="rounded-lg border bg-muted/30 p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Lightbulb className="h-4 w-4 text-primary" />
@@ -413,6 +423,7 @@ export default function NovaAnalise() {
                       <li>• Incluir estimativa de mão de obra?</li>
                       <li>• Marcas que prefere ou quer evitar</li>
                       <li>• Detalhes específicos dos cômodos (ex: porcelanato na sala)</li>
+                      <li>• Percentual de BDI customizado</li>
                     </ul>
                   </div>
                 </div>
@@ -421,17 +432,13 @@ export default function NovaAnalise() {
               {/* Desktop buttons */}
               <div className="hidden sm:flex justify-between pt-4">
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep(1)}>
-                    <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
-                  </Button>
+                  <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Button>
                   <Button variant="ghost" onClick={handleSaveDraft} disabled={savingDraft}>
                     {savingDraft ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
                     Salvar rascunho
                   </Button>
                 </div>
-                <Button onClick={handleNext} disabled={loading}>
-                  Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
+                <Button onClick={handleNext} disabled={loading}>Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" /></Button>
               </div>
             </CardContent>
           </Card>
@@ -441,77 +448,32 @@ export default function NovaAnalise() {
         {step === 2 && showSummary && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                Confirme os dados da análise
-              </CardTitle>
+              <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-primary" /> Confirme os dados da análise</CardTitle>
               <CardDescription>Revise as informações antes de iniciar</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Projeto</span>
-                  <span className="text-sm font-medium">{formData.nome_projeto || "Sem título"}</span>
-                </div>
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Projeto</span><span className="text-sm font-medium">{formData.nome_projeto || "Sem título"}</span></div>
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Tipo</span><span className="text-sm font-medium">{TIPO_LABELS[formData.tipo_construcao]}</span></div>
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div>
+                {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Tipo</span>
-                  <span className="text-sm font-medium">{TIPO_LABELS[formData.tipo_construcao]}</span>
+                  <span className="text-sm text-muted-foreground">Arquivos</span>
+                  <span className="text-sm font-medium">{files.length} arquivo(s)</span>
                 </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Escala</span>
-                  <span className="text-sm font-medium">
-                    {!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}
-                  </span>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  {files.map((f, i) => <div key={i}>• {f.name}</div>)}
                 </div>
-                {formData.regiao && (
-                  <>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Região</span>
-                      <span className="text-sm font-medium">{formData.regiao}</span>
-                    </div>
-                  </>
-                )}
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Arquivo</span>
-                  <span className="text-sm font-medium">{file?.name}</span>
-                </div>
-                {dwgFile && (
-                  <>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">DWG</span>
-                      <span className="text-sm font-medium">{dwgFile.name}</span>
-                    </div>
-                  </>
-                )}
-                {formData.instrucoes_adicionais && (
-                  <>
-                    <Separator />
-                    <div>
-                      <span className="text-sm text-muted-foreground">Instruções</span>
-                      <p className="text-sm mt-1">{formData.instrucoes_adicionais}</p>
-                    </div>
-                  </>
-                )}
+                {dwgFile && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">DWG</span><span className="text-sm font-medium">{dwgFile.name}</span></div></>)}
+                {formData.instrucoes_adicionais && (<><Separator /><div><span className="text-sm text-muted-foreground">Instruções</span><p className="text-sm mt-1">{formData.instrucoes_adicionais}</p></div></>)}
               </div>
-
               <div className="flex justify-between pt-2">
-                <Button variant="outline" onClick={() => setShowSummary(false)}>
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Editar
-                </Button>
+                <Button variant="outline" onClick={() => setShowSummary(false)}><ArrowLeft className="mr-1 h-4 w-4" /> Editar</Button>
                 <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Analisando com IA...
-                    </>
-                  ) : (
-                    "Iniciar Análise"
-                  )}
+                  {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analisando com IA...</>) : "Iniciar Análise"}
                 </Button>
               </div>
             </CardContent>
@@ -522,10 +484,9 @@ export default function NovaAnalise() {
           <Card className="mt-6">
             <CardContent className="flex flex-col items-center py-12">
               <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-              <h3 className="mb-2 text-lg font-semibold">Analisando sua planta...</h3>
+              <h3 className="mb-2 text-lg font-semibold">Analisando suas plantas...</h3>
               <p className="text-center text-muted-foreground">
-                A IA está identificando paredes, portas, janelas e calculando os materiais necessários.
-                Isso pode levar até 30 segundos.
+                A IA está analisando {files.length} arquivo(s), identificando dimensões e calculando o orçamento completo com referência SINAPI. Isso pode levar até 60 segundos.
               </p>
             </CardContent>
           </Card>
@@ -536,12 +497,8 @@ export default function NovaAnalise() {
       {step === 2 && !showSummary && !loading && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-card p-4 sm:hidden">
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={handleSaveDraft} disabled={savingDraft} className="flex-shrink-0">
-              <Save className="h-4 w-4" />
-            </Button>
-            <Button className="flex-1" onClick={handleNext} disabled={loading}>
-              Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSaveDraft} disabled={savingDraft} className="flex-shrink-0"><Save className="h-4 w-4" /></Button>
+            <Button className="flex-1" onClick={handleNext} disabled={loading}>Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" /></Button>
           </div>
         </div>
       )}

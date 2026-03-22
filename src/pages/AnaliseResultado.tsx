@@ -5,47 +5,102 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { Analysis, AnalysisResult, MaterialItem, BrandRecommendation } from "@/lib/types";
-import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, Ruler, Zap, Paintbrush } from "lucide-react";
+import { Analysis, AnalysisResult, MacroEtapa, ComodoQuantitativo, BudgetItem, BrandRecommendation, ResumoFinal } from "@/lib/types";
+import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 
-function MaterialTable({ items, title, icon: Icon }: { items: MaterialItem[]; title: string; icon: any }) {
+function formatCurrency(value: number | string) {
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "—";
+  return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
   if (!items?.length) return null;
+  return (
+    <div className="overflow-x-auto">
+      <h4 className="text-sm font-semibold mb-2 text-foreground">{title}</h4>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-16">Item</TableHead>
+            <TableHead>Descrição</TableHead>
+            <TableHead>Fornec.</TableHead>
+            <TableHead>Marca</TableHead>
+            <TableHead className="text-right">Quant</TableHead>
+            <TableHead>Unid</TableHead>
+            <TableHead className="text-right">R$ Unit.</TableHead>
+            <TableHead className="text-right">R$ Total</TableHead>
+            <TableHead>SINAPI</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item, i) => (
+            <TableRow key={i}>
+              <TableCell className="font-mono text-xs">{item.item}</TableCell>
+              <TableCell className="text-sm">
+                {item.descricao}
+                {item.perda_aplicada && <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>}
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
+              <TableCell className="text-right">{item.quantidade}</TableCell>
+              <TableCell>{item.unidade}</TableCell>
+              <TableCell className="text-right">{formatCurrency(item.preco_unitario)}</TableCell>
+              <TableCell className="text-right font-medium">{formatCurrency(item.preco_total)}</TableCell>
+              <TableCell>
+                {item.codigo_sinapi ? (
+                  <Badge variant="outline" className="text-xs">{item.codigo_sinapi}</Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">{item.origem_preco?.includes("Sem") ? "Est." : "—"}</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function SummaryCard({ resumo }: { resumo: ResumoFinal }) {
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Icon className="h-5 w-5 text-primary" /> {title}
+          <DollarSign className="h-5 w-5 text-primary" /> Resumo Financeiro
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Material</TableHead>
-              <TableHead className="text-right">Quantidade</TableHead>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Observação</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="font-medium">{item.material}</TableCell>
-                <TableCell className="text-right">{item.quantidade}</TableCell>
-                <TableCell>{item.unidade}</TableCell>
-                <TableCell className="text-muted-foreground">{item.observacao || "—"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground">Total Materiais</p>
+            <p className="text-xl font-bold">{formatCurrency(resumo.total_materiais)}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground">Total Mão de Obra</p>
+            <p className="text-xl font-bold">{formatCurrency(resumo.total_mao_de_obra)}</p>
+          </div>
+          {resumo.bdi_valor && (
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground">BDI ({resumo.bdi_percentual}%)</p>
+              <p className="text-xl font-bold">{formatCurrency(resumo.bdi_valor)}</p>
+              {resumo.premissas_bdi && <p className="text-xs text-muted-foreground mt-1">{resumo.premissas_bdi}</p>}
+            </div>
+          )}
+          <div className="rounded-lg border bg-primary/10 p-4">
+            <p className="text-xs text-muted-foreground">Total Geral</p>
+            <p className="text-2xl font-bold text-primary">{formatCurrency(resumo.total_geral)}</p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function RecommendationsTable({ items }: { items: BrandRecommendation[] }) {
+function RecommendationsSection({ items }: { items: BrandRecommendation[] }) {
   if (!items?.length) return null;
   return (
     <Card>
@@ -83,11 +138,7 @@ export default function AnaliseResultado() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("analyses")
-        .select("*")
-        .eq("id", id)
-        .single();
+      const { data } = await supabase.from("analyses").select("*").eq("id", id).single();
       setAnalysis(data as any);
       setLoading(false);
     }
@@ -112,6 +163,7 @@ export default function AnaliseResultado() {
   }
 
   const result = analysis.resultado_json as AnalysisResult;
+  const hasMacroEtapas = result.macro_etapas?.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -137,55 +189,92 @@ export default function AnaliseResultado() {
         </div>
       </nav>
 
-      <div className="container py-8">
-        {/* Summary */}
-        <Card className="mb-6">
+      <div className="container py-8 space-y-6">
+        {/* Summary header */}
+        <Card>
           <CardContent className="pt-6">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               <div>
                 <p className="text-sm text-muted-foreground">Área Total</p>
                 <p className="text-2xl font-bold">{result.area_total_m2} m²</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Escala Detectada</p>
+                <p className="text-sm text-muted-foreground">Escala</p>
                 <p className="text-2xl font-bold">{result.escala_detectada}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Tipo</p>
                 <p className="text-2xl font-bold">{analysis.tipo_construcao || "—"}</p>
               </div>
+              {result.referencia_sinapi && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Ref. SINAPI</p>
+                  <p className="text-lg font-bold">{result.referencia_sinapi}</p>
+                </div>
+              )}
             </div>
-            {result.resumo && (
-              <p className="mt-4 text-muted-foreground">{result.resumo}</p>
-            )}
+            {result.resumo && <p className="mt-4 text-muted-foreground">{result.resumo}</p>}
           </CardContent>
         </Card>
 
-        {/* Tabs */}
-        <Tabs defaultValue="estrutura" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="estrutura">Estrutura</TabsTrigger>
-            <TabsTrigger value="acabamento">Acabamento</TabsTrigger>
-            <TabsTrigger value="eletrica">Elétrica</TabsTrigger>
-            <TabsTrigger value="hidraulica">Hidráulica</TabsTrigger>
-            <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
-          </TabsList>
-          <TabsContent value="estrutura">
-            <MaterialTable items={result.estrutura} title="Materiais de Estrutura" icon={Building2} />
-          </TabsContent>
-          <TabsContent value="acabamento">
-            <MaterialTable items={result.acabamento} title="Materiais de Acabamento" icon={Paintbrush} />
-          </TabsContent>
-          <TabsContent value="eletrica">
-            <MaterialTable items={result.instalacoes_eletricas || result.instalacoes || []} title="Instalações Elétricas" icon={Zap} />
-          </TabsContent>
-          <TabsContent value="hidraulica">
-            <MaterialTable items={result.instalacoes_hidraulicas || []} title="Instalações Hidráulicas" icon={Ruler} />
-          </TabsContent>
-          <TabsContent value="recomendacoes">
-            <RecommendationsTable items={result.recomendacoes} />
-          </TabsContent>
-        </Tabs>
+        {/* Financial summary */}
+        {result.resumo_final && <SummaryCard resumo={result.resumo_final} />}
+
+        {/* Main content */}
+        {hasMacroEtapas ? (
+          <Tabs defaultValue="orcamento" className="space-y-4">
+            <TabsList className="flex-wrap h-auto gap-1">
+              <TabsTrigger value="orcamento">Orçamento por Etapa</TabsTrigger>
+              {result.quantitativo_por_comodo?.length && <TabsTrigger value="comodos">Por Cômodo</TabsTrigger>}
+              <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="orcamento" className="space-y-6">
+              {result.macro_etapas.map((etapa, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{etapa.nome}</CardTitle>
+                      <Badge variant="outline" className="font-mono">{formatCurrency(etapa.subtotal)}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <BudgetTable items={etapa.itens} title="" />
+                  </CardContent>
+                </Card>
+              ))}
+            </TabsContent>
+
+            {result.quantitativo_por_comodo?.length && (
+              <TabsContent value="comodos" className="space-y-6">
+                {result.quantitativo_por_comodo.map((comodo, i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">{comodo.comodo}</CardTitle>
+                        <Badge variant="outline" className="font-mono">{formatCurrency(comodo.subtotal)}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <BudgetTable items={comodo.itens} title="" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+            )}
+
+            <TabsContent value="recomendacoes">
+              <RecommendationsSection items={result.recomendacoes} />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          // Legacy fallback for old analyses
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground">Formato de resultado legado. Refaça a análise para obter o novo formato de orçamento.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
