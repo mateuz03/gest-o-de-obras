@@ -40,7 +40,9 @@ export function exportToPDF(projectName: string, result: AnalysisResult) {
 
   if (result.estrutura?.length) y = addTable("Estrutura", result.estrutura, y + 5);
   if (result.acabamento?.length) y = addTable("Acabamento", result.acabamento, y + 5);
-  if (result.instalacoes?.length) y = addTable("Instalações", result.instalacoes, y + 5);
+  if (result.instalacoes_eletricas?.length) y = addTable("Instalações Elétricas", result.instalacoes_eletricas, y + 5);
+  else if (result.instalacoes?.length) y = addTable("Instalações", result.instalacoes, y + 5);
+  if (result.instalacoes_hidraulicas?.length) y = addTable("Instalações Hidráulicas", result.instalacoes_hidraulicas, y + 5);
 
   if (result.recomendacoes?.length) {
     doc.addPage();
@@ -79,7 +81,9 @@ export function exportToExcel(projectName: string, result: AnalysisResult) {
 
   if (result.estrutura?.length) addSheet("Estrutura", result.estrutura);
   if (result.acabamento?.length) addSheet("Acabamento", result.acabamento);
-  if (result.instalacoes?.length) addSheet("Instalações", result.instalacoes);
+  if (result.instalacoes_eletricas?.length) addSheet("Inst. Elétricas", result.instalacoes_eletricas);
+  else if (result.instalacoes?.length) addSheet("Instalações", result.instalacoes);
+  if (result.instalacoes_hidraulicas?.length) addSheet("Inst. Hidráulicas", result.instalacoes_hidraulicas);
 
   if (result.recomendacoes?.length) {
     const data: any[] = [];
