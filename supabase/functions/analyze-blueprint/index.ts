@@ -82,9 +82,12 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura 
   "acabamento": [
     {"material": "Nome", "quantidade": "0", "unidade": "m²/latas", "observacao": "detalhes"}
   ],
-  "instalacoes": [
-    {"material": "Nome", "quantidade": "0", "unidade": "metros/pontos", "observacao": "detalhes"}
-  ],
+   "instalacoes_eletricas": [
+     {"material": "Nome específico (ex: Cabo azul 2,5mm²)", "quantidade": "0", "unidade": "metros/un", "observacao": "detalhes do cálculo"}
+   ],
+   "instalacoes_hidraulicas": [
+     {"material": "Nome específico (ex: Tubo PVC 25mm)", "quantidade": "0", "unidade": "metros/un", "observacao": "detalhes do cálculo"}
+   ],
   "recomendacoes": [
     {
       "material": "Categoria",
