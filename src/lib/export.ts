@@ -81,7 +81,9 @@ export function exportToExcel(projectName: string, result: AnalysisResult) {
 
   if (result.estrutura?.length) addSheet("Estrutura", result.estrutura);
   if (result.acabamento?.length) addSheet("Acabamento", result.acabamento);
-  if (result.instalacoes?.length) addSheet("Instalações", result.instalacoes);
+  if (result.instalacoes_eletricas?.length) addSheet("Inst. Elétricas", result.instalacoes_eletricas);
+  else if (result.instalacoes?.length) addSheet("Instalações", result.instalacoes);
+  if (result.instalacoes_hidraulicas?.length) addSheet("Inst. Hidráulicas", result.instalacoes_hidraulicas);
 
   if (result.recomendacoes?.length) {
     const data: any[] = [];
