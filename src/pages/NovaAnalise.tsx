@@ -16,6 +16,7 @@ export default function NovaAnalise() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
+  const [dwgFile, setDwgFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,15 +28,26 @@ export default function NovaAnalise() {
     instrucoes_adicionais: "",
   });
 
+  const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
+
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
+    if (f) handleFileSelection(f);
   }, []);
 
-  const handleFile = (f: File) => {
+  const handleFileSelection = (f: File) => {
+    if (isDwg(f)) {
+      if (f.size > 50 * 1024 * 1024) {
+        toast.error("Arquivo DWG máximo de 50MB");
+        return;
+      }
+      setDwgFile(f);
+      toast.success("Arquivo DWG anexado! Envie também uma imagem ou PDF da planta para a IA analisar.");
+      return;
+    }
     if (!f.type.startsWith("image/") && f.type !== "application/pdf") {
-      toast.error("Envie uma imagem (JPG, PNG) ou PDF");
+      toast.error("Envie uma imagem (JPG, PNG), PDF ou arquivo DWG");
       return;
     }
     if (f.size > 10 * 1024 * 1024) {
