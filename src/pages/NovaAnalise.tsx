@@ -69,7 +69,7 @@ export default function NovaAnalise() {
     setLoading(true);
 
     try {
-      // Upload file to storage
+      // Upload image/PDF to storage
       const ext = file.name.split(".").pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage
@@ -78,6 +78,12 @@ export default function NovaAnalise() {
       if (uploadErr) throw uploadErr;
 
       const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
+
+      // Upload DWG if provided
+      if (dwgFile) {
+        const dwgPath = `${user.id}/${Date.now()}.dwg`;
+        await supabase.storage.from("blueprints").upload(dwgPath, dwgFile);
+      }
 
       // Convert to base64 for AI
       const base64 = await new Promise<string>((resolve) => {
