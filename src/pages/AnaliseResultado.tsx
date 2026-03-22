@@ -27,6 +27,7 @@ function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
           <TableRow>
             <TableHead className="w-16">Item</TableHead>
             <TableHead>Descrição</TableHead>
+            <TableHead>Local</TableHead>
             <TableHead>Fornec.</TableHead>
             <TableHead>Marca</TableHead>
             <TableHead className="text-right">Quant</TableHead>
@@ -43,6 +44,11 @@ function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
               <TableCell className="text-sm">
                 {item.descricao}
                 {item.perda_aplicada && <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>}
+              </TableCell>
+              <TableCell className="text-xs">
+                {item.local_aplicacao ? (
+                  <Badge variant="secondary" className="text-xs font-normal">{item.local_aplicacao}</Badge>
+                ) : "—"}
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
