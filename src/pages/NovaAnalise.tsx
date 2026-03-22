@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +24,7 @@ export default function NovaAnalise() {
     escala: "",
     tipo_construcao: "casa_terrea",
     regiao: "",
+    instrucoes_adicionais: "",
   });
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
@@ -99,6 +101,7 @@ export default function NovaAnalise() {
           escala: formData.escala,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao,
+          instrucoes_adicionais: formData.instrucoes_adicionais,
         },
       });
 
@@ -248,6 +251,18 @@ export default function NovaAnalise() {
                   value={formData.regiao}
                   onChange={(e) => setFormData({ ...formData, regiao: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Instruções Adicionais (opcional)</Label>
+                <Textarea
+                  placeholder="Ex: Considerar piso porcelanato na sala e cozinha, cerâmica nos banheiros. Quero usar tijolo baiano. Incluir estimativa de mão de obra..."
+                  value={formData.instrucoes_adicionais}
+                  onChange={(e) => setFormData({ ...formData, instrucoes_adicionais: e.target.value })}
+                  className="min-h-[100px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Descreva especificações, preferências de materiais ou qualquer detalhe que ajude a IA a gerar uma estimativa mais precisa.
+                </p>
               </div>
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>

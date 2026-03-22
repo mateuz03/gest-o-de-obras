@@ -76,7 +76,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { image_base64, mime_type, escala, tipo_construcao, regiao } = await req.json();
+    const { image_base64, mime_type, escala, tipo_construcao, regiao, instrucoes_adicionais } = await req.json();
 
     if (!image_base64) {
       return new Response(JSON.stringify({ error: "image_base64 is required" }), {
@@ -89,6 +89,7 @@ serve(async (req) => {
     if (escala) userPrompt += ` A escala informada pelo usuário é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (considere para recomendações de marcas).`;
+    if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais do usuário: ${instrucoes_adicionais}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
