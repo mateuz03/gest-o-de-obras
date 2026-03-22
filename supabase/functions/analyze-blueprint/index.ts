@@ -37,6 +37,7 @@ Ao receber uma ou mais imagens de planta baixa, você deve:
 4. PARA CADA ITEM do orçamento:
    - Código do item (estruturado por grupo, ex: 1.1, 1.2, 2.1...)
    - Descrição detalhada
+   - Local de aplicação (cômodo ou área onde o material será usado, ex: "Sala", "Cozinha", "Banheiro 1", "Área externa", "Geral" se for para toda a obra)
    - Fornecedor (se souber; caso contrário "—")
    - Marca (se souber; caso contrário "—")
    - Quantidade com perdas incluídas (indicar taxa de perda na observação)
