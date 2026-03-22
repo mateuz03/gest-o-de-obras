@@ -33,11 +33,39 @@ Ao receber uma imagem de planta baixa, você deve:
    - Tinta: 1 lata de 18L cobre ~120m² (2 demãos) — calcule área de parede
    - Gesso: área do forro = área do piso
 
-   INSTALAÇÕES:
-   - Pontos elétricos: estime pela função do cômodo (quarto: 4-5 pontos, cozinha: 8-10, banheiro: 3-4, sala: 6-8)
-   - Fiação: média de 12m por ponto elétrico
-   - Pontos hidráulicos: baseado em louças sanitárias e pias visíveis
-   - Tubulação: média de 5m por ponto hidráulico
+   INSTALAÇÕES ELÉTRICAS (detalhar CADA item separadamente):
+   - Pontos de luz: contar cada ponto visível na planta (identificar se é lâmpada, spot, arandela)
+   - Pontos de tomada: contar cada ponto (separar tomadas baixas 30cm e altas 1,10m/2,00m)
+   - Interruptores: quantidade de módulos — especificar simples, paralelo (three-way) e intermediário
+   - Cabo azul (neutro) 2,5mm²: calcular metragem total baseado no percurso real da planta
+   - Cabo verde/amarelo (terra) 2,5mm²: calcular metragem total
+   - Cabo vermelho (fase) 2,5mm²: calcular metragem total para circuitos de iluminação
+   - Cabo preto (fase) 2,5mm²: calcular metragem total para circuitos de tomadas
+   - Cabo 4mm² (chuveiro, ar-condicionado): metragem para circuitos dedicados
+   - Cabo 6mm² (alimentação geral): metragem do quadro ao medidor
+   - Disjuntores: quantidade e amperagem (10A iluminação, 20A tomadas, 25A chuveiro, 32A ar-condicionado)
+   - Disjuntor geral (DR): especificar amperagem
+   - Quadro de distribuição: tamanho baseado no número de circuitos
+   - Eletrodutos corrugados amarelos 3/4": metragem para iluminação e tomadas
+   - Eletrodutos corrugados amarelos 1": metragem para circuitos maiores
+   - Caixas de passagem 4x2": quantidade (uma por ponto de tomada/interruptor)
+   - Caixas de passagem 4x4" octogonais: quantidade (uma por ponto de luz)
+   - Fita isolante, conectores de emenda, abraçadeiras: quantidade estimada
+
+   INSTALAÇÕES HIDRÁULICAS (detalhar CADA item separadamente):
+   - Tubos PVC soldável 25mm (água fria ramais): metragem baseada no percurso real da planta
+   - Tubos PVC soldável 32mm (água fria alimentação): metragem
+   - Tubos CPVC ou PPR 22mm (água quente): metragem se houver aquecedor
+   - Tubos PVC esgoto 40mm: para lavatórios, pias e tanques
+   - Tubos PVC esgoto 50mm: para ralos e máquina de lavar
+   - Tubos PVC esgoto 100mm: para vasos sanitários
+   - Conexões (joelhos 90°, tês, luvas, caps): estimar quantidade por ponto de consumo
+   - Registros de gaveta 25mm: um por ambiente molhado
+   - Registros de pressão 25mm: um por ponto de chuveiro/ducha
+   - Caixas sifonadas 100x100x50mm: uma por ambiente molhado
+   - Ralos secos 100mm: quantidade por ambiente
+   - Válvula de descarga ou caixa acoplada: uma por vaso sanitário
+   - Sifão para pia e lavatório: quantidade por ponto
 
 4. RECOMENDAR MARCAS:
    - Sugira 3 marcas brasileiras por custo-benefício para cada categoria principal
