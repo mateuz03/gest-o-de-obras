@@ -101,6 +101,7 @@ export default function NovaAnalise() {
           escala: formData.escala,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao,
+          instrucoes_adicionais: formData.instrucoes_adicionais,
         },
       });
 
