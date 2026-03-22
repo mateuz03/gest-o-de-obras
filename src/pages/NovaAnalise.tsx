@@ -252,6 +252,18 @@ export default function NovaAnalise() {
                   onChange={(e) => setFormData({ ...formData, regiao: e.target.value })}
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Instruções Adicionais (opcional)</Label>
+                <Textarea
+                  placeholder="Ex: Considerar piso porcelanato na sala e cozinha, cerâmica nos banheiros. Quero usar tijolo baiano. Incluir estimativa de mão de obra..."
+                  value={formData.instrucoes_adicionais}
+                  onChange={(e) => setFormData({ ...formData, instrucoes_adicionais: e.target.value })}
+                  className="min-h-[100px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Descreva especificações, preferências de materiais ou qualquer detalhe que ajude a IA a gerar uma estimativa mais precisa.
+                </p>
+              </div>
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>
                 <Button onClick={handleSubmit} disabled={loading}>
