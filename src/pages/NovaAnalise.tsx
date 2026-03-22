@@ -24,6 +24,7 @@ export default function NovaAnalise() {
     escala: "",
     tipo_construcao: "casa_terrea",
     regiao: "",
+    instrucoes_adicionais: "",
   });
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
