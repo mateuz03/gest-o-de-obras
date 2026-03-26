@@ -404,6 +404,31 @@ export default function NovaAnalise() {
 
               <Separator />
 
+              {/* Section: Financeiro */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Financeiro</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>BDI — Benefícios e Despesas Indiretas (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      placeholder="25"
+                      value={formData.bdi_percentual}
+                      onChange={(e) => updateField("bdi_percentual", e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Padrão: 25%. Define o percentual aplicado sobre o custo direto para compor o preço final.</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Section: Preferências */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
