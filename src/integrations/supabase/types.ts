@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       analyses: {
         Row: {
+          bdi_percentual: number | null
           created_at: string
           escala: string | null
           id: string
@@ -25,9 +26,11 @@ export type Database = {
           resultado_json: Json | null
           status: string
           tipo_construcao: string | null
+          total_estimado: number | null
           user_id: string
         }
         Insert: {
+          bdi_percentual?: number | null
           created_at?: string
           escala?: string | null
           id?: string
@@ -37,9 +40,11 @@ export type Database = {
           resultado_json?: Json | null
           status?: string
           tipo_construcao?: string | null
+          total_estimado?: number | null
           user_id: string
         }
         Update: {
+          bdi_percentual?: number | null
           created_at?: string
           escala?: string | null
           id?: string
@@ -49,6 +54,7 @@ export type Database = {
           resultado_json?: Json | null
           status?: string
           tipo_construcao?: string | null
+          total_estimado?: number | null
           user_id?: string
         }
         Relationships: []
@@ -74,6 +80,42 @@ export type Database = {
           id?: string
           nome?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      referencia_sinapi: {
+        Row: {
+          codigo: string
+          created_at: string | null
+          descricao: string
+          id: string
+          mes_ano: string | null
+          preco_mao_de_obra: number | null
+          preco_material: number | null
+          regiao: string | null
+          unidade: string | null
+        }
+        Insert: {
+          codigo: string
+          created_at?: string | null
+          descricao: string
+          id?: string
+          mes_ano?: string | null
+          preco_mao_de_obra?: number | null
+          preco_material?: number | null
+          regiao?: string | null
+          unidade?: string | null
+        }
+        Update: {
+          codigo?: string
+          created_at?: string | null
+          descricao?: string
+          id?: string
+          mes_ano?: string | null
+          preco_mao_de_obra?: number | null
+          preco_material?: number | null
+          regiao?: string | null
+          unidade?: string | null
         }
         Relationships: []
       }
