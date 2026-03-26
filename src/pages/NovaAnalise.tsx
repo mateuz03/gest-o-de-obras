@@ -176,6 +176,8 @@ export default function NovaAnalise() {
       const imageFiles = files.filter(f => !isDwg(f));
       const images = await Promise.all(imageFiles.map(fileToBase64));
 
+      const bdiValue = parseFloat(formData.bdi_percentual) || 25;
+
       const { data: analysis, error: insertErr } = await supabase
         .from("analyses")
         .insert({
@@ -185,8 +187,9 @@ export default function NovaAnalise() {
           escala: formData.escala || null,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao || null,
+          bdi_percentual: bdiValue,
           status: "processing",
-        })
+        } as any)
         .select()
         .single();
       if (insertErr) throw insertErr;
@@ -197,15 +200,18 @@ export default function NovaAnalise() {
           escala: formData.escala,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao,
+          bdi_percentual: bdiValue,
           instrucoes_adicionais: formData.instrucoes_adicionais,
         },
       });
 
       if (fnErr) throw fnErr;
 
+      const totalGeral = result?.resumo_final?.total_geral ? parseFloat(String(result.resumo_final.total_geral)) : null;
+
       await supabase
         .from("analyses")
-        .update({ resultado_json: result, status: "completed" })
+        .update({ resultado_json: result, status: "completed", total_estimado: totalGeral } as any)
         .eq("id", (analysis as any).id);
 
       toast.success("Análise concluída!");
@@ -485,6 +491,8 @@ export default function NovaAnalise() {
                 <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div>
                 {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">BDI</span><span className="text-sm font-medium">{formData.bdi_percentual || "25"}%</span></div>
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Arquivos</span>
