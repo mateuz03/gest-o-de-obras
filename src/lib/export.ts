@@ -113,6 +113,7 @@ export function exportToExcel(projectName: string, result: AnalysisResult) {
     items.map((i) => ({
       Item: i.item,
       Descrição: i.descricao,
+      Local: i.local_aplicacao || "—",
       Fornecedor: i.fornecedor,
       Marca: i.marca,
       Quantidade: i.quantidade,
