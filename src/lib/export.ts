@@ -129,11 +129,11 @@ export function exportToExcel(projectName: string, result: AnalysisResult) {
   if (result.macro_etapas?.length) {
     const allItems: any[] = [];
     for (const etapa of result.macro_etapas) {
-      allItems.push({ Item: "", Descrição: `=== ${etapa.nome} ===`, Fornecedor: "", Marca: "", Quantidade: "", Unidade: "", "R$ Unitário": "", "R$ Total": etapa.subtotal, "Cód. SINAPI": "", "Origem Preço": "", "Perda Aplicada": "" });
+      allItems.push({ Item: "", Descrição: `=== ${etapa.nome} ===`, Local: "", Fornecedor: "", Marca: "", Quantidade: "", Unidade: "", "R$ Unitário": "", "R$ Total": etapa.subtotal, "Cód. SINAPI": "", "Origem Preço": "", "Perda Aplicada": "" });
       allItems.push(...budgetToSheet(etapa.itens));
     }
     const ws = XLSX.utils.json_to_sheet(allItems);
-    ws["!cols"] = [{ wch: 8 }, { wch: 45 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 30 }, { wch: 12 }];
+    ws["!cols"] = [{ wch: 8 }, { wch: 45 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 30 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, "Orçamento");
   }
 
@@ -141,11 +141,11 @@ export function exportToExcel(projectName: string, result: AnalysisResult) {
   if (result.quantitativo_por_comodo?.length) {
     const roomItems: any[] = [];
     for (const comodo of result.quantitativo_por_comodo) {
-      roomItems.push({ Item: "", Descrição: `=== ${comodo.comodo} ===`, Fornecedor: "", Marca: "", Quantidade: "", Unidade: "", "R$ Unitário": "", "R$ Total": comodo.subtotal, "Cód. SINAPI": "", "Origem Preço": "", "Perda Aplicada": "" });
+      roomItems.push({ Item: "", Descrição: `=== ${comodo.comodo} ===`, Local: "", Fornecedor: "", Marca: "", Quantidade: "", Unidade: "", "R$ Unitário": "", "R$ Total": comodo.subtotal, "Cód. SINAPI": "", "Origem Preço": "", "Perda Aplicada": "" });
       roomItems.push(...budgetToSheet(comodo.itens));
     }
     const ws = XLSX.utils.json_to_sheet(roomItems);
-    ws["!cols"] = [{ wch: 8 }, { wch: 45 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 30 }, { wch: 12 }];
+    ws["!cols"] = [{ wch: 8 }, { wch: 45 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 30 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, "Por Cômodo");
   }
 
