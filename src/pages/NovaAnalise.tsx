@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus } from "lucide-react";
+import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign } from "lucide-react";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -46,6 +46,7 @@ export default function NovaAnalise() {
     escala: "",
     tipo_construcao: "casa_terrea",
     regiao: "",
+    bdi_percentual: "25",
     instrucoes_adicionais: "",
   });
 
