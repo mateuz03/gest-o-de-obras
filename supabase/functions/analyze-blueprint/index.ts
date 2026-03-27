@@ -167,7 +167,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { images, escala, tipo_construcao, regiao, instrucoes_adicionais } = await req.json();
+    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais } = await req.json();
 
     if (!images || !images.length) {
       return new Response(JSON.stringify({ error: "At least one image is required" }), {
@@ -180,6 +180,7 @@ serve(async (req) => {
     if (escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
+    if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}% (em vez do padrão de 25%).`;
     if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais: ${instrucoes_adicionais}`;
 
     const contentParts: any[] = [{ type: "text", text: userPrompt }];

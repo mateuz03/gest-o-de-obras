@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import { exportToPDF, exportToExcel } from "@/lib/export";
-import { Plus, LogOut, Building2, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, LogOut, Building2, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -156,9 +156,14 @@ export default function Dashboard() {
               {analyses.length > 0 ? `${analyses.length} análise${analyses.length > 1 ? "s" : ""}` : "Gerencie suas estimativas de materiais"}
             </p>
           </div>
-          <Button asChild>
-            <Link to="/nova-analise"><Plus className="mr-2 h-4 w-4" /> Nova Análise</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/sinapi"><Database className="mr-2 h-4 w-4" /> Base SINAPI</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/nova-analise"><Plus className="mr-2 h-4 w-4" /> Nova Análise</Link>
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}

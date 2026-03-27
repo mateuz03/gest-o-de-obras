@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus } from "lucide-react";
+import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign } from "lucide-react";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -46,6 +46,7 @@ export default function NovaAnalise() {
     escala: "",
     tipo_construcao: "casa_terrea",
     regiao: "",
+    bdi_percentual: "25",
     instrucoes_adicionais: "",
   });
 
@@ -175,6 +176,8 @@ export default function NovaAnalise() {
       const imageFiles = files.filter(f => !isDwg(f));
       const images = await Promise.all(imageFiles.map(fileToBase64));
 
+      const bdiValue = parseFloat(formData.bdi_percentual) || 25;
+
       const { data: analysis, error: insertErr } = await supabase
         .from("analyses")
         .insert({
@@ -184,8 +187,9 @@ export default function NovaAnalise() {
           escala: formData.escala || null,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao || null,
+          bdi_percentual: bdiValue,
           status: "processing",
-        })
+        } as any)
         .select()
         .single();
       if (insertErr) throw insertErr;
@@ -196,15 +200,18 @@ export default function NovaAnalise() {
           escala: formData.escala,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao,
+          bdi_percentual: bdiValue,
           instrucoes_adicionais: formData.instrucoes_adicionais,
         },
       });
 
       if (fnErr) throw fnErr;
 
+      const totalGeral = result?.resumo_final?.total_geral ? parseFloat(String(result.resumo_final.total_geral)) : null;
+
       await supabase
         .from("analyses")
-        .update({ resultado_json: result, status: "completed" })
+        .update({ resultado_json: result, status: "completed", total_estimado: totalGeral } as any)
         .eq("id", (analysis as any).id);
 
       toast.success("Análise concluída!");
@@ -403,6 +410,31 @@ export default function NovaAnalise() {
 
               <Separator />
 
+              {/* Section: Financeiro */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Financeiro</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>BDI — Benefícios e Despesas Indiretas (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      placeholder="25"
+                      value={formData.bdi_percentual}
+                      onChange={(e) => updateField("bdi_percentual", e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Padrão: 25%. Define o percentual aplicado sobre o custo direto para compor o preço final.</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Section: Preferências */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -459,6 +491,8 @@ export default function NovaAnalise() {
                 <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div>
                 {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">BDI</span><span className="text-sm font-medium">{formData.bdi_percentual || "25"}%</span></div>
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Arquivos</span>
