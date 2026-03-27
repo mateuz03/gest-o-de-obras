@@ -1,13 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
 import { toast } from "sonner";
@@ -213,6 +214,41 @@ export default function AnaliseResultado() {
     open: false, item: null, suggestions: [],
   });
   const [localResult, setLocalResult] = useState<AnalysisResult | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
+
+  // Build dynamic room grouping from all macro_etapas items
+  const roomGroups = useMemo(() => {
+    if (!localResult?.macro_etapas?.length) return [];
+    const groups: Record<string, BudgetItem[]> = {};
+    for (const etapa of localResult.macro_etapas) {
+      for (const item of etapa.itens || []) {
+        const room = item.local_aplicacao || "Geral";
+        if (!groups[room]) groups[room] = [];
+        groups[room].push(item);
+      }
+    }
+    return Object.entries(groups).map(([comodo, itens]) => ({
+      comodo,
+      itens,
+      subtotal: itens.reduce((sum, it) => {
+        const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+        return sum + (isNaN(t) ? 0 : t);
+      }, 0),
+    }));
+  }, [localResult]);
+
+  // Filter items by search term
+  const filterItems = useCallback((items: BudgetItem[]) => {
+    if (!searchFilter.trim()) return items;
+    const term = searchFilter.toLowerCase();
+    return items.filter(
+      (it) =>
+        it.descricao.toLowerCase().includes(term) ||
+        it.item.toLowerCase().includes(term) ||
+        (it.local_aplicacao || "").toLowerCase().includes(term) ||
+        (it.marca || "").toLowerCase().includes(term)
+    );
+  }, [searchFilter]);
 
   useEffect(() => {
     async function load() {
@@ -397,61 +433,107 @@ export default function AnaliseResultado() {
         <SummaryCard resumo={computedSummary} />
 
         {hasMacroEtapas ? (
-          <Tabs defaultValue="orcamento" className="space-y-4">
-            <TabsList className="flex-wrap h-auto gap-1">
-              <TabsTrigger value="orcamento">Orçamento por Etapa</TabsTrigger>
-              {result.quantitativo_por_comodo?.length && <TabsTrigger value="comodos">Por Cômodo</TabsTrigger>}
-              <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
-            </TabsList>
+          <>
+            {/* Search filter */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filtrar materiais (ex: piso, cimento, cabo...)"
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="pl-9"
+              />
+            </div>
 
-            <TabsContent value="orcamento" className="space-y-6">
-              {result.macro_etapas.map((etapa, i) => (
-                <Card key={i}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{etapa.nome}</CardTitle>
-                      <Badge variant="outline" className="font-mono">{formatCurrency(etapa.subtotal)}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <BudgetTable
-                      items={etapa.itens}
-                      title=""
-                      sinapiMatches={sinapiMatches}
-                      onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
-                    />
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
+            <Tabs defaultValue="orcamento" className="space-y-4">
+              <TabsList className="flex-wrap h-auto gap-1">
+                <TabsTrigger value="orcamento">Visão Geral (Categorias)</TabsTrigger>
+                <TabsTrigger value="comodos">
+                  <Home className="h-3.5 w-3.5 mr-1" /> Visão por Cômodo
+                </TabsTrigger>
+                <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
+              </TabsList>
 
-            {result.quantitativo_por_comodo?.length && (
+              <TabsContent value="orcamento" className="space-y-6">
+                {result.macro_etapas.map((etapa, i) => {
+                  const filtered = filterItems(etapa.itens);
+                  if (!filtered.length && searchFilter) return null;
+                  const subtotal = filtered.reduce((s, it) => {
+                    const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+                    return s + (isNaN(t) ? 0 : t);
+                  }, 0);
+                  return (
+                    <Card key={i}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base">{etapa.nome}</CardTitle>
+                          <Badge variant="outline" className="font-mono">
+                            {formatCurrency(searchFilter ? subtotal : etapa.subtotal)}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <BudgetTable
+                          items={filtered}
+                          title=""
+                          sinapiMatches={sinapiMatches}
+                          onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </TabsContent>
+
               <TabsContent value="comodos" className="space-y-6">
-                {result.quantitativo_por_comodo.map((comodo, i) => (
-                  <Card key={i}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{comodo.comodo}</CardTitle>
-                        <Badge variant="outline" className="font-mono">{formatCurrency(comodo.subtotal)}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <BudgetTable
-                        items={comodo.itens}
-                        title=""
-                        sinapiMatches={sinapiMatches}
-                        onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
-                      />
+                {roomGroups.map((group, i) => {
+                  const filtered = filterItems(group.itens);
+                  if (!filtered.length && searchFilter) return null;
+                  const subtotal = filtered.reduce((s, it) => {
+                    const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+                    return s + (isNaN(t) ? 0 : t);
+                  }, 0);
+                  return (
+                    <Card key={i}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Home className="h-4 w-4 text-primary" />
+                            <CardTitle className="text-base">{group.comodo}</CardTitle>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">{filtered.length} itens</Badge>
+                            <Badge variant="outline" className="font-mono">
+                              {formatCurrency(searchFilter ? subtotal : group.subtotal)}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <BudgetTable
+                          items={filtered}
+                          title=""
+                          sinapiMatches={sinapiMatches}
+                          onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {roomGroups.length === 0 && (
+                  <Card>
+                    <CardContent className="pt-6 text-center text-muted-foreground">
+                      Nenhum dado de ambiente disponível. Verifique se a IA identificou os cômodos na planta.
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </TabsContent>
-            )}
 
-            <TabsContent value="recomendacoes">
-              <RecommendationsSection items={result.recomendacoes} />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="recomendacoes">
+                <RecommendationsSection items={result.recomendacoes} />
+              </TabsContent>
+            </Tabs>
+          </>
         ) : (
           <Card>
             <CardContent className="pt-6">
