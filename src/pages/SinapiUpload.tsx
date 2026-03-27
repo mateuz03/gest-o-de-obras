@@ -149,11 +149,11 @@ export default function SinapiUpload() {
 
             {uploadResult && (
               <div className="rounded-lg border p-4 space-y-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   {uploadResult.errors === 0 ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <CheckCircle2 className="h-5 w-5 text-primary" />
                   ) : (
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
+                    <AlertCircle className="h-5 w-5 text-destructive" />
                   )}
                   <span className="font-medium">Resultado da importação</span>
                 </div>
