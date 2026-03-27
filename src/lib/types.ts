@@ -1,3 +1,14 @@
+export interface SinapiMatch {
+  id: string;
+  codigo: string;
+  descricao: string;
+  unidade: string | null;
+  preco_material: number | null;
+  preco_mao_de_obra: number | null;
+  regiao: string | null;
+  mes_ano: string | null;
+}
+
 export interface BudgetItem {
   item: string;
   descricao: string;
@@ -11,6 +22,10 @@ export interface BudgetItem {
   codigo_sinapi?: string;
   origem_preco: string;
   perda_aplicada?: string;
+  // Price reconciliation fields
+  sinapi_match?: SinapiMatch | null;
+  preco_sinapi_unitario?: number | null;
+  preco_conciliado?: boolean;
 }
 
 export interface MacroEtapa {
@@ -70,4 +85,6 @@ export interface Analysis {
   resultado_json: AnalysisResult | null;
   status: 'pending' | 'processing' | 'completed' | 'error';
   created_at: string;
+  bdi_percentual?: number;
+  total_estimado?: number;
 }

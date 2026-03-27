@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { Analysis, AnalysisResult, MacroEtapa, ComodoQuantitativo, BudgetItem, BrandRecommendation, ResumoFinal } from "@/lib/types";
-import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign } from "lucide-react";
+import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
+import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
+import { SinapiLinkModal } from "@/components/SinapiLinkModal";
+import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -17,11 +18,48 @@ function formatCurrency(value: number | string) {
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
+// Recalculate totals with BDI
+function recalculateTotals(result: AnalysisResult, bdiPercent: number): ResumoFinal {
+  let totalMateriais = 0;
+  let totalMaoDeObra = 0;
+
+  for (const etapa of result.macro_etapas || []) {
+    for (const item of etapa.itens || []) {
+      const total = typeof item.preco_total === "string" ? parseFloat(item.preco_total) : item.preco_total;
+      if (!isNaN(total)) totalMateriais += total;
+    }
+  }
+
+  totalMaoDeObra = typeof result.resumo_final?.total_mao_de_obra === "string"
+    ? parseFloat(result.resumo_final.total_mao_de_obra)
+    : (result.resumo_final?.total_mao_de_obra || 0);
+
+  const subtotal = totalMateriais + totalMaoDeObra;
+  const bdiValor = subtotal * (bdiPercent / 100);
+  const totalGeral = subtotal + bdiValor;
+
+  return {
+    total_materiais: totalMateriais,
+    total_mao_de_obra: totalMaoDeObra,
+    total_geral: totalGeral,
+    bdi_percentual: bdiPercent,
+    bdi_valor: bdiValor,
+    premissas_bdi: result.resumo_final?.premissas_bdi || `BDI de ${bdiPercent}% aplicado`,
+  };
+}
+
+interface BudgetTableProps {
+  items: BudgetItem[];
+  title: string;
+  sinapiMatches: Record<string, { matched: boolean; matches: SinapiMatch[] }>;
+  onLinkClick: (item: BudgetItem, suggestions: SinapiMatch[]) => void;
+}
+
+function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTableProps) {
   if (!items?.length) return null;
   return (
     <div className="overflow-x-auto">
-      <h4 className="text-sm font-semibold mb-2 text-foreground">{title}</h4>
+      {title && <h4 className="text-sm font-semibold mb-2 text-foreground">{title}</h4>}
       <Table>
         <TableHeader>
           <TableRow>
@@ -38,33 +76,61 @@ function BudgetTable({ items, title }: { items: BudgetItem[]; title: string }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item, i) => (
-            <TableRow key={i}>
-              <TableCell className="font-mono text-xs">{item.item}</TableCell>
-              <TableCell className="text-sm">
-                {item.descricao}
-                {item.perda_aplicada && <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>}
-              </TableCell>
-              <TableCell className="text-xs">
-                {item.local_aplicacao ? (
-                  <Badge variant="secondary" className="text-xs font-normal">{item.local_aplicacao}</Badge>
-                ) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
-              <TableCell className="text-right">{item.quantidade}</TableCell>
-              <TableCell>{item.unidade}</TableCell>
-              <TableCell className="text-right">{formatCurrency(item.preco_unitario)}</TableCell>
-              <TableCell className="text-right font-medium">{formatCurrency(item.preco_total)}</TableCell>
-              <TableCell>
-                {item.codigo_sinapi ? (
-                  <Badge variant="outline" className="text-xs">{item.codigo_sinapi}</Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground">{item.origem_preco?.includes("Sem") ? "Est." : "—"}</span>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
+          {items.map((item, i) => {
+            const match = sinapiMatches[item.item];
+            const isConciliado = item.preco_conciliado;
+            const hasSinapiCode = !!item.codigo_sinapi;
+
+            return (
+              <TableRow key={i} className={isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : ""}>
+                <TableCell className="font-mono text-xs">{item.item}</TableCell>
+                <TableCell className="text-sm">
+                  {item.descricao}
+                  {item.perda_aplicada && <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>}
+                </TableCell>
+                <TableCell className="text-xs">
+                  {item.local_aplicacao ? (
+                    <Badge variant="secondary" className="text-xs font-normal">{item.local_aplicacao}</Badge>
+                  ) : "—"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
+                <TableCell className="text-right">{item.quantidade}</TableCell>
+                <TableCell>{item.unidade}</TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(item.preco_unitario)}
+                  {item.preco_sinapi_unitario != null && (
+                    <div className="text-xs text-green-600">SINAPI: {formatCurrency(item.preco_sinapi_unitario)}</div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-medium">{formatCurrency(item.preco_total)}</TableCell>
+                <TableCell>
+                  {isConciliado ? (
+                    <Badge className="text-xs bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                      onClick={() => onLinkClick(item, match?.matches || [])}>
+                      ✓ {item.codigo_sinapi}
+                    </Badge>
+                  ) : hasSinapiCode ? (
+                    <Badge variant="outline" className="text-xs">{item.codigo_sinapi}</Badge>
+                  ) : match && !match.matched ? (
+                    <Badge variant="destructive" className="text-xs cursor-pointer"
+                      onClick={() => onLinkClick(item, [])}>
+                      <Link2 className="h-3 w-3 mr-1" /> Vincular
+                    </Badge>
+                  ) : match && match.matched ? (
+                    <Badge className="text-xs bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+                      onClick={() => onLinkClick(item, match.matches)}>
+                      <Link2 className="h-3 w-3 mr-1" /> Vincular ({match.matches.length})
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {item.origem_preco?.includes("Sem") ? "Est." : "—"}
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
@@ -141,15 +207,116 @@ export default function AnaliseResultado() {
   const { id } = useParams();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [matchingPrices, setMatchingPrices] = useState(false);
+  const [sinapiMatches, setSinapiMatches] = useState<Record<string, { matched: boolean; matches: SinapiMatch[] }>>({});
+  const [linkModal, setLinkModal] = useState<{ open: boolean; item: BudgetItem | null; suggestions: SinapiMatch[] }>({
+    open: false, item: null, suggestions: [],
+  });
+  const [localResult, setLocalResult] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from("analyses").select("*").eq("id", id).single();
       setAnalysis(data as any);
+      if (data?.resultado_json) {
+        setLocalResult(data.resultado_json as any);
+      }
       setLoading(false);
     }
     load();
   }, [id]);
+
+  // Run SINAPI matching
+  const runMatching = useCallback(async () => {
+    if (!localResult?.macro_etapas?.length) return;
+    setMatchingPrices(true);
+
+    const allItems = localResult.macro_etapas.flatMap((e) =>
+      e.itens.filter((i) => !i.preco_conciliado).map((i) => ({ descricao: i.descricao, item: i.item }))
+    );
+
+    if (!allItems.length) {
+      toast.info("Todos os itens já estão conciliados.");
+      setMatchingPrices(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("match-sinapi", {
+        body: { items: allItems, regiao: analysis?.regiao },
+      });
+
+      if (error) throw error;
+      setSinapiMatches(data.results || {});
+      toast.success(`Busca concluída: ${Object.values(data.results || {}).filter((r: any) => r.matched).length} itens encontrados na base SINAPI.`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao buscar preços SINAPI.");
+    }
+    setMatchingPrices(false);
+  }, [localResult, analysis]);
+
+  // Handle linking a SINAPI price to an item
+  const handleLinkPrice = useCallback((selectedMatch: SinapiMatch) => {
+    if (!linkModal.item || !localResult) return;
+
+    const itemCode = linkModal.item.item;
+    const precoUnit = (selectedMatch.preco_material || 0) + (selectedMatch.preco_mao_de_obra || 0);
+
+    const updatedResult = { ...localResult };
+    updatedResult.macro_etapas = updatedResult.macro_etapas.map((etapa) => ({
+      ...etapa,
+      itens: etapa.itens.map((it) => {
+        if (it.item !== itemCode) return it;
+        const qty = typeof it.quantidade === "string" ? parseFloat(it.quantidade) : it.quantidade;
+        const newTotal = precoUnit * (isNaN(qty) ? 1 : qty);
+        return {
+          ...it,
+          preco_unitario: precoUnit,
+          preco_total: newTotal,
+          codigo_sinapi: selectedMatch.codigo,
+          origem_preco: "SINAPI",
+          preco_sinapi_unitario: precoUnit,
+          preco_conciliado: true,
+          sinapi_match: selectedMatch,
+        };
+      }),
+      subtotal: 0, // will be recalculated
+    }));
+
+    // Recalculate subtotals
+    updatedResult.macro_etapas = updatedResult.macro_etapas.map((etapa) => ({
+      ...etapa,
+      subtotal: etapa.itens.reduce((sum, it) => {
+        const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+        return sum + (isNaN(t) ? 0 : t);
+      }, 0),
+    }));
+
+    // Recalculate financial summary with BDI
+    const bdi = analysis?.bdi_percentual || 25;
+    updatedResult.resumo_final = recalculateTotals(updatedResult, bdi);
+
+    setLocalResult(updatedResult);
+
+    // Persist to DB
+    const totalGeral = typeof updatedResult.resumo_final.total_geral === "string"
+      ? parseFloat(updatedResult.resumo_final.total_geral)
+      : updatedResult.resumo_final.total_geral;
+
+    supabase
+      .from("analyses")
+      .update({
+        resultado_json: updatedResult as any,
+        total_estimado: isNaN(totalGeral) ? null : totalGeral,
+      })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.error("Failed to persist:", error);
+      });
+
+    toast.success(`Preço SINAPI vinculado ao item ${itemCode}`);
+  }, [linkModal.item, localResult, analysis, id]);
 
   if (loading) {
     return (
@@ -159,7 +326,7 @@ export default function AnaliseResultado() {
     );
   }
 
-  if (!analysis?.resultado_json) {
+  if (!analysis || !localResult) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Resultado não encontrado</p>
@@ -168,8 +335,9 @@ export default function AnaliseResultado() {
     );
   }
 
-  const result = analysis.resultado_json as AnalysisResult;
+  const result = localResult;
   const hasMacroEtapas = result.macro_etapas?.length > 0;
+  const computedSummary = recalculateTotals(result, analysis.bdi_percentual || 25);
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,6 +353,10 @@ export default function AnaliseResultado() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={runMatching} disabled={matchingPrices}>
+              {matchingPrices ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
+              Conciliar SINAPI
+            </Button>
             <Button variant="outline" size="sm" onClick={() => exportToPDF(analysis.nome_projeto, result)}>
               <Download className="mr-1 h-4 w-4" /> PDF
             </Button>
@@ -196,7 +368,6 @@ export default function AnaliseResultado() {
       </nav>
 
       <div className="container py-8 space-y-6">
-        {/* Summary header */}
         <Card>
           <CardContent className="pt-6">
             <div className="grid gap-4 sm:grid-cols-4">
@@ -223,10 +394,8 @@ export default function AnaliseResultado() {
           </CardContent>
         </Card>
 
-        {/* Financial summary */}
-        {result.resumo_final && <SummaryCard resumo={result.resumo_final} />}
+        <SummaryCard resumo={computedSummary} />
 
-        {/* Main content */}
         {hasMacroEtapas ? (
           <Tabs defaultValue="orcamento" className="space-y-4">
             <TabsList className="flex-wrap h-auto gap-1">
@@ -245,7 +414,12 @@ export default function AnaliseResultado() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <BudgetTable items={etapa.itens} title="" />
+                    <BudgetTable
+                      items={etapa.itens}
+                      title=""
+                      sinapiMatches={sinapiMatches}
+                      onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                    />
                   </CardContent>
                 </Card>
               ))}
@@ -262,7 +436,12 @@ export default function AnaliseResultado() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <BudgetTable items={comodo.itens} title="" />
+                      <BudgetTable
+                        items={comodo.itens}
+                        title=""
+                        sinapiMatches={sinapiMatches}
+                        onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                      />
                     </CardContent>
                   </Card>
                 ))}
@@ -274,14 +453,24 @@ export default function AnaliseResultado() {
             </TabsContent>
           </Tabs>
         ) : (
-          // Legacy fallback for old analyses
           <Card>
             <CardContent className="pt-6">
-              <p className="text-muted-foreground">Formato de resultado legado. Refaça a análise para obter o novo formato de orçamento.</p>
+              <p className="text-muted-foreground">Formato de resultado legado. Refaça a análise para obter o novo formato.</p>
             </CardContent>
           </Card>
         )}
       </div>
+
+      {linkModal.item && (
+        <SinapiLinkModal
+          open={linkModal.open}
+          onClose={() => setLinkModal({ open: false, item: null, suggestions: [] })}
+          itemDescricao={linkModal.item.descricao}
+          itemCode={linkModal.item.item}
+          suggestions={linkModal.suggestions}
+          onSelect={handleLinkPrice}
+        />
+      )}
     </div>
   );
 }
