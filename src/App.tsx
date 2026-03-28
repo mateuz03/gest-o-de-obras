@@ -12,6 +12,7 @@ import NovaAnalise from "./pages/NovaAnalise";
 import AnaliseResultado from "./pages/AnaliseResultado";
 import SinapiUpload from "./pages/SinapiUpload";
 import NotFound from "./pages/NotFound";
+import ShareAnalise from "./pages/ShareAnalise";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/share/:analysisId" element={<ShareAnalise />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
             <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
