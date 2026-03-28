@@ -11,6 +11,7 @@ import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, 
 import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
+import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -429,6 +430,8 @@ export default function AnaliseResultado() {
             {result.resumo && <p className="mt-4 text-muted-foreground">{result.resumo}</p>}
           </CardContent>
         </Card>
+
+        <ExecutiveDashboard result={result} resumo={computedSummary} />
 
         <SummaryCard resumo={computedSummary} />
 
