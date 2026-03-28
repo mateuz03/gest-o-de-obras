@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import { exportToPDF, exportToExcel } from "@/lib/export";
-import { Plus, LogOut, Building2, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database } from "lucide-react";
+import { Plus, LogOut, Building2, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -279,6 +279,15 @@ export default function Dashboard() {
                           {a.status === "completed" && a.resultado_json && (
                             <>
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const shareUrl = `${window.location.origin}/share/${a.id}`;
+                                navigator.clipboard.writeText(shareUrl);
+                                toast.success("Link copiado! Envie para o cliente.");
+                              }}>
+                                <Share2 className="mr-2 h-4 w-4" /> Compartilhar com Cliente
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={(e) => handleExportPDF(a, e as any)}>
                                 <Download className="mr-2 h-4 w-4" /> Baixar PDF
                               </DropdownMenuItem>

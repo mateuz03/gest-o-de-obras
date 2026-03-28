@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home } from "lucide-react";
+import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2 } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
 import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
@@ -390,6 +390,13 @@ export default function AnaliseResultado() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              const shareUrl = `${window.location.origin}/share/${id}`;
+              navigator.clipboard.writeText(shareUrl);
+              toast.success("Link copiado! Envie para o cliente.");
+            }}>
+              <Share2 className="mr-1 h-4 w-4" /> Compartilhar
+            </Button>
             <Button variant="outline" size="sm" onClick={runMatching} disabled={matchingPrices}>
               {matchingPrices ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
               Conciliar SINAPI
