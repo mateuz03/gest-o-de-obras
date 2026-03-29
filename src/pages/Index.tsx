@@ -30,13 +30,13 @@ export default function Index() {
           </Link>
           <div className="flex items-center gap-3">
             {user ? (
-              <Button asChild>
+              <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <Link to="/dashboard">Dashboard <ArrowRight className="ml-1 h-4 w-4" /></Link>
               </Button>
             ) : (
               <>
-                <Button variant="ghost" asChild><Link to="/auth">Entrar</Link></Button>
-                <Button asChild><Link to="/auth?tab=signup">Começar Grátis</Link></Button>
+                <Button variant="ghost" asChild className="text-primary-foreground hover:bg-primary-foreground/10"><Link to="/auth">Entrar</Link></Button>
+                <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90"><Link to="/auth?tab=signup">Começar Grátis</Link></Button>
               </>
             )}
           </div>
@@ -67,7 +67,7 @@ export default function Index() {
               quantidades e as melhores marcas — tudo calculado por IA.
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Button size="lg" className="text-base px-8" asChild>
+              <Button size="lg" className="text-base px-8 bg-accent text-accent-foreground hover:bg-accent/90" asChild>
                 <Link to={user ? "/nova-analise" : "/auth?tab=signup"}>
                   Começar Análise <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
