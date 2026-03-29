@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2 } from "lucide-react";
+import { ArrowLeft, Building2, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
 import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
+import { GanttChart } from "@/components/GanttChart";
+import { MemorialDescritivo } from "@/components/MemorialDescritivo";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -462,6 +464,12 @@ export default function AnaliseResultado() {
                   <Home className="h-3.5 w-3.5 mr-1" /> Visão por Cômodo
                 </TabsTrigger>
                 <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
+                <TabsTrigger value="cronograma">
+                  <CalendarDays className="h-3.5 w-3.5 mr-1" /> Cronograma (Gantt)
+                </TabsTrigger>
+                <TabsTrigger value="memorial">
+                  <ScrollText className="h-3.5 w-3.5 mr-1" /> Memorial Descritivo
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="orcamento" className="space-y-6">
@@ -541,6 +549,22 @@ export default function AnaliseResultado() {
 
               <TabsContent value="recomendacoes">
                 <RecommendationsSection items={result.recomendacoes} />
+              </TabsContent>
+
+              <TabsContent value="cronograma">
+                <GanttChart
+                  analysisId={id!}
+                  macroEtapas={result.macro_etapas || []}
+                  areaM2={result.area_total_m2 || 100}
+                />
+              </TabsContent>
+
+              <TabsContent value="memorial">
+                <MemorialDescritivo
+                  analysisResult={result}
+                  nomeProjeto={analysis.nome_projeto}
+                  tipoConstrucao={analysis.tipo_construcao || undefined}
+                />
               </TabsContent>
             </Tabs>
           </>
