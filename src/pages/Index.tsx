@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Upload, Brain, FileSpreadsheet, ArrowRight, Building2, Ruler, Zap } from "lucide-react";
+import { Upload, Brain, FileSpreadsheet, ArrowRight, Box, Ruler, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -11,7 +11,7 @@ const steps = [
 ];
 
 const features = [
-  { icon: Building2, title: "Estrutura Completa", desc: "Tijolos, cimento, areia, vergalhões — tudo calculado automaticamente." },
+  { icon: Box, title: "Estrutura Completa", desc: "Tijolos, cimento, areia, vergalhões — tudo calculado automaticamente." },
   { icon: Ruler, title: "Acabamento Preciso", desc: "Metragem de piso, volume de tinta e gesso com base nas dimensões reais." },
   { icon: Zap, title: "Instalações Elétricas e Hidráulicas", desc: "Estimativa de fiação, tubulação e pontos baseados na planta." },
 ];
@@ -24,8 +24,8 @@ export default function Index() {
       {/* Nav */}
       <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Building2 className="h-6 w-6 text-primary" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+            <Box className="h-6 w-6 text-primary" />
             <span>AI Construct</span>
           </Link>
           <div className="flex items-center gap-3">
@@ -148,7 +148,7 @@ export default function Index() {
       <footer className="border-t py-8">
         <div className="container flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" />
+            <Box className="h-4 w-4 text-primary" />
             <span>AI Construct Estimator</span>
           </div>
           <span>© {new Date().getFullYear()} Todos os direitos reservados</span>

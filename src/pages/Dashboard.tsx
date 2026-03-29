@@ -135,8 +135,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-card">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Building2 className="h-6 w-6 text-primary" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+            <Box className="h-6 w-6 text-primary" />
             AI Construct
           </Link>
           <div className="flex items-center gap-3">
