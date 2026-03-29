@@ -133,10 +133,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-            <Box className="h-6 w-6 text-primary" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary-foreground">
+            <Box className="h-6 w-6" />
             AI Construct
           </Link>
           <div className="flex items-center gap-3">

@@ -380,14 +380,14 @@ export default function AnaliseResultado() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
+            <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
               <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
             </Button>
             <div className="flex items-center gap-2 font-bold">
-              <Box className="h-5 w-5 text-primary" />
+              <Box className="h-5 w-5" />
               {analysis.nome_projeto}
             </div>
           </div>

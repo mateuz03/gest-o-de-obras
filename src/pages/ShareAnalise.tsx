@@ -156,9 +156,9 @@ export default function ShareAnalise() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center gap-3">
-          <Box className="h-6 w-6 text-primary" />
+          <Box className="h-6 w-6" />
           <div>
             <h1 className="font-bold text-lg">
               {projectName}

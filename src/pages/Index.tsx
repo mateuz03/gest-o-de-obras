@@ -22,10 +22,10 @@ export default function Index() {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
+      <nav className="fixed top-0 z-50 w-full border-b border-primary/20 bg-primary text-primary-foreground backdrop-blur-lg">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-            <Box className="h-6 w-6 text-primary" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary-foreground">
+            <Box className="h-6 w-6" />
             <span>AI Construct</span>
           </Link>
           <div className="flex items-center gap-3">
