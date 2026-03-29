@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Building2, DollarSign, Ruler, Home, HardHat } from "lucide-react";
+import { Box, DollarSign, Ruler, Home, HardHat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisResult, ResumoFinal } from "@/lib/types";
 
@@ -128,7 +128,7 @@ export default function ShareAnalise() {
   if (notFound || !result || !resumo) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-        <Building2 className="h-12 w-12 text-muted-foreground/40" />
+        <Box className="h-12 w-12 text-muted-foreground/40" />
         <h2 className="text-xl font-semibold">Análise não encontrada</h2>
         <p className="text-muted-foreground text-sm">Este link pode estar incorreto ou a análise ainda não foi concluída.</p>
       </div>
@@ -158,9 +158,9 @@ export default function ShareAnalise() {
       {/* Header */}
       <nav className="border-b bg-card">
         <div className="container flex h-16 items-center gap-3">
-          <Building2 className="h-6 w-6 text-primary" />
+          <Box className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="font-bold text-lg" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            <h1 className="font-bold text-lg">
               {projectName}
             </h1>
             <p className="text-xs text-muted-foreground">Estimativa de Materiais — AI Construct</p>
