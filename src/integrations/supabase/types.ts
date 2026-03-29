@@ -83,6 +83,50 @@ export type Database = {
         }
         Relationships: []
       }
+      project_schedule: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          duration_days: number
+          end_date: string
+          id: string
+          sort_order: number
+          start_date: string
+          task_name: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          duration_days?: number
+          end_date: string
+          id?: string
+          sort_order?: number
+          start_date: string
+          task_name: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          duration_days?: number
+          end_date?: string
+          id?: string
+          sort_order?: number
+          start_date?: string
+          task_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_schedule_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referencia_sinapi: {
         Row: {
           codigo: string
