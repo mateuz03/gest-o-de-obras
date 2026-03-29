@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Box, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface SinapiRow {
@@ -107,13 +107,13 @@ export default function SinapiUpload() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
             <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
           </Button>
-          <div className="flex items-center gap-2 font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Building2 className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2 font-bold">
+            <Box className="h-5 w-5" />
             Base SINAPI
           </div>
         </div>

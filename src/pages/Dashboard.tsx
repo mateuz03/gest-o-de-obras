@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import { exportToPDF, exportToExcel } from "@/lib/export";
-import { Plus, LogOut, Building2, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
+import { Plus, LogOut, Box, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -133,10 +133,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Building2 className="h-6 w-6 text-primary" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary-foreground">
+            <Box className="h-6 w-6" />
             AI Construct
           </Link>
           <div className="flex items-center gap-3">

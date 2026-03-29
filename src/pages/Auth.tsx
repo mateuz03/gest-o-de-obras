@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Building2 } from "lucide-react";
+import { Box } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Auth() {
@@ -57,8 +57,8 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
-      <Link to="/" className="mb-8 flex items-center gap-2 text-2xl font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-        <Building2 className="h-7 w-7 text-primary" />
+      <Link to="/" className="mb-8 flex items-center gap-2 text-2xl font-bold">
+        <Box className="h-7 w-7 text-primary" />
         AI Construct
       </Link>
       <Card className="w-full max-w-md">

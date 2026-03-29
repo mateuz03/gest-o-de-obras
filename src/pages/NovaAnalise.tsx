@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Building2, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign } from "lucide-react";
+import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign } from "lucide-react";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -230,13 +230,13 @@ export default function NovaAnalise() {
 
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-8">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
             <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Link>
           </Button>
-          <div className="flex items-center gap-2 font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Building2 className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2 font-bold">
+            <Box className="h-5 w-5" />
             Nova Análise
           </div>
         </div>
@@ -350,7 +350,7 @@ export default function NovaAnalise() {
               {/* Section: Dados do Projeto */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <Building2 className="h-4 w-4 text-primary" />
+                  <Box className="h-4 w-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Dados do Projeto</h3>
                 </div>
                 <div className="space-y-4">

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Upload, Brain, FileSpreadsheet, ArrowRight, Building2, Ruler, Zap } from "lucide-react";
+import { Upload, Brain, FileSpreadsheet, ArrowRight, Box, Ruler, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -11,7 +11,7 @@ const steps = [
 ];
 
 const features = [
-  { icon: Building2, title: "Estrutura Completa", desc: "Tijolos, cimento, areia, vergalhões — tudo calculado automaticamente." },
+  { icon: Box, title: "Estrutura Completa", desc: "Tijolos, cimento, areia, vergalhões — tudo calculado automaticamente." },
   { icon: Ruler, title: "Acabamento Preciso", desc: "Metragem de piso, volume de tinta e gesso com base nas dimensões reais." },
   { icon: Zap, title: "Instalações Elétricas e Hidráulicas", desc: "Estimativa de fiação, tubulação e pontos baseados na planta." },
 ];
@@ -22,21 +22,21 @@ export default function Index() {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
+      <nav className="fixed top-0 z-50 w-full border-b border-primary/20 bg-primary text-primary-foreground backdrop-blur-lg">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            <Building2 className="h-6 w-6 text-primary" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary-foreground">
+            <Box className="h-6 w-6" />
             <span>AI Construct</span>
           </Link>
           <div className="flex items-center gap-3">
             {user ? (
-              <Button asChild>
+              <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <Link to="/dashboard">Dashboard <ArrowRight className="ml-1 h-4 w-4" /></Link>
               </Button>
             ) : (
               <>
-                <Button variant="ghost" asChild><Link to="/auth">Entrar</Link></Button>
-                <Button asChild><Link to="/auth?tab=signup">Começar Grátis</Link></Button>
+                <Button variant="ghost" asChild className="text-primary-foreground hover:bg-primary-foreground/10"><Link to="/auth">Entrar</Link></Button>
+                <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90"><Link to="/auth?tab=signup">Começar Grátis</Link></Button>
               </>
             )}
           </div>
@@ -67,7 +67,7 @@ export default function Index() {
               quantidades e as melhores marcas — tudo calculado por IA.
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Button size="lg" className="text-base px-8" asChild>
+              <Button size="lg" className="text-base px-8 bg-accent text-accent-foreground hover:bg-accent/90" asChild>
                 <Link to={user ? "/nova-analise" : "/auth?tab=signup"}>
                   Começar Análise <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
@@ -148,7 +148,7 @@ export default function Index() {
       <footer className="border-t py-8">
         <div className="container flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" />
+            <Box className="h-4 w-4 text-primary" />
             <span>AI Construct Estimator</span>
           </div>
           <span>© {new Date().getFullYear()} Todos os direitos reservados</span>
