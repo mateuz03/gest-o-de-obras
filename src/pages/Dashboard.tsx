@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import { exportToPDF, exportToExcel } from "@/lib/export";
-import { Plus, LogOut, Building2, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
+import { Plus, LogOut, Box, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
