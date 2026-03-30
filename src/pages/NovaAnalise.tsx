@@ -449,20 +449,22 @@ export default function NovaAnalise() {
                   </h3>
                 </div>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Escala da Planta</Label>
-                    <Select value={formData.escala} onValueChange={(v) => updateField("escala", v)}>
-                      <SelectTrigger><SelectValue placeholder="Automática (recomendado)" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">Automática (recomendado)</SelectItem>
-                        <SelectItem value="1:25">1:25</SelectItem>
-                        <SelectItem value="1:50">1:50</SelectItem>
-                        <SelectItem value="1:75">1:75</SelectItem>
-                        <SelectItem value="1:100">1:100</SelectItem>
-                        <SelectItem value="1:200">1:200</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {mode !== "foto_ambiente" && (
+                    <div className="space-y-2">
+                      <Label>Escala da Planta</Label>
+                      <Select value={formData.escala} onValueChange={(v) => updateField("escala", v)}>
+                        <SelectTrigger><SelectValue placeholder="Automática (recomendado)" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Automática (recomendado)</SelectItem>
+                          <SelectItem value="1:25">1:25</SelectItem>
+                          <SelectItem value="1:50">1:50</SelectItem>
+                          <SelectItem value="1:75">1:75</SelectItem>
+                          <SelectItem value="1:100">1:100</SelectItem>
+                          <SelectItem value="1:200">1:200</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>Tipo de Construção <span className="text-destructive">*</span></Label>
                     <Select value={formData.tipo_construcao} onValueChange={(v) => updateField("tipo_construcao", v)}>
