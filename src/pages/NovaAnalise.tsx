@@ -440,11 +440,13 @@ export default function NovaAnalise() {
 
               <Separator />
 
-              {/* Section: Dados da Planta */}
+              {/* Section: Dados da Planta / Ambiente */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Ruler className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Dados da Planta</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    {mode === "foto_ambiente" ? "Dados do Ambiente" : "Dados da Planta"}
+                  </h3>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
