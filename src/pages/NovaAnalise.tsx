@@ -591,9 +591,9 @@ export default function NovaAnalise() {
           <Card className="mt-6">
             <CardContent className="flex flex-col items-center py-12">
               <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-              <h3 className="mb-2 text-lg font-semibold">Analisando suas plantas...</h3>
+              <h3 className="mb-2 text-lg font-semibold">{mode === "foto_ambiente" ? "Analisando fotos do ambiente..." : "Analisando suas plantas..."}</h3>
               <p className="text-center text-muted-foreground">
-                A IA está analisando {files.length} arquivo(s), identificando dimensões e calculando o orçamento completo com referência SINAPI. Isso pode levar até 60 segundos.
+                {mode ? MODE_CONFIG[mode].loadingText : ""} Isso pode levar até 60 segundos.
               </p>
             </CardContent>
           </Card>
