@@ -389,7 +389,7 @@ export default function NovaAnalise() {
                 onChange={handleFileInput}
               />
 
-              {dwgFile && (
+              {dwgFile && mode === "planta" && (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
                   <FileImage className="h-5 w-5 text-primary" />
                   <div className="flex-1">
