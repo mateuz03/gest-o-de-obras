@@ -194,7 +194,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais } = await req.json();
+    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais, modo_analise } = await req.json();
 
     if (!images || !images.length) {
       return new Response(JSON.stringify({ error: "At least one image is required" }), {
@@ -203,8 +203,13 @@ serve(async (req) => {
       });
     }
 
-    let userPrompt = "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato solicitado.";
-    if (escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
+    const isPhotoMode = modo_analise === "foto_ambiente";
+    const systemPrompt = (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
+
+    let userPrompt = isPhotoMode
+      ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
+      : "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato JSON solicitado.";
+    if (!isPhotoMode && escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
     if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}% (em vez do padrão de 25%).`;
