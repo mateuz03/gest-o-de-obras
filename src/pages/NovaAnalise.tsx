@@ -222,6 +222,7 @@ export default function NovaAnalise() {
           regiao: formData.regiao,
           bdi_percentual: bdiValue,
           instrucoes_adicionais: formData.instrucoes_adicionais,
+          modo_analise: mode,
         },
       });
 
