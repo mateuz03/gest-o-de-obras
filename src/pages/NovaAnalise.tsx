@@ -266,16 +266,55 @@ export default function NovaAnalise() {
       <div className="container max-w-2xl py-8">
         {/* Step indicators */}
         <div className="mb-8 flex items-center justify-center gap-4">
-          {[1, 2].map((s) => (
+          {[0, 1, 2].map((s) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s}</div>
-              <span className={`text-sm ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
-                {s === 1 ? "Upload" : "Detalhes"}
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s + 1}</div>
+              <span className={`text-sm hidden sm:inline ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
+                {s === 0 ? "Modo" : s === 1 ? "Upload" : "Detalhes"}
               </span>
-              {s < 2 && <div className={`h-px w-12 ${step > s ? "bg-primary" : "bg-border"}`} />}
+              {s < 2 && <div className={`h-px w-8 sm:w-12 ${step > s ? "bg-primary" : "bg-border"}`} />}
             </div>
           ))}
         </div>
+
+        {/* Step 0: Mode Selection */}
+        {step === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tipo de Análise</CardTitle>
+              <CardDescription>Escolha como deseja enviar os dados do projeto</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <button
+                  onClick={() => { setMode("planta"); setStep(1); }}
+                  className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border p-6 text-left transition-all hover:border-primary hover:bg-primary/5"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <FileText className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-base font-semibold">Planta Baixa</h3>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Envie plantas baixas, cortes ou projetos técnicos (JPG, PNG, PDF, DWG)
+                  </p>
+                </button>
+                <button
+                  onClick={() => { setMode("foto_ambiente"); setStep(1); }}
+                  className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border p-6 text-left transition-all hover:border-accent hover:bg-accent/5"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
+                    <Camera className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-base font-semibold">Foto do Ambiente</h3>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Envie fotos reais do ambiente para análise de materiais e medidas estimadas
+                  </p>
+                  <span className="absolute top-3 right-3 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent uppercase">Novo</span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {step === 1 && (
           <Card>
