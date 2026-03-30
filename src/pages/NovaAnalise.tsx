@@ -29,6 +29,25 @@ const ESCALA_LABELS: Record<string, string> = {
 
 const MAX_FILES = 5;
 
+type AnalysisMode = "planta" | "foto_ambiente";
+
+const MODE_CONFIG = {
+  planta: {
+    title: "Upload da Planta Baixa",
+    description: `Envie até ${MAX_FILES} arquivos (JPG, PNG, PDF) ou DWG para uma análise mais completa`,
+    dropText: "Arraste as plantas aqui ou clique para selecionar",
+    dropSubtext: `Até ${MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 10MB cada / DWG 50MB)`,
+    loadingText: "A IA está analisando suas plantas, identificando dimensões e calculando o orçamento completo com referência SINAPI.",
+  },
+  foto_ambiente: {
+    title: "Fotos do Ambiente",
+    description: `Envie até ${MAX_FILES} fotos reais do ambiente para análise de materiais e medidas`,
+    dropText: "Arraste as fotos do ambiente aqui ou clique para selecionar",
+    dropSubtext: `Até ${MAX_FILES} fotos — JPG, PNG (máx. 10MB cada). Dica: inclua uma trena ou objeto de referência na foto.`,
+    loadingText: "A IA está analisando as fotos do ambiente, identificando materiais, estimando dimensões e calculando o orçamento.",
+  },
+};
+
 export default function NovaAnalise() {
   const { user } = useAuth();
   const navigate = useNavigate();
