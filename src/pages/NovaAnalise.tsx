@@ -316,11 +316,11 @@ export default function NovaAnalise() {
           </Card>
         )}
 
-        {step === 1 && (
+        {step === 1 && mode && (
           <Card>
             <CardHeader>
-              <CardTitle>Upload da Planta Baixa</CardTitle>
-              <CardDescription>Envie até {MAX_FILES} arquivos (JPG, PNG, PDF) ou DWG para uma análise mais completa</CardDescription>
+              <CardTitle>{MODE_CONFIG[mode].title}</CardTitle>
+              <CardDescription>{MODE_CONFIG[mode].description}</CardDescription>
             </CardHeader>
             <CardContent>
               {/* File grid */}
