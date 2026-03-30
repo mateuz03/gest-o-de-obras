@@ -74,14 +74,16 @@ export default function NovaAnalise() {
 
   const addFile = useCallback((f: File) => {
     if (isDwg(f)) {
+      if (mode === "foto_ambiente") { toast.error("Arquivos DWG não são aceitos no modo Foto do Ambiente"); return; }
       if (f.size > 50 * 1024 * 1024) { toast.error("Arquivo DWG máximo de 50MB"); return; }
       setDwgFile(f);
       toast.success("Arquivo DWG anexado! Envie também imagens ou PDFs para a IA analisar.");
       return;
     }
-    if (!f.type.startsWith("image/") && f.type !== "application/pdf") {
-      toast.error("Envie imagens (JPG, PNG), PDF ou DWG");
-      return;
+    if (mode === "foto_ambiente") {
+      if (!f.type.startsWith("image/")) { toast.error("No modo Foto do Ambiente, envie apenas imagens (JPG, PNG)"); return; }
+    } else {
+      if (!f.type.startsWith("image/") && f.type !== "application/pdf") { toast.error("Envie imagens (JPG, PNG), PDF ou DWG"); return; }
     }
     if (f.size > 10 * 1024 * 1024) { toast.error("Cada arquivo pode ter no máximo 10MB"); return; }
 
