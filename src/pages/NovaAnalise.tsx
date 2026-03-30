@@ -384,10 +384,6 @@ export default function NovaAnalise() {
                 className="hidden"
                 onChange={handleFileInput}
               />
-                multiple
-                className="hidden"
-                onChange={handleFileInput}
-              />
 
               {dwgFile && mode === "planta" && (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
