@@ -100,7 +100,7 @@ export default function NovaAnalise() {
       }
       return next;
     });
-  }, []);
+  }, [mode]);
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
