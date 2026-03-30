@@ -379,7 +379,11 @@ export default function NovaAnalise() {
               <input
                 id="file-input"
                 type="file"
-                accept="image/*,.pdf,.dwg"
+                accept={mode === "foto_ambiente" ? "image/*" : "image/*,.pdf,.dwg"}
+                multiple
+                className="hidden"
+                onChange={handleFileInput}
+              />
                 multiple
                 className="hidden"
                 onChange={handleFileInput}
