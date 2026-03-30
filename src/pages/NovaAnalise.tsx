@@ -51,7 +51,8 @@ const MODE_CONFIG = {
 export default function NovaAnalise() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [mode, setMode] = useState<AnalysisMode | null>(null);
+  const [step, setStep] = useState(0); // 0 = mode selection
   const [files, setFiles] = useState<File[]>([]);
   const [dwgFile, setDwgFile] = useState<File | null>(null);
   const [previews, setPreviews] = useState<(string | null)[]>([]);
