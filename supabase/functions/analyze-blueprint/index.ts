@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de plantas baixas e orçamentos de obras no padrão brasileiro.
+const BLUEPRINT_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de plantas baixas e orçamentos de obras no padrão brasileiro.
 
 Ao receber uma ou mais imagens de planta baixa, você deve:
 
@@ -37,10 +37,10 @@ Ao receber uma ou mais imagens de planta baixa, você deve:
 4. PARA CADA ITEM do orçamento:
    - Código do item (estruturado por grupo, ex: 1.1, 1.2, 2.1...)
    - Descrição detalhada
-   - Local de aplicação (cômodo ou área onde o material será usado, ex: "Sala", "Cozinha", "Banheiro 1", "Área externa", "Geral" se for para toda a obra)
+   - Local de aplicação (cômodo ou área onde o material será usado)
    - Fornecedor (se souber; caso contrário "—")
    - Marca (se souber; caso contrário "—")
-   - Quantidade com perdas incluídas (indicar taxa de perda na observação)
+   - Quantidade com perdas incluídas
    - Unidade (m², m³, m, un, kg, saco, lata, etc.)
    - Preço unitário R$ (usar referência SINAPI quando disponível)
    - Preço total R$
@@ -51,50 +51,93 @@ Ao receber uma ou mais imagens de planta baixa, você deve:
 5. PREÇOS DE REFERÊNCIA SINAPI:
    - Usar a UF/cidade do projeto quando informada
    - Informar mês/ano da referência SINAPI usada
-   - Para itens sem correspondência SINAPI, usar estimativa de mercado e indicar explicitamente
 
 6. QUANTITATIVO POR CÔMODO:
-   - Gerar também um quantitativo separado por cômodo (sala, cozinha, quartos, banheiros, área externa, etc.)
+   - Gerar também um quantitativo separado por cômodo
    - Cada cômodo com seus itens e subtotal
 
 7. RESUMO FINAL:
    - Total materiais
    - Total mão de obra (se aplicável)
    - Total geral
-   - BDI (se não informado pelo usuário, usar 25% como padrão e indicar a premissa)
+   - BDI (se não informado pelo usuário, usar 25% como padrão)
 
 8. RECOMENDAÇÕES DE MARCAS:
    - Sugira 3 marcas brasileiras por custo-benefício para cada categoria principal
 
 DETALHAMENTO OBRIGATÓRIO DE INSTALAÇÕES ELÉTRICAS:
-- Pontos de luz: contar cada ponto visível (lâmpada, spot, arandela)
-- Pontos de tomada: contar cada ponto (separar baixas 30cm e altas 1,10m/2,00m)
-- Interruptores: módulos — simples, paralelo (three-way), intermediário
-- Cabo azul (neutro) 2,5mm²: metragem total
-- Cabo verde/amarelo (terra) 2,5mm²: metragem total
-- Cabo vermelho (fase) 2,5mm²: metragem para iluminação
-- Cabo preto (fase) 2,5mm²: metragem para tomadas
-- Cabo 4mm² (chuveiro, ar-condicionado): metragem
-- Cabo 6mm² (alimentação geral): metragem
-- Disjuntores: quantidade e amperagem (10A, 20A, 25A, 32A)
-- Disjuntor geral (DR)
-- Quadro de distribuição
-- Eletrodutos corrugados 3/4" e 1": metragem
-- Caixas 4x2" e 4x4" octogonais: quantidade
+- Pontos de luz, tomadas, interruptores por tipo
+- Cabos por cor e bitola (azul/neutro, verde/terra, vermelho/fase, preto/fase)
+- Disjuntores por amperagem, quadro de distribuição
+- Eletrodutos e caixas
 
 DETALHAMENTO OBRIGATÓRIO DE INSTALAÇÕES HIDRÁULICAS:
-- Tubos PVC soldável 25mm, 32mm: metragem
-- Tubos CPVC/PPR 22mm (água quente): metragem
-- Tubos PVC esgoto 40mm, 50mm, 100mm: metragem
-- Conexões (joelhos 90°, tês, luvas, caps): quantidade
-- Registros de gaveta e pressão: quantidade
-- Caixas sifonadas, ralos, válvulas, sifões: quantidade
+- Tubos PVC por diâmetro, CPVC/PPR para água quente
+- Conexões, registros, caixas sifonadas, ralos, válvulas`;
 
+const PHOTO_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de ambientes reais a partir de fotos e orçamentos de obras/reformas no padrão brasileiro.
+
+Ao receber fotos de um ambiente real (banheiro, cozinha, sala, quarto, etc.), você deve:
+
+1. IDENTIFICAR O AMBIENTE:
+   - Determine o tipo de cômodo/ambiente fotografado
+   - Liste todos os elementos visíveis (piso, revestimento, louças, metais, iluminação, esquadrias, etc.)
+
+2. ESTIMAR DIMENSÕES:
+   - Use objetos de referência visíveis para estimar dimensões (portas padrão ~2,10m x 0,80m, tomadas a ~30cm do chão, azulejos padrão 30x60cm, etc.)
+   - Se houver trena ou objeto de referência na foto, use como base principal
+   - Informe SEMPRE a margem de erro estimada (ex: "±15%")
+   - Calcule área estimada do piso, paredes, e perímetro
+
+3. ANALISAR MATERIAIS EXISTENTES:
+   - Identifique tipo de piso (cerâmica, porcelanato, vinílico, etc.) e formato estimado
+   - Identifique revestimentos de parede (azulejo, pintura, pastilha, etc.)
+   - Identifique louças e metais (marca se visível, tipo, estado de conservação)
+   - Identifique iluminação (spots, plafons, luminárias)
+   - Identifique esquadrias (portas, janelas, box)
+   - Identifique instalações visíveis (torneiras, registros, ralos, tomadas, interruptores)
+
+4. GERAR ORÇAMENTO DE REFORMA/SUBSTITUIÇÃO organizado por MACROETAPAS:
+   - Demolição e remoção (se necessário)
+   - Revestimentos e pisos
+   - Instalações hidráulicas
+   - Instalações elétricas
+   - Louças e metais
+   - Esquadrias
+   - Pintura
+   - Complementares / limpeza
+
+5. PARA CADA ITEM do orçamento:
+   - Código do item (estruturado por grupo)
+   - Descrição detalhada
+   - Local de aplicação (nome do ambiente)
+   - Fornecedor (se souber; caso contrário "—")
+   - Marca (se souber; caso contrário "—")
+   - Quantidade com perdas incluídas
+   - Unidade
+   - Preço unitário R$
+   - Preço total R$
+   - Código SINAPI (quando aplicável; caso contrário "")
+   - Origem do preço: "SINAPI" ou "Sem correspondência SINAPI — estimativa de mercado"
+   - Taxa de perda aplicada
+
+6. QUANTITATIVO POR CÔMODO:
+   - Agrupar todos os materiais pelo ambiente identificado
+
+7. RESUMO FINAL:
+   - Total materiais, Total mão de obra, Total geral, BDI
+
+8. RECOMENDAÇÕES DE MARCAS:
+   - Sugira 3 marcas brasileiras por custo-benefício
+
+IMPORTANTE: Sempre informe no resumo que as medidas são ESTIMATIVAS baseadas em análise visual e que uma medição in loco é recomendada para precisão.`;
+
+const JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
 {
-  "resumo": "Descrição da planta analisada",
+  "resumo": "Descrição do ambiente/planta analisada",
   "area_total_m2": 0,
-  "escala_detectada": "1:50",
+  "escala_detectada": "estimativa visual" ou "1:50",
   "referencia_sinapi": "SINAPI - UF/Mês/Ano",
   "macro_etapas": [
     {
@@ -120,23 +163,8 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
   ],
   "quantitativo_por_comodo": [
     {
-      "comodo": "Sala",
-      "itens": [
-        {
-          "item": "1.1",
-          "descricao": "Descrição",
-          "local_aplicacao": "Sala",
-          "fornecedor": "—",
-          "marca": "—",
-          "quantidade": 0,
-          "unidade": "m²",
-          "preco_unitario": 0.00,
-          "preco_total": 0.00,
-          "codigo_sinapi": "",
-          "origem_preco": "SINAPI",
-          "perda_aplicada": ""
-        }
-      ],
+      "comodo": "Banheiro",
+      "itens": [...],
       "subtotal": 0.00
     }
   ],
@@ -157,7 +185,6 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
     }
   ]
 }`;
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -167,7 +194,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais } = await req.json();
+    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais, modo_analise } = await req.json();
 
     if (!images || !images.length) {
       return new Response(JSON.stringify({ error: "At least one image is required" }), {
@@ -176,8 +203,13 @@ serve(async (req) => {
       });
     }
 
-    let userPrompt = "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato solicitado.";
-    if (escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
+    const isPhotoMode = modo_analise === "foto_ambiente";
+    const systemPrompt = (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
+
+    let userPrompt = isPhotoMode
+      ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
+      : "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato JSON solicitado.";
+    if (!isPhotoMode && escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
     if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}% (em vez do padrão de 25%).`;
@@ -200,7 +232,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: contentParts },
         ],
       }),
