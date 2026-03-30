@@ -400,9 +400,14 @@ export default function NovaAnalise() {
                 </div>
               )}
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-between">
+                <Button variant="outline" onClick={() => { setStep(0); setFiles([]); setPreviews([]); setDwgFile(null); }}>
+                  <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
+                </Button>
                 <Button onClick={() => setStep(2)} disabled={!files.length}>
                   Próximo <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
                 </Button>
               </div>
             </CardContent>
