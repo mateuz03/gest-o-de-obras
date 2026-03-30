@@ -557,11 +557,12 @@ export default function NovaAnalise() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Modo</span><span className="text-sm font-medium">{mode === "foto_ambiente" ? "📷 Foto do Ambiente" : "📐 Planta Baixa"}</span></div>
+                <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Projeto</span><span className="text-sm font-medium">{formData.nome_projeto || "Sem título"}</span></div>
                 <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Tipo</span><span className="text-sm font-medium">{TIPO_LABELS[formData.tipo_construcao]}</span></div>
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div>
+                {mode !== "foto_ambiente" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div></>)}
                 {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
                 <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">BDI</span><span className="text-sm font-medium">{formData.bdi_percentual || "25"}%</span></div>
