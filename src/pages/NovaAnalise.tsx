@@ -521,14 +521,24 @@ export default function NovaAnalise() {
                       <Lightbulb className="h-4 w-4 text-primary" />
                       <span className="text-xs font-medium text-foreground">Dicas do que escrever</span>
                     </div>
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      <li>• Tipo de material preferido (ex: tijolo baiano, bloco cerâmico)</li>
-                      <li>• Padrão de acabamento (popular, médio, alto)</li>
-                      <li>• Incluir estimativa de mão de obra?</li>
-                      <li>• Marcas que prefere ou quer evitar</li>
-                      <li>• Detalhes específicos dos cômodos (ex: porcelanato na sala)</li>
-                      <li>• Percentual de BDI customizado</li>
-                    </ul>
+                    {mode === "foto_ambiente" ? (
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li>• Informe medidas conhecidas (ex: "a parede tem 2,5m")</li>
+                        <li>• Diga o que deseja reformar (piso, revestimento, louças...)</li>
+                        <li>• Padrão de acabamento desejado (popular, médio, alto)</li>
+                        <li>• Marcas que prefere ou quer evitar</li>
+                        <li>• Se quer manter algo existente (ex: "manter o box")</li>
+                      </ul>
+                    ) : (
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li>• Tipo de material preferido (ex: tijolo baiano, bloco cerâmico)</li>
+                        <li>• Padrão de acabamento (popular, médio, alto)</li>
+                        <li>• Incluir estimativa de mão de obra?</li>
+                        <li>• Marcas que prefere ou quer evitar</li>
+                        <li>• Detalhes específicos dos cômodos (ex: porcelanato na sala)</li>
+                        <li>• Percentual de BDI customizado</li>
+                      </ul>
+                    )}
                   </div>
                 </div>
               </div>
