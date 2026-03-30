@@ -365,9 +365,14 @@ export default function NovaAnalise() {
                   className="relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
                   onClick={() => document.getElementById("file-input")?.click()}
                 >
-                  <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />
-                  <p className="font-medium">Arraste as plantas aqui ou clique para selecionar</p>
-                  <p className="text-sm text-muted-foreground">Até {MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 10MB cada / DWG 50MB)</p>
+                  {mode === "foto_ambiente" ? <Camera className="mb-3 h-12 w-12 text-muted-foreground/50" /> : <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />}
+                  <p className="font-medium">{mode ? MODE_CONFIG[mode].dropText : ""}</p>
+                  <p className="text-sm text-muted-foreground text-center px-4">{mode ? MODE_CONFIG[mode].dropSubtext : ""}</p>
+                  {mode === "foto_ambiente" && (
+                    <div className="mt-4 rounded-lg bg-accent/10 px-4 py-2 text-xs text-accent max-w-sm text-center">
+                      💡 Para medidas mais precisas, coloque uma trena aberta ou folha A4 no chão como referência de escala
+                    </div>
+                  )}
                 </div>
               )}
 
