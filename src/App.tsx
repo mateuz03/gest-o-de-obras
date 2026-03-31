@@ -13,6 +13,7 @@ import AnaliseResultado from "./pages/AnaliseResultado";
 import SinapiUpload from "./pages/SinapiUpload";
 import NotFound from "./pages/NotFound";
 import ShareAnalise from "./pages/ShareAnalise";
+import NotasFiscais from "./pages/NotasFiscais";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
             <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
             <Route path="/sinapi" element={<ProtectedRoute><SinapiUpload /></ProtectedRoute>} />
+            <Route path="/notas-fiscais" element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
