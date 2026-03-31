@@ -13,6 +13,7 @@ import AnaliseResultado from "./pages/AnaliseResultado";
 import SinapiUpload from "./pages/SinapiUpload";
 import NotFound from "./pages/NotFound";
 import ShareAnalise from "./pages/ShareAnalise";
+import NotasFiscais from "./pages/NotasFiscais";
 
 const queryClient = new QueryClient();
 
