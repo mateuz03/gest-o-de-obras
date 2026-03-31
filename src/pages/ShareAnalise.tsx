@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Box, DollarSign, Ruler, Home, HardHat } from "lucide-react";
+import { ClientChatWidget } from "@/components/ClientChatWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisResult, ResumoFinal } from "@/lib/types";
 
@@ -313,6 +314,9 @@ export default function ShareAnalise() {
           <p className="mt-1">Os valores são estimativas e podem variar conforme o mercado local.</p>
         </div>
       </div>
+
+      {/* Client Chat Widget */}
+      {analysisId && <ClientChatWidget analysisId={analysisId} />}
     </div>
   );
 }
