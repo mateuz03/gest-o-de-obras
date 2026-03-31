@@ -314,6 +314,9 @@ export default function ShareAnalise() {
           <p className="mt-1">Os valores são estimativas e podem variar conforme o mercado local.</p>
         </div>
       </div>
+
+      {/* Client Chat Widget */}
+      {analysisId && <ClientChatWidget analysisId={analysisId} />}
     </div>
   );
 }
