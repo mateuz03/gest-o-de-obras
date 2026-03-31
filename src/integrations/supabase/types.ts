@@ -59,6 +59,388 @@ export type Database = {
         }
         Relationships: []
       }
+      compras_cotacao: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          fornecedor_1_nome: string | null
+          fornecedor_1_preco: number | null
+          fornecedor_2_nome: string | null
+          fornecedor_2_preco: number | null
+          fornecedor_3_nome: string | null
+          fornecedor_3_preco: number | null
+          fornecedor_escolhido: string | null
+          id: string
+          item_descricao: string
+          observacoes: string | null
+          prazo_entrega_dias: number | null
+          preco_escolhido: number | null
+          quantidade: number
+          status: string
+          unidade: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          fornecedor_1_nome?: string | null
+          fornecedor_1_preco?: number | null
+          fornecedor_2_nome?: string | null
+          fornecedor_2_preco?: number | null
+          fornecedor_3_nome?: string | null
+          fornecedor_3_preco?: number | null
+          fornecedor_escolhido?: string | null
+          id?: string
+          item_descricao: string
+          observacoes?: string | null
+          prazo_entrega_dias?: number | null
+          preco_escolhido?: number | null
+          quantidade: number
+          status?: string
+          unidade?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          fornecedor_1_nome?: string | null
+          fornecedor_1_preco?: number | null
+          fornecedor_2_nome?: string | null
+          fornecedor_2_preco?: number | null
+          fornecedor_3_nome?: string | null
+          fornecedor_3_preco?: number | null
+          fornecedor_escolhido?: string | null
+          id?: string
+          item_descricao?: string
+          observacoes?: string | null
+          prazo_entrega_dias?: number | null
+          preco_escolhido?: number | null
+          quantidade?: number
+          status?: string
+          unidade?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_cotacao_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contas_a_pagar: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          data_emissao: string | null
+          data_pagamento: string | null
+          data_vencimento: string | null
+          descricao: string | null
+          forma_pagamento: string | null
+          fornecedor_cnpj: string | null
+          fornecedor_nome: string
+          id: string
+          impostos_retidos: number | null
+          nota_fiscal_numero: string | null
+          nota_fiscal_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          valor_total: number
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          data_emissao?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          descricao?: string | null
+          forma_pagamento?: string | null
+          fornecedor_cnpj?: string | null
+          fornecedor_nome: string
+          id?: string
+          impostos_retidos?: number | null
+          nota_fiscal_numero?: string | null
+          nota_fiscal_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor_total: number
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          data_emissao?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          descricao?: string | null
+          forma_pagamento?: string | null
+          fornecedor_cnpj?: string | null
+          fornecedor_nome?: string
+          id?: string
+          impostos_retidos?: number | null
+          nota_fiscal_numero?: string | null
+          nota_fiscal_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_a_pagar_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cronograma_marcos: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          data_prevista: string
+          data_realizada: string | null
+          dependencia_marco_id: string | null
+          descricao: string | null
+          id: string
+          nome_marco: string
+          percentual_concluido: number | null
+          responsavel: string | null
+          sort_order: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          data_prevista: string
+          data_realizada?: string | null
+          dependencia_marco_id?: string | null
+          descricao?: string | null
+          id?: string
+          nome_marco: string
+          percentual_concluido?: number | null
+          responsavel?: string | null
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          data_prevista?: string
+          data_realizada?: string | null
+          dependencia_marco_id?: string | null
+          descricao?: string | null
+          id?: string
+          nome_marco?: string
+          percentual_concluido?: number | null
+          responsavel?: string | null
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cronograma_marcos_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_marcos_dependencia_marco_id_fkey"
+            columns: ["dependencia_marco_id"]
+            isOneToOne: false
+            referencedRelation: "cronograma_marcos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diario_obra: {
+        Row: {
+          analysis_id: string
+          atividades_realizadas: string | null
+          clima: string | null
+          created_at: string
+          data_registro: string
+          equipe_presente: number | null
+          fotos_urls: string[] | null
+          id: string
+          observacoes: string | null
+          problemas_ocorridos: string | null
+          status_geral: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          atividades_realizadas?: string | null
+          clima?: string | null
+          created_at?: string
+          data_registro?: string
+          equipe_presente?: number | null
+          fotos_urls?: string[] | null
+          id?: string
+          observacoes?: string | null
+          problemas_ocorridos?: string | null
+          status_geral?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          atividades_realizadas?: string | null
+          clima?: string | null
+          created_at?: string
+          data_registro?: string
+          equipe_presente?: number | null
+          fotos_urls?: string[] | null
+          id?: string
+          observacoes?: string | null
+          problemas_ocorridos?: string | null
+          status_geral?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diario_obra_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estoque_obra: {
+        Row: {
+          analysis_id: string
+          categoria: string | null
+          created_at: string
+          data_entrada: string | null
+          fornecedor: string | null
+          id: string
+          localizacao_canteiro: string | null
+          nome_produto: string
+          nota_fiscal_ref: string | null
+          quantidade: number
+          unidade: string | null
+          updated_at: string
+          user_id: string
+          valor_total: number | null
+          valor_unitario: number | null
+        }
+        Insert: {
+          analysis_id: string
+          categoria?: string | null
+          created_at?: string
+          data_entrada?: string | null
+          fornecedor?: string | null
+          id?: string
+          localizacao_canteiro?: string | null
+          nome_produto: string
+          nota_fiscal_ref?: string | null
+          quantidade?: number
+          unidade?: string | null
+          updated_at?: string
+          user_id: string
+          valor_total?: number | null
+          valor_unitario?: number | null
+        }
+        Update: {
+          analysis_id?: string
+          categoria?: string | null
+          created_at?: string
+          data_entrada?: string | null
+          fornecedor?: string | null
+          id?: string
+          localizacao_canteiro?: string | null
+          nome_produto?: string
+          nota_fiscal_ref?: string | null
+          quantidade?: number
+          unidade?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_total?: number | null
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_obra_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financeiro_fluxo: {
+        Row: {
+          analysis_id: string
+          categoria: string | null
+          created_at: string
+          data_prevista: string | null
+          data_realizada: string | null
+          descricao: string | null
+          id: string
+          referencia: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          analysis_id: string
+          categoria?: string | null
+          created_at?: string
+          data_prevista?: string | null
+          data_realizada?: string | null
+          descricao?: string | null
+          id?: string
+          referencia?: string | null
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          analysis_id?: string
+          categoria?: string | null
+          created_at?: string
+          data_prevista?: string | null
+          data_realizada?: string | null
+          descricao?: string | null
+          id?: string
+          referencia?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_fluxo_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
