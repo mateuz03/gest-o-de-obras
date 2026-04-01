@@ -20,6 +20,7 @@ interface GanttChartProps {
   analysisId: string;
   macroEtapas: { nome: string }[];
   areaM2: number;
+  onSaved?: () => void;
 }
 
 const COLORS = [
@@ -69,7 +70,7 @@ function generateDefaultTasks(analysisId: string, etapas: { nome: string }[], ar
   return tasks;
 }
 
-export function GanttChart({ analysisId, macroEtapas, areaM2 }: GanttChartProps) {
+export function GanttChart({ analysisId, macroEtapas, areaM2, onSaved }: GanttChartProps) {
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -168,12 +169,13 @@ export function GanttChart({ analysisId, macroEtapas, areaM2 }: GanttChartProps)
       const { error } = await supabase.from("project_schedule" as any).insert(rows);
       if (error) throw error;
       toast.success("Cronograma salvo com sucesso!");
+      onSaved?.();
     } catch (err) {
       console.error(err);
       toast.error("Erro ao salvar cronograma.");
     }
     setSaving(false);
-  }, [tasks, analysisId]);
+  }, [tasks, analysisId, onSaved]);
 
   const resetTasks = useCallback(() => {
     setTasks(generateDefaultTasks(analysisId, macroEtapas, areaM2));
