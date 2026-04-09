@@ -16,6 +16,7 @@ import { GanttChart } from "@/components/GanttChart";
 import { MemorialDescritivo } from "@/components/MemorialDescritivo";
 import { PredictiveDelayAlert } from "@/components/PredictiveDelayAlert";
 import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
+import { AlertHistoryTimeline } from "@/components/AlertHistoryTimeline";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -446,6 +447,7 @@ export default function AnaliseResultado() {
         <ExecutiveDashboard result={result} resumo={computedSummary} />
 
         <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
+        <AlertHistoryTimeline analysisId={id!} refreshKey={diarioRefreshKey} />
 
         <SummaryCard resumo={computedSummary} />
 

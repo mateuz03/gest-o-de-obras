@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { Plus, LogOut, Box, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
+import { DashboardAlertsSummary } from "@/components/DashboardAlertsSummary";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -165,6 +166,8 @@ export default function Dashboard() {
             </Button>
           </div>
         </div>
+
+        <DashboardAlertsSummary />
 
         {/* Filters */}
         {!loading && analyses.length > 0 && (
