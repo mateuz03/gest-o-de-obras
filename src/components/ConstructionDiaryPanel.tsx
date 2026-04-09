@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ClipboardList, Loader2, Save, Users, CloudSun, AlertTriangle } from "lucide-react";
+import { ClipboardList, Loader2, Save, Users, CloudSun, AlertTriangle, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface ConstructionDiaryPanelProps {
@@ -24,6 +24,7 @@ interface DiaryEntry {
   problemas_ocorridos: string | null;
   observacoes: string | null;
   status_geral: string | null;
+  fotos_urls: string[] | null;
   created_at: string;
 }
 
@@ -48,6 +49,9 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [form, setForm] = useState({
     data_registro: new Date().toISOString().split("T")[0],
     clima: "Ensolarado",
@@ -61,16 +65,14 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
   const loadEntries = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-
     const { data, error } = await supabase
       .from("diario_obra")
-      .select("id, data_registro, clima, equipe_presente, atividades_realizadas, problemas_ocorridos, observacoes, status_geral, created_at")
+      .select("id, data_registro, clima, equipe_presente, atividades_realizadas, problemas_ocorridos, observacoes, status_geral, fotos_urls, created_at")
       .eq("analysis_id", analysisId)
       .eq("user_id", user.id)
       .order("data_registro", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(20);
-
     if (error) {
       toast.error("Não foi possível carregar o Diário de Obra.");
     } else {
@@ -79,9 +81,41 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
     setLoading(false);
   }, [analysisId, user]);
 
-  useEffect(() => {
-    loadEntries();
-  }, [loadEntries]);
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+
+  const handlePhotoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (photoFiles.length + files.length > 5) {
+      toast.error("Máximo de 5 fotos por registro.");
+      return;
+    }
+    const newFiles = [...photoFiles, ...files].slice(0, 5);
+    setPhotoFiles(newFiles);
+    setPhotoPreviews(newFiles.map((f) => URL.createObjectURL(f)));
+  }, [photoFiles]);
+
+  const removePhoto = useCallback((index: number) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  }, [photoPreviews]);
+
+  const uploadPhotos = useCallback(async (): Promise<string[]> => {
+    if (!photoFiles.length || !user) return [];
+    setUploading(true);
+    const urls: string[] = [];
+    for (const file of photoFiles) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${analysisId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from("diary-photos").upload(path, file);
+      if (!error) {
+        const { data: urlData } = supabase.storage.from("diary-photos").getPublicUrl(path);
+        urls.push(urlData.publicUrl);
+      }
+    }
+    setUploading(false);
+    return urls;
+  }, [photoFiles, user, analysisId]);
 
   const handleSubmit = useCallback(async () => {
     if (!user) return;
@@ -89,8 +123,10 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
       toast.error("Descreva as atividades realizadas no dia.");
       return;
     }
-
     setSaving(true);
+
+    const fotosUrls = await uploadPhotos();
+
     const { error } = await supabase.from("diario_obra").insert({
       analysis_id: analysisId,
       user_id: user.id,
@@ -101,14 +137,13 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
       problemas_ocorridos: form.problemas_ocorridos.trim() || null,
       observacoes: form.observacoes.trim() || null,
       status_geral: form.status_geral,
+      fotos_urls: fotosUrls.length ? fotosUrls : null,
     });
-
     if (error) {
       toast.error("Erro ao salvar o diário.");
       setSaving(false);
       return;
     }
-
     toast.success("Registro do diário salvo.");
     setForm({
       data_registro: new Date().toISOString().split("T")[0],
@@ -119,10 +154,13 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
       observacoes: "",
       status_geral: "normal",
     });
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setPhotoFiles([]);
+    setPhotoPreviews([]);
     await loadEntries();
     onSaved?.();
     setSaving(false);
-  }, [analysisId, form, loadEntries, onSaved, user]);
+  }, [analysisId, form, loadEntries, onSaved, user, uploadPhotos, photoPreviews]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -156,7 +194,7 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Atividades realizadas</label>
-            <Textarea placeholder="Ex: assentamento de piso no banheiro social, conferência de pontos hidráulicos..." value={form.atividades_realizadas} onChange={(e) => setForm((prev) => ({ ...prev, atividades_realizadas: e.target.value }))} className="min-h-[120px]" />
+            <Textarea placeholder="Ex: assentamento de piso no banheiro social, conferência de pontos hidráulicos..." value={form.atividades_realizadas} onChange={(e) => setForm((prev) => ({ ...prev, atividades_realizadas: e.target.value }))} className="min-h-[100px]" />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -167,6 +205,33 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
             <div className="space-y-2">
               <label className="text-sm font-medium">Observações</label>
               <Textarea placeholder="Ex: cliente aprovou alteração do revestimento da suíte." value={form.observacoes} onChange={(e) => setForm((prev) => ({ ...prev, observacoes: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Photo upload */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-1">
+              <Camera className="h-4 w-4" /> Fotos do canteiro (máx. 5)
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {photoPreviews.map((url, i) => (
+                <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border">
+                  <img src={url} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-0.5 right-0.5 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {photoFiles.length < 5 && (
+                <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
+                  <Camera className="h-6 w-6 text-muted-foreground" />
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+                </label>
+              )}
             </div>
           </div>
 
@@ -183,9 +248,9 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSubmit} disabled={saving} className="sm:min-w-44">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar diário
+            <Button onClick={handleSubmit} disabled={saving || uploading} className="sm:min-w-44">
+              {saving || uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {uploading ? "Enviando fotos..." : "Salvar diário"}
             </Button>
           </div>
         </CardContent>
@@ -228,6 +293,18 @@ export function ConstructionDiaryPanel({ analysisId, onSaved }: ConstructionDiar
                     <div>
                       <p className="mb-1 font-medium">Observações</p>
                       <p className="text-muted-foreground">{entry.observacoes}</p>
+                    </div>
+                  )}
+                  {entry.fotos_urls && entry.fotos_urls.length > 0 && (
+                    <div>
+                      <p className="mb-2 font-medium flex items-center gap-1"><Camera className="h-4 w-4" /> Fotos</p>
+                      <div className="flex flex-wrap gap-2">
+                        {entry.fotos_urls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block h-16 w-16 rounded-lg overflow-hidden border hover:ring-2 hover:ring-primary transition-all">
+                            <img src={url} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
