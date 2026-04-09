@@ -61,10 +61,33 @@ serve(async (req) => {
 
     const schedule = scheduleResult.data || [];
     const diaryEntries = diaryResult.data || [];
-    const fornecedor = supplierResult.data?.find((item) => item.fornecedor_escolhido)?.fornecedor_escolhido || null;
+    const fornecedor = supplierResult.data?.find((item: any) => item.fornecedor_escolhido)?.fornecedor_escolhido || null;
+
+    // Helper to save alert to history
+    async function saveAlertHistory(payload: any) {
+      try {
+        await serviceClient.from("alertas_preditivos").insert({
+          analysis_id: analysisId,
+          user_id: user!.id,
+          probability: payload.probability,
+          severity: payload.severity,
+          summary: payload.summary,
+          reason: payload.reason,
+          suggested_new_date: payload.suggested_new_date,
+          mitigation: payload.mitigation,
+          current_task: payload.current_task,
+          fornecedor: payload.fornecedor,
+          stagnation_days: payload.stagnation_days,
+        });
+      } catch (e) {
+        console.error("Failed to save alert history:", e);
+      }
+    }
 
     if (!schedule.length) {
-      return new Response(JSON.stringify({ shouldAlert: false, probability: 10, severity: "low", summary: "Cronograma ainda não configurado", reason: "Cadastre ou ajuste o cronograma Gantt para liberar a análise preditiva de atraso.", suggested_new_date: null, mitigation: "Defina datas das etapas para ativar o monitoramento automático.", current_task: null, fornecedor, stagnation_days: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const payload = { shouldAlert: false, probability: 10, severity: "low", summary: "Cronograma ainda não configurado", reason: "Cadastre ou ajuste o cronograma Gantt para liberar a análise preditiva de atraso.", suggested_new_date: null, mitigation: "Defina datas das etapas para ativar o monitoramento automático.", current_task: null, fornecedor, stagnation_days: 0 };
+      await saveAlertHistory(payload);
+      return new Response(JSON.stringify(payload), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const today = new Date().toISOString().split("T")[0];
@@ -77,7 +100,9 @@ serve(async (req) => {
     const shouldAlert = stagnationDays >= 3 || sameStatusForThreeDays || !taskMentionedRecently;
 
     if (!shouldAlert) {
-      return new Response(JSON.stringify({ shouldAlert: false, probability: 18, severity: "low", summary: "Cronograma sem sinais críticos no momento", reason: "Os registros recentes mostram andamento contínuo da etapa atual, sem indícios fortes de travamento.", suggested_new_date: currentTask.end_date, mitigation: "Mantenha o diário atualizado diariamente para preservar a precisão da previsão.", current_task: currentTask.task_name, fornecedor, stagnation_days: stagnationDays }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const payload = { shouldAlert: false, probability: 18, severity: "low", summary: "Cronograma sem sinais críticos no momento", reason: "Os registros recentes mostram andamento contínuo da etapa atual, sem indícios fortes de travamento.", suggested_new_date: currentTask.end_date, mitigation: "Mantenha o diário atualizado diariamente para preservar a precisão da previsão.", current_task: currentTask.task_name, fornecedor, stagnation_days: stagnationDays };
+      await saveAlertHistory(payload);
+      return new Response(JSON.stringify(payload), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const historicalText = (historicalResult.data || []).map((entry: any) => `- ${entry.data_registro}: ${entry.status_geral || "normal"}${entry.problemas_ocorridos ? ` | ${entry.problemas_ocorridos}` : ""}`).join("\n") || "Sem histórico relevante de atrasos anteriores.";
@@ -104,6 +129,8 @@ serve(async (req) => {
       fornecedor,
       stagnation_days: stagnationDays,
     };
+
+    await saveAlertHistory(responsePayload);
 
     return new Response(JSON.stringify(responsePayload), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
