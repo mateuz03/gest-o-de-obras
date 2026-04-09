@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      alertas_preditivos: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          current_task: string | null
+          fornecedor: string | null
+          id: string
+          mitigation: string | null
+          probability: number
+          reason: string | null
+          severity: string
+          stagnation_days: number | null
+          suggested_new_date: string | null
+          summary: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          current_task?: string | null
+          fornecedor?: string | null
+          id?: string
+          mitigation?: string | null
+          probability?: number
+          reason?: string | null
+          severity?: string
+          stagnation_days?: number | null
+          suggested_new_date?: string | null
+          summary?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          current_task?: string | null
+          fornecedor?: string | null
+          id?: string
+          mitigation?: string | null
+          probability?: number
+          reason?: string | null
+          severity?: string
+          stagnation_days?: number | null
+          suggested_new_date?: string | null
+          summary?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_preditivos_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analyses: {
         Row: {
           bdi_percentual: number | null
