@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { History, Loader2, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { History, Loader2, TrendingDown, TrendingUp, Minus, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface AlertHistoryTimelineProps {
   analysisId: string;
