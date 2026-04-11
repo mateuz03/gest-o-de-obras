@@ -9,6 +9,7 @@ import autoTable from "jspdf-autotable";
 
 interface AlertHistoryTimelineProps {
   analysisId: string;
+  projectName?: string;
   refreshKey?: number;
 }
 
