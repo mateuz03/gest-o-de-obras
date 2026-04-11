@@ -30,7 +30,7 @@ function severityColor(s: string) {
   return "secondary";
 }
 
-export function AlertHistoryTimeline({ analysisId, refreshKey = 0 }: AlertHistoryTimelineProps) {
+export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refreshKey = 0 }: AlertHistoryTimelineProps) {
   const [records, setRecords] = useState<AlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
