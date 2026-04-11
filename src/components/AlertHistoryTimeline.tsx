@@ -63,12 +63,45 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
 
   if (!records.length) return null;
 
+  function exportAlertsPDF() {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Histórico de Alertas Preditivos`, 14, 18);
+    doc.setFontSize(11);
+    doc.text(projectName, 14, 26);
+    doc.setFontSize(9);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} · ${records.length} registro(s)`, 14, 32);
+
+    autoTable(doc, {
+      startY: 38,
+      head: [["Data/Hora", "Prob.", "Risco", "Resumo", "Etapa", "Estagnação"]],
+      body: records.map((r) => [
+        `${new Date(r.created_at).toLocaleDateString("pt-BR")} ${new Date(r.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+        `${r.probability}%`,
+        r.severity === "high" ? "Alto" : r.severity === "medium" ? "Moderado" : "Baixo",
+        r.summary || "Sem resumo",
+        r.current_task || "—",
+        r.stagnation_days != null ? `${r.stagnation_days} dia(s)` : "—",
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [245, 130, 32] },
+      columnStyles: { 3: { cellWidth: 60 } },
+    });
+
+    doc.save(`alertas_preditivos_${projectName.replace(/\s+/g, "_")}.pdf`);
+  }
+
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <History className="h-5 w-5 text-primary" /> Histórico de Alertas Preditivos
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <History className="h-5 w-5 text-primary" /> Histórico de Alertas Preditivos
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={exportAlertsPDF}>
+            <FileDown className="mr-1 h-4 w-4" /> PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {visible.map((rec, i) => {
