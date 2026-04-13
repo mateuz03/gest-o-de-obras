@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { History, Loader2, TrendingDown, TrendingUp, Minus, FileDown } from "lucide-react";
+import { History, Loader2, TrendingDown, TrendingUp, Minus, FileDown, BarChart3 } from "lucide-react";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ReferenceLine } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -34,6 +36,7 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   const [records, setRecords] = useState<AlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [showChart, setShowChart] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +51,19 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   }, [analysisId]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
+
+  const chartData = useMemo(() => {
+    return [...records].reverse().map((r) => ({
+      date: new Date(r.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      fullDate: new Date(r.created_at).toLocaleDateString("pt-BR"),
+      probability: r.probability,
+      severity: r.severity,
+    }));
+  }, [records]);
+
+  const chartConfig = {
+    probability: { label: "Probabilidade (%)", color: "hsl(var(--primary))" },
+  };
 
   const visible = showAll ? records : records.slice(0, 5);
 
@@ -98,12 +114,35 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
           <CardTitle className="flex items-center gap-2 text-lg">
             <History className="h-5 w-5 text-primary" /> Histórico de Alertas Preditivos
           </CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setShowChart(!showChart)}>
+            <BarChart3 className="mr-1 h-4 w-4" /> {showChart ? "Ocultar" : "Gráfico"}
+          </Button>
           <Button variant="outline" size="sm" onClick={exportAlertsPDF}>
             <FileDown className="mr-1 h-4 w-4" /> PDF
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
+        {showChart && chartData.length >= 2 && (
+          <div className="rounded-lg border p-3">
+            <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
+              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                <ReferenceLine y={70} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: "Alto risco", position: "insideTopRight", fontSize: 10, fill: "hsl(var(--destructive))" }} />
+                <ChartTooltip content={<ChartTooltipContent labelFormatter={(_, p) => p?.[0]?.payload?.fullDate || ""} />} />
+                <Area type="monotone" dataKey="probability" stroke="hsl(var(--primary))" fill="url(#riskGradient)" strokeWidth={2} dot={{ r: 3, fill: "hsl(var(--primary))" }} />
+              </AreaChart>
+            </ChartContainer>
+          </div>
+        )}
         {visible.map((rec, i) => {
           const prev = visible[i + 1];
           const trend = prev ? rec.probability - prev.probability : 0;
