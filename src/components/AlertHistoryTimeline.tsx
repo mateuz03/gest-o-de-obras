@@ -52,6 +52,19 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
+  const chartData = useMemo(() => {
+    return [...records].reverse().map((r) => ({
+      date: new Date(r.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      fullDate: new Date(r.created_at).toLocaleDateString("pt-BR"),
+      probability: r.probability,
+      severity: r.severity,
+    }));
+  }, [records]);
+
+  const chartConfig = {
+    probability: { label: "Probabilidade (%)", color: "hsl(var(--primary))" },
+  };
+
   const visible = showAll ? records : records.slice(0, 5);
 
   if (loading) {
