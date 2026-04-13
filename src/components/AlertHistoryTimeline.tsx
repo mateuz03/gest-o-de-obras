@@ -37,18 +37,28 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [showChart, setShowChart] = useState(true);
+  const [period, setPeriod] = useState<"7" | "30" | "all">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from("alertas_preditivos")
       .select("id, probability, severity, summary, reason, current_task, stagnation_days, created_at")
       .eq("analysis_id", analysisId)
-      .order("created_at", { ascending: false })
-      .limit(30);
+      .order("created_at", { ascending: false });
+
+    if (period !== "all") {
+      const since = new Date();
+      since.setDate(since.getDate() - Number(period));
+      query = query.gte("created_at", since.toISOString());
+    } else {
+      query = query.limit(30);
+    }
+
+    const { data } = await query;
     setRecords((data as AlertRecord[]) || []);
     setLoading(false);
-  }, [analysisId]);
+  }, [analysisId, period]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -110,16 +120,23 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <History className="h-5 w-5 text-primary" /> Histórico de Alertas Preditivos
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setShowChart(!showChart)}>
-            <BarChart3 className="mr-1 h-4 w-4" /> {showChart ? "Ocultar" : "Gráfico"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportAlertsPDF}>
-            <FileDown className="mr-1 h-4 w-4" /> PDF
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {(["7", "30", "all"] as const).map((p) => (
+              <Button key={p} variant={period === p ? "default" : "outline"} size="sm" className="h-7 px-2 text-xs" onClick={() => setPeriod(p)}>
+                {p === "7" ? "7 dias" : p === "30" ? "30 dias" : "Todos"}
+              </Button>
+            ))}
+            <Button variant="outline" size="sm" className="h-7" onClick={() => setShowChart(!showChart)}>
+              <BarChart3 className="mr-1 h-3.5 w-3.5" /> {showChart ? "Ocultar" : "Gráfico"}
+            </Button>
+            <Button variant="outline" size="sm" className="h-7" onClick={exportAlertsPDF}>
+              <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
