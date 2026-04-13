@@ -37,18 +37,28 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [showChart, setShowChart] = useState(true);
+  const [period, setPeriod] = useState<"7" | "30" | "all">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from("alertas_preditivos")
       .select("id, probability, severity, summary, reason, current_task, stagnation_days, created_at")
       .eq("analysis_id", analysisId)
-      .order("created_at", { ascending: false })
-      .limit(30);
+      .order("created_at", { ascending: false });
+
+    if (period !== "all") {
+      const since = new Date();
+      since.setDate(since.getDate() - Number(period));
+      query = query.gte("created_at", since.toISOString());
+    } else {
+      query = query.limit(30);
+    }
+
+    const { data } = await query;
     setRecords((data as AlertRecord[]) || []);
     setLoading(false);
-  }, [analysisId]);
+  }, [analysisId, period]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
