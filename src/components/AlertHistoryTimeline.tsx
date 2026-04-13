@@ -120,17 +120,23 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <History className="h-5 w-5 text-primary" /> Histórico de Alertas Preditivos
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setShowChart(!showChart)}>
-            <BarChart3 className="mr-1 h-4 w-4" /> {showChart ? "Ocultar" : "Gráfico"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportAlertsPDF}>
-            <FileDown className="mr-1 h-4 w-4" /> PDF
-          </Button>
-        </div>
+          <div className="flex items-center gap-1.5">
+            {(["7", "30", "all"] as const).map((p) => (
+              <Button key={p} variant={period === p ? "default" : "outline"} size="sm" className="h-7 px-2 text-xs" onClick={() => setPeriod(p)}>
+                {p === "7" ? "7 dias" : p === "30" ? "30 dias" : "Todos"}
+              </Button>
+            ))}
+            <Button variant="outline" size="sm" className="h-7" onClick={() => setShowChart(!showChart)}>
+              <BarChart3 className="mr-1 h-3.5 w-3.5" /> {showChart ? "Ocultar" : "Gráfico"}
+            </Button>
+            <Button variant="outline" size="sm" className="h-7" onClick={exportAlertsPDF}>
+              <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {showChart && chartData.length >= 2 && (
