@@ -36,6 +36,7 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
   const [records, setRecords] = useState<AlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [showChart, setShowChart] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
