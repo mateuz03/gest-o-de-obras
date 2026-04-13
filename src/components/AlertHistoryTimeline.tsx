@@ -137,6 +137,7 @@ export function AlertHistoryTimeline({ analysisId, projectName = "Projeto", refr
               <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
             </Button>
           </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {showChart && chartData.length >= 2 && (
