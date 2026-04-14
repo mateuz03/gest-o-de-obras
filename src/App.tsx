@@ -14,6 +14,8 @@ import SinapiUpload from "./pages/SinapiUpload";
 import NotFound from "./pages/NotFound";
 import ShareAnalise from "./pages/ShareAnalise";
 import NotasFiscais from "./pages/NotasFiscais";
+import Perfil from "./pages/Perfil";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
