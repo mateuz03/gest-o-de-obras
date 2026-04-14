@@ -2,11 +2,26 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ProfileExtra {
+  data_nascimento?: string | null;
+  celular_whatsapp?: string | null;
+  tipo_empresa?: string | null;
+  nome_empresa?: string | null;
+  qtd_funcionarios?: string | null;
+  qtd_obras_atual?: number | null;
+  ano_criacao_negocio?: number | null;
+  cidade?: string | null;
+  estado?: string | null;
+  area_atuacao?: string | null;
+  motivo_uso?: string | null;
+  como_conheceu?: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, nome: string) => Promise<void>;
+  signUp: (email: string, password: string, nome: string, extra?: ProfileExtra) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -34,13 +49,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, nome: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, nome: string, extra?: ProfileExtra) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { nome } },
     });
     if (error) throw error;
+
+    // Update the profile with extra fields if provided
+    if (extra && data.user) {
+      await supabase
+        .from("profiles")
+        .update({
+          nome_completo: nome,
+          ...extra,
+        } as any)
+        .eq("user_id", data.user.id);
+    }
   };
 
   const signIn = async (email: string, password: string) => {
