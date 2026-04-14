@@ -499,24 +499,63 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ano_criacao_negocio: number | null
+          area_atuacao: string | null
+          celular_whatsapp: string | null
+          cidade: string | null
+          como_conheceu: string | null
           created_at: string
+          data_nascimento: string | null
           empresa: string | null
+          estado: string | null
           id: string
+          motivo_uso: string | null
           nome: string | null
+          nome_completo: string | null
+          nome_empresa: string | null
+          qtd_funcionarios: string | null
+          qtd_obras_atual: number | null
+          tipo_empresa: string | null
           user_id: string
         }
         Insert: {
+          ano_criacao_negocio?: number | null
+          area_atuacao?: string | null
+          celular_whatsapp?: string | null
+          cidade?: string | null
+          como_conheceu?: string | null
           created_at?: string
+          data_nascimento?: string | null
           empresa?: string | null
+          estado?: string | null
           id?: string
+          motivo_uso?: string | null
           nome?: string | null
+          nome_completo?: string | null
+          nome_empresa?: string | null
+          qtd_funcionarios?: string | null
+          qtd_obras_atual?: number | null
+          tipo_empresa?: string | null
           user_id: string
         }
         Update: {
+          ano_criacao_negocio?: number | null
+          area_atuacao?: string | null
+          celular_whatsapp?: string | null
+          cidade?: string | null
+          como_conheceu?: string | null
           created_at?: string
+          data_nascimento?: string | null
           empresa?: string | null
+          estado?: string | null
           id?: string
+          motivo_uso?: string | null
           nome?: string | null
+          nome_completo?: string | null
+          nome_empresa?: string | null
+          qtd_funcionarios?: string | null
+          qtd_obras_atual?: number | null
+          tipo_empresa?: string | null
           user_id?: string
         }
         Relationships: []
