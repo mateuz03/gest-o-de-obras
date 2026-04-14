@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import { exportToPDF, exportToExcel } from "@/lib/export";
-import { Plus, LogOut, Box, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2 } from "lucide-react";
+import { Plus, LogOut, Box, FileText, Clock, Search, MoreVertical, Download, FileSpreadsheet, Copy, Trash2, Pencil, AlertCircle, RefreshCw, Database, Share2, User, ShieldCheck } from "lucide-react";
 import { DashboardAlertsSummary } from "@/components/DashboardAlertsSummary";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -140,8 +140,14 @@ export default function Dashboard() {
             <Box className="h-6 w-6" />
             AI Construct
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/perfil"><User className="h-4 w-4" /></Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/admin"><ShieldCheck className="h-4 w-4" /></Link>
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>
