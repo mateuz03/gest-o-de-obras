@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText } from "lucide-react";
+import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText, Home, Layers } from "lucide-react";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -68,6 +68,15 @@ export default function NovaAnalise() {
     regiao: "",
     bdi_percentual: "25",
     instrucoes_adicionais: "",
+    area_m2: "",
+    pe_direito: "2.80",
+    num_pavimentos: "1",
+    padrao_acabamento: "medio",
+    tipo_fundacao: "",
+    tipo_cobertura: "",
+    num_quartos: "",
+    num_banheiros: "",
+    num_vagas: "",
   });
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
