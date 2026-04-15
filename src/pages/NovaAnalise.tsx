@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText } from "lucide-react";
+import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText, Home, Layers } from "lucide-react";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -68,6 +68,15 @@ export default function NovaAnalise() {
     regiao: "",
     bdi_percentual: "25",
     instrucoes_adicionais: "",
+    area_m2: "",
+    pe_direito: "2.80",
+    num_pavimentos: "1",
+    padrao_acabamento: "medio",
+    tipo_fundacao: "",
+    tipo_cobertura: "",
+    num_quartos: "",
+    num_banheiros: "",
+    num_vagas: "",
   });
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
@@ -225,6 +234,15 @@ export default function NovaAnalise() {
           bdi_percentual: bdiValue,
           instrucoes_adicionais: formData.instrucoes_adicionais,
           modo_analise: mode,
+          area_m2: formData.area_m2 ? parseFloat(formData.area_m2) : null,
+          pe_direito: formData.pe_direito ? parseFloat(formData.pe_direito) : 2.80,
+          num_pavimentos: formData.num_pavimentos || "1",
+          padrao_acabamento: formData.padrao_acabamento || "medio",
+          tipo_fundacao: formData.tipo_fundacao || null,
+          tipo_cobertura: formData.tipo_cobertura || null,
+          num_quartos: formData.num_quartos ? parseInt(formData.num_quartos) : null,
+          num_banheiros: formData.num_banheiros ? parseInt(formData.num_banheiros) : null,
+          num_vagas: formData.num_vagas ? parseInt(formData.num_vagas) : null,
         },
       });
 
@@ -479,6 +497,104 @@ export default function NovaAnalise() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Área Total Construída (m²)</Label>
+                    <Input type="number" min="1" max="100000" step="0.01" placeholder="Ex: 120.50" value={formData.area_m2} onChange={(e) => updateField("area_m2", e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Informar a metragem evita que a IA precise estimar — o orçamento fica mais preciso</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Pé-Direito (m)</Label>
+                      <Select value={formData.pe_direito} onValueChange={(v) => updateField("pe_direito", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2.60">2,60m</SelectItem>
+                          <SelectItem value="2.80">2,80m (padrão)</SelectItem>
+                          <SelectItem value="3.00">3,00m</SelectItem>
+                          <SelectItem value="3.50">3,50m</SelectItem>
+                          <SelectItem value="4.00">4,00m ou mais</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nº de Pavimentos</Label>
+                      <Select value={formData.num_pavimentos} onValueChange={(v) => updateField("num_pavimentos", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 (Térreo)</SelectItem>
+                          <SelectItem value="2">2 (Sobrado)</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4+">4 ou mais</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Section: Características do Projeto */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Home className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Características do Projeto</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Padrão de Acabamento</Label>
+                    <Select value={formData.padrao_acabamento} onValueChange={(v) => updateField("padrao_acabamento", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="popular">Popular — materiais econômicos</SelectItem>
+                        <SelectItem value="medio">Médio — custo-benefício</SelectItem>
+                        <SelectItem value="alto">Alto — marcas premium</SelectItem>
+                        <SelectItem value="luxo">Luxo — materiais importados / top de linha</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>Quartos</Label>
+                      <Input type="number" min="0" max="20" placeholder="Ex: 3" value={formData.num_quartos} onChange={(e) => updateField("num_quartos", e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Banheiros</Label>
+                      <Input type="number" min="0" max="20" placeholder="Ex: 2" value={formData.num_banheiros} onChange={(e) => updateField("num_banheiros", e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Vagas</Label>
+                      <Input type="number" min="0" max="10" placeholder="Ex: 1" value={formData.num_vagas} onChange={(e) => updateField("num_vagas", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Fundação</Label>
+                    <Select value={formData.tipo_fundacao} onValueChange={(v) => updateField("tipo_fundacao", v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sapata">Sapata</SelectItem>
+                        <SelectItem value="radier">Radier</SelectItem>
+                        <SelectItem value="estaca">Estaca</SelectItem>
+                        <SelectItem value="baldrame">Baldrame</SelectItem>
+                        <SelectItem value="nao_sei">Não sei / A definir</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Cobertura / Telhado</Label>
+                    <Select value={formData.tipo_cobertura} onValueChange={(v) => updateField("tipo_cobertura", v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ceramica">Telha Cerâmica</SelectItem>
+                        <SelectItem value="fibrocimento">Fibrocimento</SelectItem>
+                        <SelectItem value="metalica">Telha Metálica / Galvanizada</SelectItem>
+                        <SelectItem value="concreto">Laje de Concreto</SelectItem>
+                        <SelectItem value="colonial">Telha Colonial</SelectItem>
+                        <SelectItem value="shingle">Shingle</SelectItem>
+                        <SelectItem value="nao_sei">Não sei / A definir</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
@@ -574,6 +690,16 @@ export default function NovaAnalise() {
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Projeto</span><span className="text-sm font-medium">{formData.nome_projeto || "Sem título"}</span></div>
                 <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Tipo</span><span className="text-sm font-medium">{TIPO_LABELS[formData.tipo_construcao]}</span></div>
+                {formData.area_m2 && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Área Total</span><span className="text-sm font-medium">{formData.area_m2} m²</span></div></>)}
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Pé-Direito</span><span className="text-sm font-medium">{formData.pe_direito}m</span></div>
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Pavimentos</span><span className="text-sm font-medium">{formData.num_pavimentos}</span></div>
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Acabamento</span><span className="text-sm font-medium">{{ popular: "Popular", medio: "Médio", alto: "Alto", luxo: "Luxo" }[formData.padrao_acabamento] || formData.padrao_acabamento}</span></div>
+                {(formData.num_quartos || formData.num_banheiros || formData.num_vagas) && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Cômodos</span><span className="text-sm font-medium">{[formData.num_quartos && `${formData.num_quartos} quarto(s)`, formData.num_banheiros && `${formData.num_banheiros} banheiro(s)`, formData.num_vagas && `${formData.num_vagas} vaga(s)`].filter(Boolean).join(", ")}</span></div></>)}
+                {formData.tipo_fundacao && formData.tipo_fundacao !== "nao_sei" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Fundação</span><span className="text-sm font-medium capitalize">{formData.tipo_fundacao}</span></div></>)}
+                {formData.tipo_cobertura && formData.tipo_cobertura !== "nao_sei" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Cobertura</span><span className="text-sm font-medium capitalize">{formData.tipo_cobertura}</span></div></>)}
                 {mode !== "foto_ambiente" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div></>)}
                 {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
                 <Separator />
