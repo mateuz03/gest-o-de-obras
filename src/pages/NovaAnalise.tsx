@@ -488,6 +488,104 @@ export default function NovaAnalise() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Área Total Construída (m²)</Label>
+                    <Input type="number" min="1" max="100000" step="0.01" placeholder="Ex: 120.50" value={formData.area_m2} onChange={(e) => updateField("area_m2", e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Informar a metragem evita que a IA precise estimar — o orçamento fica mais preciso</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Pé-Direito (m)</Label>
+                      <Select value={formData.pe_direito} onValueChange={(v) => updateField("pe_direito", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2.60">2,60m</SelectItem>
+                          <SelectItem value="2.80">2,80m (padrão)</SelectItem>
+                          <SelectItem value="3.00">3,00m</SelectItem>
+                          <SelectItem value="3.50">3,50m</SelectItem>
+                          <SelectItem value="4.00">4,00m ou mais</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nº de Pavimentos</Label>
+                      <Select value={formData.num_pavimentos} onValueChange={(v) => updateField("num_pavimentos", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 (Térreo)</SelectItem>
+                          <SelectItem value="2">2 (Sobrado)</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4+">4 ou mais</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Section: Características do Projeto */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Home className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Características do Projeto</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Padrão de Acabamento</Label>
+                    <Select value={formData.padrao_acabamento} onValueChange={(v) => updateField("padrao_acabamento", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="popular">Popular — materiais econômicos</SelectItem>
+                        <SelectItem value="medio">Médio — custo-benefício</SelectItem>
+                        <SelectItem value="alto">Alto — marcas premium</SelectItem>
+                        <SelectItem value="luxo">Luxo — materiais importados / top de linha</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>Quartos</Label>
+                      <Input type="number" min="0" max="20" placeholder="Ex: 3" value={formData.num_quartos} onChange={(e) => updateField("num_quartos", e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Banheiros</Label>
+                      <Input type="number" min="0" max="20" placeholder="Ex: 2" value={formData.num_banheiros} onChange={(e) => updateField("num_banheiros", e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Vagas</Label>
+                      <Input type="number" min="0" max="10" placeholder="Ex: 1" value={formData.num_vagas} onChange={(e) => updateField("num_vagas", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Fundação</Label>
+                    <Select value={formData.tipo_fundacao} onValueChange={(v) => updateField("tipo_fundacao", v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sapata">Sapata</SelectItem>
+                        <SelectItem value="radier">Radier</SelectItem>
+                        <SelectItem value="estaca">Estaca</SelectItem>
+                        <SelectItem value="baldrame">Baldrame</SelectItem>
+                        <SelectItem value="nao_sei">Não sei / A definir</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Cobertura / Telhado</Label>
+                    <Select value={formData.tipo_cobertura} onValueChange={(v) => updateField("tipo_cobertura", v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ceramica">Telha Cerâmica</SelectItem>
+                        <SelectItem value="fibrocimento">Fibrocimento</SelectItem>
+                        <SelectItem value="metalica">Telha Metálica / Galvanizada</SelectItem>
+                        <SelectItem value="concreto">Laje de Concreto</SelectItem>
+                        <SelectItem value="colonial">Telha Colonial</SelectItem>
+                        <SelectItem value="shingle">Shingle</SelectItem>
+                        <SelectItem value="nao_sei">Não sei / A definir</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
