@@ -194,7 +194,9 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais, modo_analise } = await req.json();
+    const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais, modo_analise,
+      area_m2, pe_direito, num_pavimentos, padrao_acabamento, tipo_fundacao, tipo_cobertura,
+      num_quartos, num_banheiros, num_vagas } = await req.json();
 
     if (!images || !images.length) {
       return new Response(JSON.stringify({ error: "At least one image is required" }), {
@@ -213,6 +215,21 @@ serve(async (req) => {
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
     if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}% (em vez do padrão de 25%).`;
+
+    // New detailed parameters
+    if (area_m2) userPrompt += ` IMPORTANTE: A área total construída é ${area_m2} m². Use este valor como referência principal — NÃO tente estimar a metragem pela planta.`;
+    if (pe_direito) userPrompt += ` Pé-direito: ${pe_direito}m.`;
+    if (num_pavimentos) userPrompt += ` Número de pavimentos: ${num_pavimentos}.`;
+    if (padrao_acabamento) {
+      const padraoMap: Record<string, string> = { popular: "Popular (materiais econômicos)", medio: "Médio (custo-benefício)", alto: "Alto (marcas premium)", luxo: "Luxo (materiais importados/top de linha)" };
+      userPrompt += ` Padrão de acabamento: ${padraoMap[padrao_acabamento] || padrao_acabamento}. Ajuste os preços e marcas de acordo com este padrão.`;
+    }
+    if (num_quartos) userPrompt += ` Quartos: ${num_quartos}.`;
+    if (num_banheiros) userPrompt += ` Banheiros: ${num_banheiros}.`;
+    if (num_vagas) userPrompt += ` Vagas de garagem: ${num_vagas}.`;
+    if (tipo_fundacao && tipo_fundacao !== "nao_sei") userPrompt += ` Tipo de fundação definida: ${tipo_fundacao}.`;
+    if (tipo_cobertura && tipo_cobertura !== "nao_sei") userPrompt += ` Tipo de cobertura/telhado: ${tipo_cobertura}.`;
+
     if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais: ${instrucoes_adicionais}`;
 
     const contentParts: any[] = [{ type: "text", text: userPrompt }];
