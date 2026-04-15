@@ -234,6 +234,15 @@ export default function NovaAnalise() {
           bdi_percentual: bdiValue,
           instrucoes_adicionais: formData.instrucoes_adicionais,
           modo_analise: mode,
+          area_m2: formData.area_m2 ? parseFloat(formData.area_m2) : null,
+          pe_direito: formData.pe_direito ? parseFloat(formData.pe_direito) : 2.80,
+          num_pavimentos: formData.num_pavimentos || "1",
+          padrao_acabamento: formData.padrao_acabamento || "medio",
+          tipo_fundacao: formData.tipo_fundacao || null,
+          tipo_cobertura: formData.tipo_cobertura || null,
+          num_quartos: formData.num_quartos ? parseInt(formData.num_quartos) : null,
+          num_banheiros: formData.num_banheiros ? parseInt(formData.num_banheiros) : null,
+          num_vagas: formData.num_vagas ? parseInt(formData.num_vagas) : null,
         },
       });
 
