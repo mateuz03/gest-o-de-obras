@@ -36,14 +36,14 @@ const MODE_CONFIG = {
     title: "Upload da Planta Baixa",
     description: `Envie até ${MAX_FILES} arquivos (JPG, PNG, PDF) ou DWG para uma análise mais completa`,
     dropText: "Arraste as plantas aqui ou clique para selecionar",
-    dropSubtext: `Até ${MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 10MB cada / DWG 50MB)`,
+    dropSubtext: `Até ${MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 20MB cada / DWG até 50MB)`,
     loadingText: "A IA está analisando suas plantas, identificando dimensões e calculando o orçamento completo com referência SINAPI.",
   },
   foto_ambiente: {
     title: "Fotos do Ambiente",
     description: `Envie até ${MAX_FILES} fotos reais do ambiente para análise de materiais e medidas`,
     dropText: "Arraste as fotos do ambiente aqui ou clique para selecionar",
-    dropSubtext: `Até ${MAX_FILES} fotos — JPG, PNG (máx. 10MB cada). Dica: inclua uma trena ou objeto de referência na foto.`,
+    dropSubtext: `Até ${MAX_FILES} fotos — JPG, PNG (máx. 20MB cada). Dica: inclua uma trena ou objeto de referência na foto.`,
     loadingText: "A IA está analisando as fotos do ambiente, identificando materiais, estimando dimensões e calculando o orçamento.",
   },
 };
@@ -85,7 +85,7 @@ export default function NovaAnalise() {
     } else {
       if (!f.type.startsWith("image/") && f.type !== "application/pdf") { toast.error("Envie imagens (JPG, PNG), PDF ou DWG"); return; }
     }
-    if (f.size > 10 * 1024 * 1024) { toast.error("Cada arquivo pode ter no máximo 10MB"); return; }
+    if (f.size > 20 * 1024 * 1024) { toast.error("Cada arquivo pode ter no máximo 20MB"); return; }
 
     setFiles(prev => {
       if (prev.length >= MAX_FILES) { toast.error(`Máximo de ${MAX_FILES} arquivos`); return prev; }
