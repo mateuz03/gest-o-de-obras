@@ -690,6 +690,16 @@ export default function NovaAnalise() {
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Projeto</span><span className="text-sm font-medium">{formData.nome_projeto || "Sem título"}</span></div>
                 <Separator />
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Tipo</span><span className="text-sm font-medium">{TIPO_LABELS[formData.tipo_construcao]}</span></div>
+                {formData.area_m2 && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Área Total</span><span className="text-sm font-medium">{formData.area_m2} m²</span></div></>)}
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Pé-Direito</span><span className="text-sm font-medium">{formData.pe_direito}m</span></div>
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Pavimentos</span><span className="text-sm font-medium">{formData.num_pavimentos}</span></div>
+                <Separator />
+                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Acabamento</span><span className="text-sm font-medium">{{ popular: "Popular", medio: "Médio", alto: "Alto", luxo: "Luxo" }[formData.padrao_acabamento] || formData.padrao_acabamento}</span></div>
+                {(formData.num_quartos || formData.num_banheiros || formData.num_vagas) && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Cômodos</span><span className="text-sm font-medium">{[formData.num_quartos && `${formData.num_quartos} quarto(s)`, formData.num_banheiros && `${formData.num_banheiros} banheiro(s)`, formData.num_vagas && `${formData.num_vagas} vaga(s)`].filter(Boolean).join(", ")}</span></div></>)}
+                {formData.tipo_fundacao && formData.tipo_fundacao !== "nao_sei" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Fundação</span><span className="text-sm font-medium capitalize">{formData.tipo_fundacao}</span></div></>)}
+                {formData.tipo_cobertura && formData.tipo_cobertura !== "nao_sei" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Cobertura</span><span className="text-sm font-medium capitalize">{formData.tipo_cobertura}</span></div></>)}
                 {mode !== "foto_ambiente" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div></>)}
                 {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
                 <Separator />
