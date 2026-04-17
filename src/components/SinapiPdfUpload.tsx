@@ -1,0 +1,224 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { FileText, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+
+interface Props {
+  onImported: () => void;
+}
+
+interface ParsedItem {
+  codigo: string;
+  descricao: string;
+  unidade: string;
+  preco_material: number | null;
+  preco_mao_de_obra: number | null;
+}
+
+const MAX_PDF_MB = 50;
+
+export function SinapiPdfUpload({ onImported }: Props) {
+  const [file, setFile] = useState<File | null>(null);
+  const [tipo, setTipo] = useState<"insumo" | "composicao">("insumo");
+  const [regiao, setRegiao] = useState("");
+  const [mesAno, setMesAno] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [items, setItems] = useState<ParsedItem[]>([]);
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ success: number; errors: number } | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > MAX_PDF_MB * 1024 * 1024) {
+      toast.error(`PDF excede ${MAX_PDF_MB}MB`);
+      return;
+    }
+    setFile(f);
+    setItems([]);
+    setResult(null);
+    setPageCount(null);
+  };
+
+  async function handleParse() {
+    if (!file) return;
+    if (!tipo) return toast.error("Selecione o tipo do documento");
+    setParsing(true);
+    setProgress(15);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("tipo", tipo);
+
+    try {
+      // simulate progress while waiting
+      const tick = setInterval(() => setProgress((p) => Math.min(p + 5, 90)), 1500);
+      const { data, error } = await supabase.functions.invoke("parse-sinapi-pdf", { body: fd });
+      clearInterval(tick);
+      setProgress(100);
+      if (error) throw error;
+      const parsed = (data?.items || []) as ParsedItem[];
+      setItems(parsed);
+      setPageCount(data?.paginas || null);
+      if (!parsed.length) toast.warning("Nenhum item válido foi extraído. Verifique se é um PDF SINAPI oficial.");
+      else toast.success(`${parsed.length} itens extraídos de ${data?.paginas} páginas`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Falha ao processar PDF: " + (err.message || "tente novamente"));
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  async function handleImport() {
+    if (!items.length || !file) return;
+    setImporting(true);
+    let success = 0;
+    let errors = 0;
+    const batchSize = 100;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const { error } = await supabase.from("referencia_sinapi" as any).upsert(
+        batch.map((r) => ({
+          codigo: r.codigo,
+          descricao: r.descricao,
+          unidade: r.unidade,
+          preco_material: r.preco_material,
+          preco_mao_de_obra: r.preco_mao_de_obra,
+          regiao: regiao || null,
+          mes_ano: mesAno || null,
+          tipo,
+          fonte_arquivo: file.name,
+        })),
+        { onConflict: "codigo" }
+      );
+      if (error) {
+        errors += batch.length;
+        console.error(error);
+      } else {
+        success += batch.length;
+      }
+    }
+
+    // log upload history
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("sinapi_uploads" as any).insert({
+        user_id: user.id,
+        nome_arquivo: file.name,
+        tipo,
+        regiao: regiao || null,
+        mes_ano: mesAno || null,
+        qtd_itens: success,
+        qtd_paginas: pageCount,
+        status: errors === 0 ? "concluido" : "parcial",
+      });
+    }
+
+    setResult({ success, errors });
+    setImporting(false);
+    if (errors === 0) toast.success(`${success} itens importados`);
+    else toast.warning(`${success} importados, ${errors} com erro`);
+    onImported();
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          Importar PDF SINAPI
+        </CardTitle>
+        <CardDescription>
+          Envie o PDF oficial do SINAPI (até {MAX_PDF_MB}MB). A IA analisa página a página, extraindo códigos, descrições, unidades e preços.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label>Tipo do documento *</Label>
+            <Select value={tipo} onValueChange={(v: any) => setTipo(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="insumo">Insumos</SelectItem>
+                <SelectItem value="composicao">Composições</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Estado / Região</Label>
+            <Input placeholder="SP, RJ, MG..." value={regiao} onChange={(e) => setRegiao(e.target.value.toUpperCase())} maxLength={4} />
+          </div>
+          <div className="space-y-2">
+            <Label>Mês/Ano referência</Label>
+            <Input placeholder="10/2025" value={mesAno} onChange={(e) => setMesAno(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Arquivo PDF</Label>
+          <Input type="file" accept=".pdf,application/pdf" onChange={handleFileChange} disabled={parsing || importing} />
+        </div>
+
+        {file && !items.length && (
+          <Button onClick={handleParse} disabled={parsing} className="w-full md:w-auto">
+            {parsing ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analisando PDF (pode levar alguns minutos)...</>
+            ) : (
+              <><FileText className="mr-2 h-4 w-4" /> Analisar PDF com IA</>
+            )}
+          </Button>
+        )}
+
+        {parsing && <Progress value={progress} className="h-2" />}
+
+        {items.length > 0 && !result && (
+          <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <span className="font-medium">{items.length} itens prontos para importar</span>
+                {pageCount && <Badge variant="outline" className="text-xs">{pageCount} págs</Badge>}
+                <Badge variant="secondary" className="text-xs capitalize">{tipo}</Badge>
+              </div>
+              <Button onClick={handleImport} disabled={importing} className="bg-emerald-600 hover:bg-emerald-700">
+                {importing ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
+                ) : (
+                  <><Upload className="mr-2 h-4 w-4" /> Importar para a base</>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pré-visualização dos 3 primeiros: {items.slice(0, 3).map((i) => i.codigo).join(", ")}...
+            </p>
+          </div>
+        )}
+
+        {result && (
+          <div className="rounded-lg border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              {result.errors === 0 ? (
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              )}
+              <span className="font-medium">Importação finalizada</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {result.success} itens importados{result.errors > 0 && `, ${result.errors} com erro`}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
