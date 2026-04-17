@@ -59,6 +59,10 @@ export function SinapiPdfUpload({ onImported }: Props) {
 
   function pollJob(jobId: string) {
     if (pollRef.current) window.clearInterval(pollRef.current);
+    let resuming = false;
+    let lastProcessed = -1;
+    let stuckTicks = 0;
+
     pollRef.current = window.setInterval(async () => {
       const { data, error } = await supabase
         .from("sinapi_parse_jobs" as any)
@@ -74,6 +78,7 @@ export function SinapiPdfUpload({ onImported }: Props) {
       } else {
         setStatusMsg("Extraindo texto do PDF...");
       }
+
       if (job.status === "completed") {
         if (pollRef.current) window.clearInterval(pollRef.current);
         const parsed = (job.items || []) as ParsedItem[];
@@ -82,10 +87,42 @@ export function SinapiPdfUpload({ onImported }: Props) {
         setParsing(false);
         if (!parsed.length) toast.warning("Nenhum item válido foi extraído.");
         else toast.success(`${parsed.length} itens extraídos de ${job.total_pages} páginas`);
-      } else if (job.status === "failed") {
+        return;
+      }
+
+      if (job.status === "failed") {
         if (pollRef.current) window.clearInterval(pollRef.current);
         setParsing(false);
         toast.error("Falha ao processar PDF: " + (job.error_message || "tente novamente"));
+        return;
+      }
+
+      // Detecta job pausado (lote concluído, falta resumir) ou travado.
+      if (job.processed_chunks === lastProcessed) {
+        stuckTicks++;
+      } else {
+        stuckTicks = 0;
+        lastProcessed = job.processed_chunks;
+      }
+
+      const shouldResume =
+        !resuming &&
+        (job.status === "paused" || (job.status === "processing" && stuckTicks >= 8));
+
+      if (shouldResume) {
+        resuming = true;
+        setStatusMsg("Retomando processamento...");
+        try {
+          await supabase.functions.invoke("parse-sinapi-pdf", {
+            body: { resume_job_id: jobId },
+          });
+        } catch (err) {
+          console.error("Resume falhou:", err);
+        } finally {
+          stuckTicks = 0;
+          // pequena espera antes de liberar próximo resume
+          setTimeout(() => { resuming = false; }, 5000);
+        }
       }
     }, 2500);
   }
