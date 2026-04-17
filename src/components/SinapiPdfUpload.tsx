@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,10 +31,16 @@ export function SinapiPdfUpload({ onImported }: Props) {
   const [mesAno, setMesAno] = useState("");
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [statusMsg, setStatusMsg] = useState<string>("");
   const [items, setItems] = useState<ParsedItem[]>([]);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ success: number; errors: number } | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -47,33 +53,63 @@ export function SinapiPdfUpload({ onImported }: Props) {
     setItems([]);
     setResult(null);
     setPageCount(null);
+    setProgress(0);
+    setStatusMsg("");
   };
+
+  function pollJob(jobId: string) {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    pollRef.current = window.setInterval(async () => {
+      const { data, error } = await supabase
+        .from("sinapi_parse_jobs" as any)
+        .select("status, progress, total_pages, total_chunks, processed_chunks, items, error_message")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (error) return;
+      if (!data) return;
+      const job: any = data;
+      setProgress(job.progress || 0);
+      if (job.total_chunks) {
+        setStatusMsg(`Analisando chunk ${job.processed_chunks}/${job.total_chunks} (${job.total_pages} páginas)`);
+      } else {
+        setStatusMsg("Extraindo texto do PDF...");
+      }
+      if (job.status === "completed") {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+        const parsed = (job.items || []) as ParsedItem[];
+        setItems(parsed);
+        setPageCount(job.total_pages || null);
+        setParsing(false);
+        if (!parsed.length) toast.warning("Nenhum item válido foi extraído.");
+        else toast.success(`${parsed.length} itens extraídos de ${job.total_pages} páginas`);
+      } else if (job.status === "failed") {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+        setParsing(false);
+        toast.error("Falha ao processar PDF: " + (job.error_message || "tente novamente"));
+      }
+    }, 2500);
+  }
 
   async function handleParse() {
     if (!file) return;
     if (!tipo) return toast.error("Selecione o tipo do documento");
     setParsing(true);
-    setProgress(15);
+    setProgress(2);
+    setStatusMsg("Enviando arquivo...");
     const fd = new FormData();
     fd.append("file", file);
     fd.append("tipo", tipo);
 
     try {
-      // simulate progress while waiting
-      const tick = setInterval(() => setProgress((p) => Math.min(p + 5, 90)), 1500);
       const { data, error } = await supabase.functions.invoke("parse-sinapi-pdf", { body: fd });
-      clearInterval(tick);
-      setProgress(100);
       if (error) throw error;
-      const parsed = (data?.items || []) as ParsedItem[];
-      setItems(parsed);
-      setPageCount(data?.paginas || null);
-      if (!parsed.length) toast.warning("Nenhum item válido foi extraído. Verifique se é um PDF SINAPI oficial.");
-      else toast.success(`${parsed.length} itens extraídos de ${data?.paginas} páginas`);
+      const jobId = (data as any)?.job_id;
+      if (!jobId) throw new Error("Job não retornado");
+      setStatusMsg("Processando em segundo plano...");
+      pollJob(jobId);
     } catch (err: any) {
       console.error(err);
-      toast.error("Falha ao processar PDF: " + (err.message || "tente novamente"));
-    } finally {
+      toast.error("Falha ao iniciar análise: " + (err.message || "tente novamente"));
       setParsing(false);
     }
   }
@@ -108,7 +144,6 @@ export function SinapiPdfUpload({ onImported }: Props) {
       }
     }
 
-    // log upload history
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("sinapi_uploads" as any).insert({
@@ -138,7 +173,7 @@ export function SinapiPdfUpload({ onImported }: Props) {
           Importar PDF SINAPI
         </CardTitle>
         <CardDescription>
-          Envie o PDF oficial do SINAPI (até {MAX_PDF_MB}MB). A IA analisa página a página, extraindo códigos, descrições, unidades e preços.
+          Envie o PDF oficial do SINAPI (até {MAX_PDF_MB}MB). A IA processa em segundo plano — você pode acompanhar o progresso aqui.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -171,14 +206,19 @@ export function SinapiPdfUpload({ onImported }: Props) {
         {file && !items.length && (
           <Button onClick={handleParse} disabled={parsing} className="w-full md:w-auto">
             {parsing ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analisando PDF (pode levar alguns minutos)...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando em segundo plano...</>
             ) : (
               <><FileText className="mr-2 h-4 w-4" /> Analisar PDF com IA</>
             )}
           </Button>
         )}
 
-        {parsing && <Progress value={progress} className="h-2" />}
+        {parsing && (
+          <div className="space-y-1">
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground">{statusMsg} — {progress}%</p>
+          </div>
+        )}
 
         {items.length > 0 && !result && (
           <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
