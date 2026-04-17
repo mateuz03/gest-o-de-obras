@@ -6,10 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Box, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Box, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
+import { SinapiPdfUpload } from "@/components/SinapiPdfUpload";
+import { SinapiUploadHistory } from "@/components/SinapiUploadHistory";
 
 interface SinapiRow {
   codigo: string;
@@ -27,6 +31,8 @@ export default function SinapiUpload() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{ success: number; errors: number } | null>(null);
+  const [tipo, setTipo] = useState<"insumo" | "composicao">("insumo");
+  const [historyKey, setHistoryKey] = useState(0);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -43,17 +49,15 @@ export default function SinapiUpload() {
 
       const parsed: SinapiRow[] = rows
         .filter((r) => r["CODIGO"] || r["Codigo"] || r["codigo"] || r["COD"] || r["Cod"])
-        .map((r) => {
-          const codigo = String(r["CODIGO"] || r["Codigo"] || r["codigo"] || r["COD"] || r["Cod"] || "").trim();
-          const descricao = String(r["DESCRICAO"] || r["Descricao"] || r["descricao"] || r["DESCRIÇÃO"] || r["Descrição"] || "").trim();
-          const unidade = String(r["UNIDADE"] || r["Unidade"] || r["unidade"] || r["UN"] || r["Un"] || "").trim();
-          const preco_material = parseFloat(String(r["PRECO_MATERIAL"] || r["Preco_Material"] || r["preco_material"] || r["MATERIAL"] || r["Material"] || 0)) || null;
-          const preco_mao_de_obra = parseFloat(String(r["PRECO_MAO_DE_OBRA"] || r["Preco_Mao_De_Obra"] || r["preco_mao_de_obra"] || r["MAO_DE_OBRA"] || r["Mao_De_Obra"] || 0)) || null;
-          const regiao = String(r["REGIAO"] || r["Regiao"] || r["regiao"] || r["UF"] || r["Uf"] || "").trim();
-          const mes_ano = String(r["MES_ANO"] || r["Mes_Ano"] || r["mes_ano"] || r["REFERENCIA"] || r["Referencia"] || "").trim();
-
-          return { codigo, descricao, unidade, preco_material, preco_mao_de_obra, regiao, mes_ano };
-        })
+        .map((r) => ({
+          codigo: String(r["CODIGO"] || r["Codigo"] || r["codigo"] || r["COD"] || r["Cod"] || "").trim(),
+          descricao: String(r["DESCRICAO"] || r["Descricao"] || r["descricao"] || r["DESCRIÇÃO"] || r["Descrição"] || "").trim(),
+          unidade: String(r["UNIDADE"] || r["Unidade"] || r["unidade"] || r["UN"] || r["Un"] || "").trim(),
+          preco_material: parseFloat(String(r["PRECO_MATERIAL"] || r["Preco_Material"] || r["preco_material"] || r["MATERIAL"] || r["Material"] || 0)) || null,
+          preco_mao_de_obra: parseFloat(String(r["PRECO_MAO_DE_OBRA"] || r["Preco_Mao_De_Obra"] || r["preco_mao_de_obra"] || r["MAO_DE_OBRA"] || r["Mao_De_Obra"] || 0)) || null,
+          regiao: String(r["REGIAO"] || r["Regiao"] || r["regiao"] || r["UF"] || r["Uf"] || "").trim(),
+          mes_ano: String(r["MES_ANO"] || r["Mes_Ano"] || r["mes_ano"] || r["REFERENCIA"] || r["Referencia"] || "").trim(),
+        }))
         .filter((r) => r.codigo && r.descricao);
 
       setParsedData(parsed);
@@ -67,12 +71,11 @@ export default function SinapiUpload() {
   };
 
   const handleUpload = async () => {
-    if (!parsedData.length) return;
+    if (!parsedData.length || !file) return;
     setUploading(true);
     let success = 0;
     let errors = 0;
 
-    // Upload in batches of 100
     const batchSize = 100;
     for (let i = 0; i < parsedData.length; i += batchSize) {
       const batch = parsedData.slice(i, i + batchSize);
@@ -85,6 +88,8 @@ export default function SinapiUpload() {
           preco_mao_de_obra: r.preco_mao_de_obra,
           regiao: r.regiao,
           mes_ano: r.mes_ano,
+          tipo,
+          fonte_arquivo: file.name,
         })),
         { onConflict: "codigo" }
       );
@@ -96,13 +101,24 @@ export default function SinapiUpload() {
       }
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("sinapi_uploads" as any).insert({
+        user_id: user.id,
+        nome_arquivo: file.name,
+        tipo,
+        regiao: parsedData[0]?.regiao || null,
+        mes_ano: parsedData[0]?.mes_ano || null,
+        qtd_itens: success,
+        status: errors === 0 ? "concluido" : "parcial",
+      });
+    }
+
     setUploadResult({ success, errors });
     setUploading(false);
-    if (errors === 0) {
-      toast.success(`${success} itens importados com sucesso!`);
-    } else {
-      toast.warning(`${success} importados, ${errors} com erro`);
-    }
+    setHistoryKey((k) => k + 1);
+    if (errors === 0) toast.success(`${success} itens importados com sucesso!`);
+    else toast.warning(`${success} importados, ${errors} com erro`);
   };
 
   return (
@@ -119,101 +135,123 @@ export default function SinapiUpload() {
         </div>
       </nav>
 
-      <div className="container max-w-4xl py-8 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
-              Importar Tabela SINAPI
-            </CardTitle>
-            <CardDescription>
-              Envie uma planilha Excel (.xlsx ou .csv) com os dados SINAPI. A planilha deve conter colunas como: CODIGO, DESCRICAO, UNIDADE, PRECO_MATERIAL, PRECO_MAO_DE_OBRA, REGIAO, MES_ANO.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Arquivo da planilha</Label>
-              <Input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileChange}
-                disabled={loading}
-              />
-            </div>
+      <div className="container max-w-5xl py-8 space-y-6">
+        <Tabs defaultValue="pdf" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="pdf" className="gap-2"><FileText className="h-4 w-4" /> PDF Oficial</TabsTrigger>
+            <TabsTrigger value="excel" className="gap-2"><FileSpreadsheet className="h-4 w-4" /> Planilha Excel</TabsTrigger>
+          </TabsList>
 
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Lendo planilha...
-              </div>
-            )}
+          <TabsContent value="pdf" className="mt-4">
+            <SinapiPdfUpload onImported={() => setHistoryKey((k) => k + 1)} />
+          </TabsContent>
 
-            {uploadResult && (
-              <div className="rounded-lg border p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                  {uploadResult.errors === 0 ? (
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                  )}
-                  <span className="font-medium">Resultado da importação</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {uploadResult.success} itens importados com sucesso
-                  {uploadResult.errors > 0 && `, ${uploadResult.errors} com erro`}
-                </p>
-              </div>
-            )}
-
-            {parsedData.length > 0 && (
-              <>
-                <div className="flex items-center justify-between">
-                  <Badge variant="secondary">{parsedData.length} itens encontrados</Badge>
-                  <Button onClick={handleUpload} disabled={uploading}>
-                    {uploading ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
-                    ) : (
-                      <><Upload className="mr-2 h-4 w-4" /> Importar para o banco</>
-                    )}
-                  </Button>
+          <TabsContent value="excel" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-primary" />
+                  Importar Planilha SINAPI (.xlsx / .csv)
+                </CardTitle>
+                <CardDescription>
+                  Colunas esperadas: CODIGO, DESCRICAO, UNIDADE, PRECO_MATERIAL, PRECO_MAO_DE_OBRA, REGIAO, MES_ANO.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Tipo do documento *</Label>
+                    <Select value={tipo} onValueChange={(v: any) => setTipo(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="insumo">Insumos</SelectItem>
+                        <SelectItem value="composicao">Composições</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Arquivo da planilha</Label>
+                    <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} disabled={loading} />
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Unidade</TableHead>
-                        <TableHead className="text-right">Material R$</TableHead>
-                        <TableHead className="text-right">M.O. R$</TableHead>
-                        <TableHead>Região</TableHead>
-                        <TableHead>Ref.</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {parsedData.slice(0, 20).map((r, i) => (
-                        <TableRow key={i}>
-                          <TableCell className="font-mono text-xs">{r.codigo}</TableCell>
-                          <TableCell className="text-sm max-w-[300px] truncate">{r.descricao}</TableCell>
-                          <TableCell className="text-xs">{r.unidade}</TableCell>
-                          <TableCell className="text-right text-sm">{r.preco_material?.toFixed(2) || "—"}</TableCell>
-                          <TableCell className="text-right text-sm">{r.preco_mao_de_obra?.toFixed(2) || "—"}</TableCell>
-                          <TableCell className="text-xs">{r.regiao}</TableCell>
-                          <TableCell className="text-xs">{r.mes_ano}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {parsedData.length > 20 && (
-                    <p className="p-3 text-xs text-muted-foreground text-center">
-                      Mostrando 20 de {parsedData.length} itens. Todos serão importados.
+                {loading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Lendo planilha...
+                  </div>
+                )}
+
+                {uploadResult && (
+                  <div className="rounded-lg border p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      {uploadResult.errors === 0 ? (
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                      )}
+                      <span className="font-medium">Resultado da importação</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {uploadResult.success} itens importados com sucesso
+                      {uploadResult.errors > 0 && `, ${uploadResult.errors} com erro`}
                     </p>
-                  )}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  </div>
+                )}
+
+                {parsedData.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary">{parsedData.length} itens encontrados</Badge>
+                      <Button onClick={handleUpload} disabled={uploading} className="bg-emerald-600 hover:bg-emerald-700">
+                        {uploading ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
+                        ) : (
+                          <><Upload className="mr-2 h-4 w-4" /> Importar para o banco</>
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Código</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead>Unidade</TableHead>
+                            <TableHead className="text-right">Material R$</TableHead>
+                            <TableHead className="text-right">M.O. R$</TableHead>
+                            <TableHead>Região</TableHead>
+                            <TableHead>Ref.</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {parsedData.slice(0, 20).map((r, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-mono text-xs">{r.codigo}</TableCell>
+                              <TableCell className="text-sm max-w-[300px] truncate">{r.descricao}</TableCell>
+                              <TableCell className="text-xs">{r.unidade}</TableCell>
+                              <TableCell className="text-right text-sm">{r.preco_material?.toFixed(2) || "—"}</TableCell>
+                              <TableCell className="text-right text-sm">{r.preco_mao_de_obra?.toFixed(2) || "—"}</TableCell>
+                              <TableCell className="text-xs">{r.regiao}</TableCell>
+                              <TableCell className="text-xs">{r.mes_ano}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {parsedData.length > 20 && (
+                        <p className="p-3 text-xs text-muted-foreground text-center">
+                          Mostrando 20 de {parsedData.length} itens. Todos serão importados.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <SinapiUploadHistory refreshKey={historyKey} />
       </div>
     </div>
   );
