@@ -646,6 +646,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sinapi_parse_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          items: Json
+          nome_arquivo: string
+          processed_chunks: number
+          processed_pages: number
+          progress: number
+          status: string
+          tipo: string
+          total_chunks: number | null
+          total_pages: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items?: Json
+          nome_arquivo: string
+          processed_chunks?: number
+          processed_pages?: number
+          progress?: number
+          status?: string
+          tipo?: string
+          total_chunks?: number | null
+          total_pages?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items?: Json
+          nome_arquivo?: string
+          processed_chunks?: number
+          processed_pages?: number
+          progress?: number
+          status?: string
+          tipo?: string
+          total_chunks?: number | null
+          total_pages?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sinapi_uploads: {
         Row: {
           created_at: string
