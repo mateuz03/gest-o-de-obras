@@ -609,34 +609,82 @@ export type Database = {
           codigo: string
           created_at: string | null
           descricao: string
+          fonte_arquivo: string | null
           id: string
           mes_ano: string | null
           preco_mao_de_obra: number | null
           preco_material: number | null
           regiao: string | null
+          tipo: string | null
           unidade: string | null
         }
         Insert: {
           codigo: string
           created_at?: string | null
           descricao: string
+          fonte_arquivo?: string | null
           id?: string
           mes_ano?: string | null
           preco_mao_de_obra?: number | null
           preco_material?: number | null
           regiao?: string | null
+          tipo?: string | null
           unidade?: string | null
         }
         Update: {
           codigo?: string
           created_at?: string | null
           descricao?: string
+          fonte_arquivo?: string | null
           id?: string
           mes_ano?: string | null
           preco_mao_de_obra?: number | null
           preco_material?: number | null
           regiao?: string | null
+          tipo?: string | null
           unidade?: string | null
+        }
+        Relationships: []
+      }
+      sinapi_uploads: {
+        Row: {
+          created_at: string
+          id: string
+          mes_ano: string | null
+          nome_arquivo: string
+          observacoes: string | null
+          qtd_itens: number
+          qtd_paginas: number | null
+          regiao: string | null
+          status: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mes_ano?: string | null
+          nome_arquivo: string
+          observacoes?: string | null
+          qtd_itens?: number
+          qtd_paginas?: number | null
+          regiao?: string | null
+          status?: string
+          tipo?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mes_ano?: string | null
+          nome_arquivo?: string
+          observacoes?: string | null
+          qtd_itens?: number
+          qtd_paginas?: number | null
+          regiao?: string | null
+          status?: string
+          tipo?: string
+          user_id?: string
         }
         Relationships: []
       }
