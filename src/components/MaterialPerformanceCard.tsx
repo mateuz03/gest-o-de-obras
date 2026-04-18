@@ -175,7 +175,7 @@ export function MaterialPerformanceCard({
                     </div>
 
                     <div className="border-t pt-3 space-y-1.5 text-xs">
-                      <p><span className="font-medium text-emerald-700">Prós:</span> {opt.pros}</p>
+                      <p><span className="font-medium text-accent">Prós:</span> {opt.pros}</p>
                       <p><span className="font-medium text-destructive">Contras:</span> {opt.contras}</p>
                     </div>
 
