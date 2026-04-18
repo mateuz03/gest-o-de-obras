@@ -481,6 +481,9 @@ export default function AnaliseResultado() {
                 <TabsTrigger value="memorial">
                   <ScrollText className="h-3.5 w-3.5 mr-1" /> Memorial Descritivo
                 </TabsTrigger>
+                <TabsTrigger value="conflitos">
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Conflitos
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="orcamento" className="space-y-6">
