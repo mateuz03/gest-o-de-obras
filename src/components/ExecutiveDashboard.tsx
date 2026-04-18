@@ -191,6 +191,36 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
             </div>
           </CardContent>
         </Card>
+
+        <Card className={conflictCounts.high > 0 ? "border-destructive/40 bg-destructive/5" : conflictCounts.open > 0 ? "border-amber-500/40" : ""}>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className={`rounded-lg p-2.5 ${conflictCounts.high > 0 ? "bg-destructive/15" : conflictCounts.open > 0 ? "bg-amber-500/15" : "bg-accent"}`}>
+                {conflictCounts.open === 0 ? (
+                  <ShieldCheck className="h-5 w-5 text-accent-foreground" />
+                ) : (
+                  <ShieldAlert className={`h-5 w-5 ${conflictCounts.high > 0 ? "text-destructive" : "text-amber-600"}`} />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">Conflitos Abertos</p>
+                <div className="flex items-baseline gap-2">
+                  <p className={`text-xl font-bold ${conflictCounts.high > 0 ? "text-destructive" : ""}`}>
+                    {conflictCounts.open}
+                  </p>
+                  {conflictCounts.high > 0 && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                      {conflictCounts.high} alto{conflictCounts.high > 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {conflictCounts.open === 0 ? "Sem incompatibilidades" : "Diário × Orçamento"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* QA Alerts */}
