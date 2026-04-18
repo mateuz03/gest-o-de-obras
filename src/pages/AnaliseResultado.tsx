@@ -583,6 +583,8 @@ export default function AnaliseResultado() {
                   analysisResult={result}
                   nomeProjeto={analysis.nome_projeto}
                   tipoConstrucao={analysis.tipo_construcao || undefined}
+                  totalObra={typeof computedSummary.total_geral === "string" ? parseFloat(computedSummary.total_geral) : computedSummary.total_geral}
+                  bdiPercent={analysis.bdi_percentual || 25}
                 />
               </TabsContent>
 
