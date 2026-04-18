@@ -53,7 +53,7 @@ function formatCurrency(value: number) {
 const tierMeta: Record<string, { label: string; icon: typeof Crown; color: string; bg: string }> = {
   premium: { label: "Premium", icon: Crown, color: "text-amber-600", bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900" },
   padrao: { label: "Padrão", icon: Award, color: "text-primary", bg: "bg-primary/5 border-primary/30" },
-  economica: { label: "Econômica", icon: Wallet, color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900" },
+  economica: { label: "Econômica", icon: Wallet, color: "text-foreground", bg: "bg-muted/50 border-border" },
 };
 
 export function MaterialPerformanceCard({
