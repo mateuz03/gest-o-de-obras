@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { DollarSign, Ruler, HardHat, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, Ruler, HardHat, AlertTriangle, TrendingUp, TrendingDown, ShieldAlert, ShieldCheck } from "lucide-react";
 import { AnalysisResult, ResumoFinal } from "@/lib/types";
+import { supabase } from "@/integrations/supabase/client";
 
 function formatCurrency(value: number) {
   if (isNaN(value)) return "—";
