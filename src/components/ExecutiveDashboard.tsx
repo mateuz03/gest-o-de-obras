@@ -115,7 +115,7 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
   return (
     <div className="space-y-4">
       {/* Metric Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="border-primary/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
