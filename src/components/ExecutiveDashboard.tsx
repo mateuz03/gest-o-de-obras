@@ -30,9 +30,30 @@ const TOLERANCIA = 0.3; // 30%
 interface Props {
   result: AnalysisResult;
   resumo: ResumoFinal;
+  analysisId?: string;
 }
 
-export function ExecutiveDashboard({ result, resumo }: Props) {
+export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
+  const [conflictCounts, setConflictCounts] = useState({ open: 0, high: 0 });
+
+  useEffect(() => {
+    if (!analysisId) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("clash_conflicts")
+        .select("severity")
+        .eq("analysis_id", analysisId)
+        .eq("status", "open");
+      if (cancelled) return;
+      const open = data?.length || 0;
+      const high = data?.filter((c: any) => c.severity === "high").length || 0;
+      setConflictCounts({ open, high });
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [analysisId]);
+
   const totalGeral = typeof resumo.total_geral === "string" ? parseFloat(resumo.total_geral) : resumo.total_geral;
   const totalMaoDeObra = typeof resumo.total_mao_de_obra === "string" ? parseFloat(resumo.total_mao_de_obra) : resumo.total_mao_de_obra;
   const totalMateriais = typeof resumo.total_materiais === "string" ? parseFloat(resumo.total_materiais) : resumo.total_materiais;
