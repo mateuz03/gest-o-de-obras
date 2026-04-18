@@ -161,10 +161,10 @@ export function MaterialPerformanceCard({
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-muted-foreground">Impacto na obra</span>
                         <div className="flex items-center gap-1">
-                          {isCheaper && <TrendingDown className="h-3.5 w-3.5 text-emerald-600" />}
+                          {isCheaper && <TrendingDown className="h-3.5 w-3.5 text-accent" />}
                           {isMore && <TrendingUp className="h-3.5 w-3.5 text-destructive" />}
                           {!isCheaper && !isMore && <Minus className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <span className={`text-sm font-bold font-mono ${isCheaper ? "text-emerald-600" : isMore ? "text-destructive" : ""}`}>
+                          <span className={`text-sm font-bold font-mono ${isCheaper ? "text-accent" : isMore ? "text-destructive" : ""}`}>
                             {diff > 0 ? "+" : ""}{formatCurrency(diff)}
                           </span>
                         </div>
