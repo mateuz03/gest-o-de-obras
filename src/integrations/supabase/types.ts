@@ -115,6 +115,68 @@ export type Database = {
         }
         Relationships: []
       }
+      clash_conflicts: {
+        Row: {
+          analysis_id: string
+          conflict_type: string
+          created_at: string
+          description: string | null
+          detected_at: string
+          id: string
+          recommendation: string | null
+          related_item: string | null
+          related_stage: string | null
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          conflict_type?: string
+          created_at?: string
+          description?: string | null
+          detected_at?: string
+          id?: string
+          recommendation?: string | null
+          related_item?: string | null
+          related_stage?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          conflict_type?: string
+          created_at?: string
+          description?: string | null
+          detected_at?: string
+          id?: string
+          recommendation?: string | null
+          related_item?: string | null
+          related_stage?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clash_conflicts_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compras_cotacao: {
         Row: {
           analysis_id: string
