@@ -445,7 +445,7 @@ export default function AnaliseResultado() {
           </CardContent>
         </Card>
 
-        <ExecutiveDashboard result={result} resumo={computedSummary} />
+        <ExecutiveDashboard result={result} resumo={computedSummary} analysisId={id} />
 
         <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
         <AlertHistoryTimeline analysisId={id!} projectName={analysis.nome_projeto} refreshKey={diarioRefreshKey} />

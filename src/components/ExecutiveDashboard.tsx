@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { DollarSign, Ruler, HardHat, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, Ruler, HardHat, AlertTriangle, TrendingUp, TrendingDown, ShieldAlert, ShieldCheck } from "lucide-react";
 import { AnalysisResult, ResumoFinal } from "@/lib/types";
+import { supabase } from "@/integrations/supabase/client";
 
 function formatCurrency(value: number) {
   if (isNaN(value)) return "—";
@@ -28,9 +30,30 @@ const TOLERANCIA = 0.3; // 30%
 interface Props {
   result: AnalysisResult;
   resumo: ResumoFinal;
+  analysisId?: string;
 }
 
-export function ExecutiveDashboard({ result, resumo }: Props) {
+export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
+  const [conflictCounts, setConflictCounts] = useState({ open: 0, high: 0 });
+
+  useEffect(() => {
+    if (!analysisId) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("clash_conflicts")
+        .select("severity")
+        .eq("analysis_id", analysisId)
+        .eq("status", "open");
+      if (cancelled) return;
+      const open = data?.length || 0;
+      const high = data?.filter((c: any) => c.severity === "high").length || 0;
+      setConflictCounts({ open, high });
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [analysisId]);
+
   const totalGeral = typeof resumo.total_geral === "string" ? parseFloat(resumo.total_geral) : resumo.total_geral;
   const totalMaoDeObra = typeof resumo.total_mao_de_obra === "string" ? parseFloat(resumo.total_mao_de_obra) : resumo.total_mao_de_obra;
   const totalMateriais = typeof resumo.total_materiais === "string" ? parseFloat(resumo.total_materiais) : resumo.total_materiais;
@@ -92,7 +115,7 @@ export function ExecutiveDashboard({ result, resumo }: Props) {
   return (
     <div className="space-y-4">
       {/* Metric Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="border-primary/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -164,6 +187,36 @@ export function ExecutiveDashboard({ result, resumo }: Props) {
                 ) : (
                   <p className="text-sm text-muted-foreground">Área não informada</p>
                 )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={conflictCounts.high > 0 ? "border-destructive/40 bg-destructive/5" : conflictCounts.open > 0 ? "border-amber-500/40" : ""}>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className={`rounded-lg p-2.5 ${conflictCounts.high > 0 ? "bg-destructive/15" : conflictCounts.open > 0 ? "bg-amber-500/15" : "bg-accent"}`}>
+                {conflictCounts.open === 0 ? (
+                  <ShieldCheck className="h-5 w-5 text-accent-foreground" />
+                ) : (
+                  <ShieldAlert className={`h-5 w-5 ${conflictCounts.high > 0 ? "text-destructive" : "text-amber-600"}`} />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">Conflitos Abertos</p>
+                <div className="flex items-baseline gap-2">
+                  <p className={`text-xl font-bold ${conflictCounts.high > 0 ? "text-destructive" : ""}`}>
+                    {conflictCounts.open}
+                  </p>
+                  {conflictCounts.high > 0 && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                      {conflictCounts.high} alto{conflictCounts.high > 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {conflictCounts.open === 0 ? "Sem incompatibilidades" : "Diário × Orçamento"}
+                </p>
               </div>
             </div>
           </CardContent>
