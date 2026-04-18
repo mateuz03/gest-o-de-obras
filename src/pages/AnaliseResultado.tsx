@@ -585,6 +585,10 @@ export default function AnaliseResultado() {
                   tipoConstrucao={analysis.tipo_construcao || undefined}
                 />
               </TabsContent>
+
+              <TabsContent value="conflitos">
+                <ClashDetectionPanel analysisId={id!} />
+              </TabsContent>
             </Tabs>
           </>
         ) : (
