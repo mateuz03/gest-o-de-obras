@@ -649,7 +649,20 @@ export default function NovaAnalise() {
                     <p className="text-xs text-muted-foreground">Padrão: 25%. Define o percentual aplicado sobre o custo direto para compor o preço final.</p>
                   </div>
                 </div>
-              </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Modo de Precisão do Orçamento</Label>
+                    <Select value={formData.modo_precisao} onValueChange={(v) => updateField("modo_precisao", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ia_completa">IA Completa — preços estimados pela IA (rápido)</SelectItem>
+                        <SelectItem value="hibrido_sinapi">Híbrido SINAPI — IA mede, banco calcula (mais preciso)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      No modo Híbrido a IA apenas identifica e mede os itens. Os preços são calculados matematicamente a partir da sua base SINAPI local — sem invenção de valores.
+                    </p>
+                  </div>
 
               <Separator />
 

@@ -14,6 +14,7 @@ import { ArrowLeft, Box, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCi
 import * as XLSX from "xlsx";
 import { SinapiPdfUpload } from "@/components/SinapiPdfUpload";
 import { SinapiUploadHistory } from "@/components/SinapiUploadHistory";
+import { SinapiUploader } from "@/components/SinapiUploader";
 
 interface SinapiRow {
   codigo: string;
@@ -136,11 +137,16 @@ export default function SinapiUpload() {
       </nav>
 
       <div className="container max-w-5xl py-8 space-y-6">
-        <Tabs defaultValue="pdf" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+        <Tabs defaultValue="csv" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+            <TabsTrigger value="csv" className="gap-2"><FileSpreadsheet className="h-4 w-4" /> CSV / XLSX (recomendado)</TabsTrigger>
             <TabsTrigger value="pdf" className="gap-2"><FileText className="h-4 w-4" /> PDF Oficial</TabsTrigger>
-            <TabsTrigger value="excel" className="gap-2"><FileSpreadsheet className="h-4 w-4" /> Planilha Excel</TabsTrigger>
+            <TabsTrigger value="excel" className="gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel legado</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="csv" className="mt-4">
+            <SinapiUploader onImported={() => setHistoryKey((k) => k + 1)} />
+          </TabsContent>
 
           <TabsContent value="pdf" className="mt-4">
             <SinapiPdfUpload onImported={() => setHistoryKey((k) => k + 1)} />
