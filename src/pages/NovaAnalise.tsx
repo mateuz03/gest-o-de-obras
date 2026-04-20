@@ -77,6 +77,7 @@ export default function NovaAnalise() {
     num_quartos: "",
     num_banheiros: "",
     num_vagas: "",
+    modo_precisao: "ia_completa", // "ia_completa" | "hibrido_sinapi"
   });
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
@@ -225,6 +226,8 @@ export default function NovaAnalise() {
         .single();
       if (insertErr) throw insertErr;
 
+      const isHybrid = formData.modo_precisao === "hibrido_sinapi";
+
       const { data: result, error: fnErr } = await supabase.functions.invoke("analyze-blueprint", {
         body: {
           images,
@@ -234,6 +237,7 @@ export default function NovaAnalise() {
           bdi_percentual: bdiValue,
           instrucoes_adicionais: formData.instrucoes_adicionais,
           modo_analise: mode,
+          modo_precisao: isHybrid ? "hibrido" : "completo",
           area_m2: formData.area_m2 ? parseFloat(formData.area_m2) : null,
           pe_direito: formData.pe_direito ? parseFloat(formData.pe_direito) : 2.80,
           num_pavimentos: formData.num_pavimentos || "1",
@@ -248,11 +252,35 @@ export default function NovaAnalise() {
 
       if (fnErr) throw fnErr;
 
-      const totalGeral = result?.resumo_final?.total_geral ? parseFloat(String(result.resumo_final.total_geral)) : null;
+      let finalResult = result;
+
+      if (isHybrid && result?.measurements?.length) {
+        toast.info(`Calculando preços via base SINAPI local (${result.measurements.length} itens)...`);
+        const { data: matchData, error: matchErr } = await supabase.functions.invoke("match-sinapi", {
+          body: {
+            measurements: result.measurements,
+            regiao: formData.regiao,
+            bdi_percentual: bdiValue,
+          },
+        });
+        if (matchErr) throw matchErr;
+        if (matchData?.orcamento) {
+          finalResult = {
+            ...matchData.orcamento,
+            area_total_m2: result.area_total_m2 || matchData.orcamento.area_total_m2,
+            escala_detectada: result.escala_detectada || matchData.orcamento.escala_detectada,
+            resumo: result.resumo || matchData.orcamento.resumo,
+          };
+        }
+      }
+
+      const totalGeral = finalResult?.resumo_final?.total_geral
+        ? parseFloat(String(finalResult.resumo_final.total_geral))
+        : null;
 
       await supabase
         .from("analyses")
-        .update({ resultado_json: result, status: "completed", total_estimado: totalGeral } as any)
+        .update({ resultado_json: finalResult, status: "completed", total_estimado: totalGeral } as any)
         .eq("id", (analysis as any).id);
 
       toast.success("Análise concluída!");
@@ -621,7 +649,20 @@ export default function NovaAnalise() {
                     <p className="text-xs text-muted-foreground">Padrão: 25%. Define o percentual aplicado sobre o custo direto para compor o preço final.</p>
                   </div>
                 </div>
-              </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Modo de Precisão do Orçamento</Label>
+                    <Select value={formData.modo_precisao} onValueChange={(v) => updateField("modo_precisao", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ia_completa">IA Completa — preços estimados pela IA (rápido)</SelectItem>
+                        <SelectItem value="hibrido_sinapi">Híbrido SINAPI — IA mede, banco calcula (mais preciso)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      No modo Híbrido a IA apenas identifica e mede os itens. Os preços são calculados matematicamente a partir da sua base SINAPI local — sem invenção de valores.
+                    </p>
+                  </div>
 
               <Separator />
 
