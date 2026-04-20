@@ -223,7 +223,7 @@ serve(async (req) => {
 
     const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais, modo_analise,
       area_m2, pe_direito, num_pavimentos, padrao_acabamento, tipo_fundacao, tipo_cobertura,
-      num_quartos, num_banheiros, num_vagas } = await req.json();
+      num_quartos, num_banheiros, num_vagas, modo_precisao } = await req.json();
 
     if (!images || !images.length) {
       return new Response(JSON.stringify({ error: "At least one image is required" }), {
@@ -233,28 +233,13 @@ serve(async (req) => {
     }
 
     const isPhotoMode = modo_analise === "foto_ambiente";
-    const isHybridMode = (req.headers.get("x-modo-precisao") === "hibrido") ||
-      ((await Promise.resolve((globalThis as any).__hybridFlag)) === true) ||
-      false;
-    // Read modo_precisao from body
-    const modoPrecisao = (arguments as any)?.[0]; // not used, real flag below
+    const isHybrid = modo_precisao === "hibrido";
 
-    // We need modo_precisao from the body — re-read because we already consumed it
-    const hybrid = (typeof (req as any).__bodyCache === "object" && (req as any).__bodyCache?.modo_precisao === "hibrido");
-
-    // Simpler: rely on a flag we destructure from body
-    const useHybrid = ((): boolean => {
-      try {
-        // @ts-ignore — modo_precisao destructured below; fallback true if user passed it
-        return modo_precisao_flag === "hibrido";
-      } catch { return false; }
-    })();
-
-    const systemPrompt = isHybridMode || useHybrid || hybrid
+    const systemPrompt = isHybrid
       ? HYBRID_SYSTEM_PROMPT
       : (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
 
-    let userPrompt = (isHybridMode || useHybrid || hybrid)
+    let userPrompt = isHybrid
       ? "Identifique e meça TODOS os itens construtivos visíveis. NÃO estime preços. Devolva apenas o array measurements no JSON solicitado."
       : isPhotoMode
         ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
