@@ -10,17 +10,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import {
   Plus, LogOut, Box, Search, AlertCircle, RefreshCw, Database, User, ShieldCheck,
-  FolderOpen, FolderKanban, DollarSign, TrendingUp, Users,
+  FolderOpen, FolderKanban, DollarSign, TrendingUp, Users, LayoutGrid, List,
 } from "lucide-react";
 import { DashboardAlertsSummary } from "@/components/DashboardAlertsSummary";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { ProjectsTable } from "@/components/dashboard/ProjectsTable";
+import { CoverPickerDialog } from "@/components/dashboard/CoverPickerDialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const formatCurrencyShort = (v: number) => {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")} mi`;
   if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(0)} mil`;
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 };
+
+type ViewMode = "grid" | "list";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -29,6 +34,25 @@ export default function Dashboard() {
   const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "grid";
+    return (localStorage.getItem("dashboard-view") as ViewMode) || "grid";
+  });
+  const [coverDialogFor, setCoverDialogFor] = useState<Analysis | null>(null);
+
+  const handleViewChange = (v: string) => {
+    if (v === "grid" || v === "list") {
+      setViewMode(v);
+      localStorage.setItem("dashboard-view", v);
+    }
+  };
+
+  const handleCoverSaved = (newUrl: string | null) => {
+    if (!coverDialogFor) return;
+    setAnalyses((prev) =>
+      prev.map((a) => (a.id === coverDialogFor.id ? ({ ...a, cover_image_url: newUrl } as any) : a)),
+    );
+  };
 
   const loadAnalyses = async () => {
     setLoading(true);
@@ -174,7 +198,7 @@ export default function Dashboard() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full border-slate-200 bg-white sm:w-[220px]">
+            <SelectTrigger className="w-full border-slate-200 bg-white sm:w-[200px]">
               <SelectValue placeholder="Todos os status" />
             </SelectTrigger>
             <SelectContent>
@@ -185,6 +209,27 @@ export default function Dashboard() {
               <SelectItem value="error">Com erro</SelectItem>
             </SelectContent>
           </Select>
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={handleViewChange}
+            className="rounded-md border border-slate-200 bg-white p-0.5"
+          >
+            <ToggleGroupItem
+              value="grid"
+              aria-label="Visão em grade"
+              className="h-9 w-9 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="list"
+              aria-label="Visão em lista"
+              className="h-9 w-9 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+            >
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Content */}
@@ -242,14 +287,26 @@ export default function Dashboard() {
               </Button>
             </CardContent>
           </Card>
+        ) : viewMode === "list" ? (
+          <ProjectsTable analyses={filteredAnalyses} onPickCover={setCoverDialogFor} />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredAnalyses.map((a) => (
-              <ProjectCard key={a.id} analysis={a} />
+              <ProjectCard key={a.id} analysis={a} onPickCover={setCoverDialogFor} />
             ))}
           </div>
         )}
       </div>
+
+      {coverDialogFor && (
+        <CoverPickerDialog
+          open={!!coverDialogFor}
+          onOpenChange={(o) => !o && setCoverDialogFor(null)}
+          analysisId={coverDialogFor.id}
+          currentCover={(coverDialogFor as any).cover_image_url}
+          onSaved={handleCoverSaved}
+        />
+      )}
     </div>
   );
 }
