@@ -25,6 +25,8 @@ const formatCurrencyShort = (v: number) => {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 };
 
+type ViewMode = "grid" | "list";
+
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
@@ -32,6 +34,25 @@ export default function Dashboard() {
   const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "grid";
+    return (localStorage.getItem("dashboard-view") as ViewMode) || "grid";
+  });
+  const [coverDialogFor, setCoverDialogFor] = useState<Analysis | null>(null);
+
+  const handleViewChange = (v: string) => {
+    if (v === "grid" || v === "list") {
+      setViewMode(v);
+      localStorage.setItem("dashboard-view", v);
+    }
+  };
+
+  const handleCoverSaved = (newUrl: string | null) => {
+    if (!coverDialogFor) return;
+    setAnalyses((prev) =>
+      prev.map((a) => (a.id === coverDialogFor.id ? ({ ...a, cover_image_url: newUrl } as any) : a)),
+    );
+  };
 
   const loadAnalyses = async () => {
     setLoading(true);
