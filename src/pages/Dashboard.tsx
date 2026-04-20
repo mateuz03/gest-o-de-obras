@@ -198,7 +198,7 @@ export default function Dashboard() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full border-slate-200 bg-white sm:w-[220px]">
+            <SelectTrigger className="w-full border-slate-200 bg-white sm:w-[200px]">
               <SelectValue placeholder="Todos os status" />
             </SelectTrigger>
             <SelectContent>
@@ -209,6 +209,27 @@ export default function Dashboard() {
               <SelectItem value="error">Com erro</SelectItem>
             </SelectContent>
           </Select>
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={handleViewChange}
+            className="rounded-md border border-slate-200 bg-white p-0.5"
+          >
+            <ToggleGroupItem
+              value="grid"
+              aria-label="Visão em grade"
+              className="h-9 w-9 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="list"
+              aria-label="Visão em lista"
+              className="h-9 w-9 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+            >
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Content */}
@@ -266,14 +287,26 @@ export default function Dashboard() {
               </Button>
             </CardContent>
           </Card>
+        ) : viewMode === "list" ? (
+          <ProjectsTable analyses={filteredAnalyses} onPickCover={setCoverDialogFor} />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredAnalyses.map((a) => (
-              <ProjectCard key={a.id} analysis={a} />
+              <ProjectCard key={a.id} analysis={a} onPickCover={setCoverDialogFor} />
             ))}
           </div>
         )}
       </div>
+
+      {coverDialogFor && (
+        <CoverPickerDialog
+          open={!!coverDialogFor}
+          onOpenChange={(o) => !o && setCoverDialogFor(null)}
+          analysisId={coverDialogFor.id}
+          currentCover={(coverDialogFor as any).cover_image_url}
+          onSaved={handleCoverSaved}
+        />
+      )}
     </div>
   );
 }
