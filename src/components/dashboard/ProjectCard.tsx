@@ -86,6 +86,22 @@ export function ProjectCard({ analysis: a, imageUrl, onPickCover }: ProjectCardP
           {status.label}
         </span>
 
+        {/* Change cover button */}
+        {onPickCover && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onPickCover(a);
+            }}
+            className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-700 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover:opacity-100"
+            title="Trocar capa"
+          >
+            <ImagePlus className="h-3.5 w-3.5" /> Capa
+          </button>
+        )}
+
         {/* Title + location */}
         <div className="absolute inset-x-0 bottom-0 p-4">
           <h3 className="text-lg font-bold text-white line-clamp-1">{a.nome_projeto}</h3>
