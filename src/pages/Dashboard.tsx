@@ -10,11 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import {
   Plus, LogOut, Box, Search, AlertCircle, RefreshCw, Database, User, ShieldCheck,
-  FolderOpen, FolderKanban, DollarSign, TrendingUp, Users,
+  FolderOpen, FolderKanban, DollarSign, TrendingUp, Users, LayoutGrid, List,
 } from "lucide-react";
 import { DashboardAlertsSummary } from "@/components/DashboardAlertsSummary";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { ProjectsTable } from "@/components/dashboard/ProjectsTable";
+import { CoverPickerDialog } from "@/components/dashboard/CoverPickerDialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const formatCurrencyShort = (v: number) => {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")} mi`;
