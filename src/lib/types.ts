@@ -26,6 +26,8 @@ export interface BudgetItem {
   sinapi_match?: SinapiMatch | null;
   preco_sinapi_unitario?: number | null;
   preco_conciliado?: boolean;
+  // Hybrid SINAPI flow: true when match-sinapi could not find a match in the local DB
+  sem_preco_sinapi?: boolean;
 }
 
 export interface MacroEtapa {
