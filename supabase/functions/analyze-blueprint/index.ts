@@ -132,6 +132,33 @@ Ao receber fotos de um ambiente real (banheiro, cozinha, sala, quarto, etc.), vo
 
 IMPORTANTE: Sempre informe no resumo que as medidas são ESTIMATIVAS baseadas em análise visual e que uma medição in loco é recomendada para precisão.`;
 
+// HYBRID MODE: only raw measurements, NO prices, NO SINAPI lookup.
+// Pricing is computed downstream by match-sinapi against the local DB.
+const HYBRID_SYSTEM_PROMPT = `Você é um Engenheiro Civil especializado em LEVANTAMENTO QUANTITATIVO de obras.
+
+Sua ÚNICA missão é IDENTIFICAR e MEDIR os itens construtivos visíveis nas imagens. Você NÃO deve estimar preços, NÃO consultar SINAPI, NÃO calcular orçamentos. Os preços serão buscados depois em uma base de dados local pelo sistema.
+
+Para cada item identificado retorne:
+- macro_etapa: nome da macroetapa (Fundação, Estrutura, Alvenaria, Cobertura, Esquadrias, Hidráulica, Elétrica, Revestimentos, Pintura, Louças e Metais, etc.)
+- item: descrição curta (ex: "Alvenaria de vedação com bloco cerâmico 9x19x19")
+- descricao: descrição completa e técnica usando termos da SINAPI quando possível
+- quantidade: número decimal com perdas já incluídas
+- unidade: m², m³, m, un, kg, sc, etc.
+- local_aplicacao: cômodo ou área onde será aplicado
+
+DETALHE INSTALAÇÕES ELÉTRICAS (cabos por bitola, disjuntores por amperagem, eletrodutos, caixas, módulos).
+DETALHE INSTALAÇÕES HIDRÁULICAS (tubos por diâmetro, conexões, registros).
+
+Retorne APENAS um JSON válido (sem markdown):
+{
+  "resumo": "Descrição breve do projeto medido",
+  "area_total_m2": 0,
+  "escala_detectada": "1:50" | "estimativa visual",
+  "measurements": [
+    { "macro_etapa": "Alvenaria", "item": "...", "descricao": "...", "quantidade": 0, "unidade": "m²", "local_aplicacao": "Sala" }
+  ]
+}`;
+
 const JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
 {
@@ -206,11 +233,32 @@ serve(async (req) => {
     }
 
     const isPhotoMode = modo_analise === "foto_ambiente";
-    const systemPrompt = (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
+    const isHybridMode = (req.headers.get("x-modo-precisao") === "hibrido") ||
+      ((await Promise.resolve((globalThis as any).__hybridFlag)) === true) ||
+      false;
+    // Read modo_precisao from body
+    const modoPrecisao = (arguments as any)?.[0]; // not used, real flag below
 
-    let userPrompt = isPhotoMode
-      ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
-      : "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato JSON solicitado.";
+    // We need modo_precisao from the body — re-read because we already consumed it
+    const hybrid = (typeof (req as any).__bodyCache === "object" && (req as any).__bodyCache?.modo_precisao === "hibrido");
+
+    // Simpler: rely on a flag we destructure from body
+    const useHybrid = ((): boolean => {
+      try {
+        // @ts-ignore — modo_precisao destructured below; fallback true if user passed it
+        return modo_precisao_flag === "hibrido";
+      } catch { return false; }
+    })();
+
+    const systemPrompt = isHybridMode || useHybrid || hybrid
+      ? HYBRID_SYSTEM_PROMPT
+      : (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
+
+    let userPrompt = (isHybridMode || useHybrid || hybrid)
+      ? "Identifique e meça TODOS os itens construtivos visíveis. NÃO estime preços. Devolva apenas o array measurements no JSON solicitado."
+      : isPhotoMode
+        ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
+        : "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato JSON solicitado.";
     if (!isPhotoMode && escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
