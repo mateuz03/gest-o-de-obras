@@ -73,6 +73,7 @@ export type Database = {
       analyses: {
         Row: {
           bdi_percentual: number | null
+          cover_image_url: string | null
           created_at: string
           escala: string | null
           id: string
@@ -87,6 +88,7 @@ export type Database = {
         }
         Insert: {
           bdi_percentual?: number | null
+          cover_image_url?: string | null
           created_at?: string
           escala?: string | null
           id?: string
@@ -101,6 +103,7 @@ export type Database = {
         }
         Update: {
           bdi_percentual?: number | null
+          cover_image_url?: string | null
           created_at?: string
           escala?: string | null
           id?: string
