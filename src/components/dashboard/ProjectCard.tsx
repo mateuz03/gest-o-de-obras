@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, MapPin, Users, FileText } from "lucide-react";
+import { Calendar, MapPin, Users, FileText, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Analysis } from "@/lib/types";
 import { format } from "date-fns";
@@ -47,10 +47,12 @@ const formatCurrency = (v: number) =>
 interface ProjectCardProps {
   analysis: Analysis;
   imageUrl?: string;
+  onPickCover?: (a: Analysis) => void;
 }
 
-export function ProjectCard({ analysis: a, imageUrl }: ProjectCardProps) {
-  const cover = imageUrl || a.imagem_url || COVER_IMAGES[hashIndex(a.id, COVER_IMAGES.length)];
+export function ProjectCard({ analysis: a, imageUrl, onPickCover }: ProjectCardProps) {
+  const customCover = (a as any).cover_image_url as string | undefined;
+  const cover = imageUrl || customCover || a.imagem_url || COVER_IMAGES[hashIndex(a.id, COVER_IMAGES.length)];
   const status = STATUS_BADGE[a.status] || STATUS_BADGE.pending;
   const progress = progressFor(a);
   const orcamento = a.total_estimado ?? 0;
