@@ -111,7 +111,13 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                     <div className="text-xs text-green-600">SINAPI: {formatCurrency(item.preco_sinapi_unitario)}</div>
                   )}
                 </TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(item.preco_total)}</TableCell>
+                <TableCell className="text-right font-medium">
+                  {item.sem_preco_sinapi ? (
+                    <Badge variant="destructive" className="text-xs">Sem preço SINAPI</Badge>
+                  ) : (
+                    formatCurrency(item.preco_total)
+                  )}
+                </TableCell>
                 <TableCell>
                   {isConciliado ? (
                     <Badge className="text-xs bg-green-600 hover:bg-green-700 text-white cursor-pointer"
