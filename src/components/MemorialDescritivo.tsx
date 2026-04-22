@@ -10,6 +10,7 @@ import { FileText, Loader2, Download, Sparkles, Eye, Code } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { MaterialPerformanceCard } from "./MaterialPerformanceCard";
+import { InteractiveMemorial } from "./InteractiveMemorial";
 
 interface MemorialDescritivoProps {
   analysisResult: AnalysisResult;
@@ -307,6 +308,8 @@ export function MemorialDescritivo({
           )}
         </CardContent>
       </Card>
+
+      <InteractiveMemorial analysisResult={analysisResult} totalObra={totalObra} />
 
       {selectedItem && (
         <MaterialPerformanceCard
