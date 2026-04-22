@@ -39,6 +39,16 @@ export default {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        cad: {
+          board: "hsl(var(--cad-board))",
+          grid: "hsl(var(--cad-board-grid))",
+          paper: "hsl(var(--blueprint-paper))",
+        },
+        layer: {
+          arch: "hsl(var(--layer-arch))",
+          hydro: "hsl(var(--layer-hydro))",
+          elec: "hsl(var(--layer-elec))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",

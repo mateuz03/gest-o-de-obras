@@ -42,6 +42,13 @@
     --chart-4: 280 60% 55%;
     --chart-5: 340 75% 55%;
 
+    --cad-board: 222 47% 11%;
+    --cad-board-grid: 215 28% 17%;
+    --blueprint-paper: 210 20% 94%;
+    --layer-arch: 222 47% 22%;
+    --layer-hydro: 199 89% 48%;
+    --layer-elec: 38 92% 50%;
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 224 76% 33%;
