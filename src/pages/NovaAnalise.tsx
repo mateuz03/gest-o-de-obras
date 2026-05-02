@@ -210,30 +210,18 @@ export default function NovaAnalise() {
     setShowSummary(false);
 
     try {
-      // Upload first file for storage reference
-      const firstFile = files[0];
-      const ext = firstFile.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      await supabase.storage.from("blueprints").upload(path, firstFile);
-      const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
-
-      if (dwgFile) {
-        const dwgPath = `${user.id}/${Date.now()}.dwg`;
-        await supabase.storage.from("blueprints").upload(dwgPath, dwgFile);
-      }
-
-      // Convert all image/pdf files to base64
+      // Convert all image/pdf files to base64 for AI
       const imageFiles = files.filter(f => !isDwg(f));
       const images = await Promise.all(imageFiles.map(fileToBase64));
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
 
+      // 1) Insert analysis row first (so we can group uploads under {userId}/{analysisId}/)
       const { data: analysis, error: insertErr } = await supabase
         .from("analyses")
         .insert({
           user_id: user.id,
           nome_projeto: formData.nome_projeto || "Análise sem título",
-          imagem_url: urlData.publicUrl,
           escala: formData.escala || null,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao || null,
@@ -243,6 +231,17 @@ export default function NovaAnalise() {
         .select()
         .single();
       if (insertErr) throw insertErr;
+
+      // 2) Upload ALL source files under prefix {userId}/{analysisId}/ for traceability
+      const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
+      const uploaded = await uploadAllFiles((analysis as any).id, allFiles);
+      if (uploaded[0]) {
+        await supabase
+          .from("analyses")
+          .update({ imagem_url: uploaded[0].url } as any)
+          .eq("id", (analysis as any).id);
+      }
+
 
       const isHybrid = formData.modo_precisao === "hibrido_sinapi";
 
