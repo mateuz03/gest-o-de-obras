@@ -142,30 +142,48 @@ export default function NovaAnalise() {
 
   const handleNext = () => { if (validate()) setShowSummary(true); };
 
+  const sanitizeFileName = (name: string) =>
+    name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+  const uploadAllFiles = async (analysisId: string, allFiles: File[]) => {
+    const results: { path: string; url: string }[] = [];
+    for (const f of allFiles) {
+      const safe = sanitizeFileName(f.name);
+      const path = `${user!.id}/${analysisId}/${Date.now()}_${safe}`;
+      const { error } = await supabase.storage.from("blueprints").upload(path, f, {
+        contentType: f.type || undefined,
+        upsert: false,
+      });
+      if (error) {
+        console.error("upload error", f.name, error);
+        continue;
+      }
+      const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
+      results.push({ path, url: urlData.publicUrl });
+    }
+    return results;
+  };
+
   const handleSaveDraft = async () => {
     if (!files.length || !user) return;
     setSavingDraft(true);
     try {
-      const firstFile = files[0];
-      const ext = firstFile.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      await supabase.storage.from("blueprints").upload(path, firstFile);
-      const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
+      const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
 
-      if (dwgFile) {
-        const dwgPath = `${user.id}/${Date.now()}.dwg`;
-        await supabase.storage.from("blueprints").upload(dwgPath, dwgFile);
-      }
-
-      await supabase.from("analyses").insert({
+      const { data: draft, error: insertErr } = await supabase.from("analyses").insert({
         user_id: user.id,
         nome_projeto: formData.nome_projeto || "Rascunho sem título",
-        imagem_url: urlData.publicUrl,
         escala: formData.escala || null,
         tipo_construcao: formData.tipo_construcao,
         regiao: formData.regiao || null,
         status: "pending",
-      });
+      }).select().single();
+      if (insertErr) throw insertErr;
+
+      const uploaded = await uploadAllFiles((draft as any).id, allFiles);
+      if (uploaded[0]) {
+        await supabase.from("analyses").update({ imagem_url: uploaded[0].url }).eq("id", (draft as any).id);
+      }
       toast.success("Rascunho salvo!");
       navigate("/dashboard");
     } catch (err: any) {
