@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
 import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
@@ -18,6 +18,7 @@ import { PredictiveDelayAlert } from "@/components/PredictiveDelayAlert";
 import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
 import { AlertHistoryTimeline } from "@/components/AlertHistoryTimeline";
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
+import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
