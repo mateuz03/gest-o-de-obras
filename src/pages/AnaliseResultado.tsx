@@ -601,6 +601,10 @@ export default function AnaliseResultado() {
               <TabsContent value="conflitos">
                 <ClashDetectionPanel analysisId={id!} />
               </TabsContent>
+
+              <TabsContent value="arquivos">
+                <SourceFilesPanel analysisId={id!} userId={(analysis as any).user_id} />
+              </TabsContent>
             </Tabs>
           </>
         ) : (
