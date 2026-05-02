@@ -491,6 +491,9 @@ export default function AnaliseResultado() {
                 <TabsTrigger value="conflitos">
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Conflitos
                 </TabsTrigger>
+                <TabsTrigger value="arquivos">
+                  <FolderOpen className="h-3.5 w-3.5 mr-1" /> Arquivos Base
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="orcamento" className="space-y-6">
