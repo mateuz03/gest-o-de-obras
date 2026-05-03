@@ -711,6 +711,51 @@ export type Database = {
         }
         Relationships: []
       }
+      sinapi_base_oficial: {
+        Row: {
+          codigo: string
+          created_at: string
+          descricao: string
+          desonerado: boolean
+          id: string
+          mes_ano: string
+          preco_mao_de_obra: number | null
+          preco_material: number | null
+          preco_total: number | null
+          tipo: string | null
+          uf: string
+          unidade: string | null
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          descricao: string
+          desonerado: boolean
+          id?: string
+          mes_ano: string
+          preco_mao_de_obra?: number | null
+          preco_material?: number | null
+          preco_total?: number | null
+          tipo?: string | null
+          uf: string
+          unidade?: string | null
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          descricao?: string
+          desonerado?: boolean
+          id?: string
+          mes_ano?: string
+          preco_mao_de_obra?: number | null
+          preco_material?: number | null
+          preco_total?: number | null
+          tipo?: string | null
+          uf?: string
+          unidade?: string | null
+        }
+        Relationships: []
+      }
       sinapi_parse_jobs: {
         Row: {
           created_at: string
