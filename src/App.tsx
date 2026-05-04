@@ -16,6 +16,7 @@ import ShareAnalise from "./pages/ShareAnalise";
 import NotasFiscais from "./pages/NotasFiscais";
 import Perfil from "./pages/Perfil";
 import Admin from "./pages/Admin";
+import AdminSinapiImport from "./pages/AdminSinapiImport";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/notas-fiscais" element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="/admin/sinapi-import" element={<ProtectedRoute><AdminSinapiImport /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
