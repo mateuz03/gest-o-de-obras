@@ -18,40 +18,59 @@ const json = (body: unknown, status = 200) =>
 
 // Map possible header variants -> canonical schema keys
 const HEADER_MAP: Record<string, string> = {
-  codigo: "codigo",
-  código: "codigo",
-  cod: "codigo",
+  // codigo
+  "codigo": "codigo",
+  "código": "codigo",
+  "cod": "codigo",
   "código sinapi": "codigo",
-  descricao: "descricao",
-  descrição: "descricao",
+  "código do insumo": "codigo",
+  "codigo do insumo": "codigo",
+  "código da composição": "codigo",
+  "codigo da composicao": "codigo",
+  // descricao
+  "descricao": "descricao",
+  "descrição": "descricao",
   "descrição do insumo": "descricao",
   "descricao do insumo": "descricao",
-  unidade: "unidade",
-  un: "unidade",
+  "descrição da composição": "descricao",
+  // unidade
+  "unidade": "unidade",
+  "un": "unidade",
   "unidade de medida": "unidade",
-  tipo: "tipo",
-  uf: "uf",
-  estado: "uf",
-  mes_ano: "mes_ano",
+  // tipo / classificação
+  "tipo": "tipo",
+  "classificação": "tipo",
+  "classificacao": "tipo",
+  // uf
+  "uf": "uf",
+  "estado": "uf",
+  // mes_ano
+  "mes_ano": "mes_ano",
   "mes/ano": "mes_ano",
   "mês/ano": "mes_ano",
-  competencia: "mes_ano",
-  competência: "mes_ano",
-  desonerado: "desonerado",
-  preco_material: "preco_material",
+  "competencia": "mes_ano",
+  "competência": "mes_ano",
+  // desonerado
+  "desonerado": "desonerado",
+  // preço material
+  "preco_material": "preco_material",
   "preço material": "preco_material",
-  material: "preco_material",
-  preco_mao_de_obra: "preco_mao_de_obra",
+  "material": "preco_material",
+  // preço mão de obra
+  "preco_mao_de_obra": "preco_mao_de_obra",
   "preço mão de obra": "preco_mao_de_obra",
   "mão de obra": "preco_mao_de_obra",
-  mao_de_obra: "preco_mao_de_obra",
-  preco_total: "preco_total",
-  "preço total": "preco_total",
-  total: "preco_total",
+  "mao_de_obra": "preco_mao_de_obra",
 };
 
-const normalizeKey = (s: string) =>
-  String(s).trim().toLowerCase().replace(/\s+/g, " ");
+// Brazilian state codes (UF) — used to detect the "price by state" column
+const UF_CODES = new Set([
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+]);
+
+const normalizeKey = (s: unknown) =>
+  String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 const toNumber = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
@@ -76,6 +95,67 @@ function decodeBase64(b64: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Find the row index that contains the real headers ("Código do Insumo" or similar).
+ * Returns the 0-based row index inside the AOA matrix.
+ */
+function findHeaderRow(matrix: unknown[][]): number {
+  const MAX_SCAN = Math.min(matrix.length, 30);
+  for (let i = 0; i < MAX_SCAN; i++) {
+    const row = matrix[i] || [];
+    const cells = row.map((c) => normalizeKey(c));
+    const hasCodigo = cells.some(
+      (c) => c === "código do insumo" || c === "codigo do insumo" || c === "código da composição" || c === "codigo da composicao",
+    );
+    const hasDescricao = cells.some(
+      (c) => c === "descrição do insumo" || c === "descricao do insumo" || c === "descrição da composição",
+    );
+    if (hasCodigo && hasDescricao) return i;
+  }
+  // Fallback: any row containing "código" + "descrição" + "unidade"
+  for (let i = 0; i < MAX_SCAN; i++) {
+    const cells = (matrix[i] || []).map((c) => normalizeKey(c));
+    if (
+      cells.some((c) => c.startsWith("código") || c.startsWith("codigo")) &&
+      cells.some((c) => c.startsWith("descrição") || c.startsWith("descricao")) &&
+      cells.some((c) => c === "unidade" || c === "un")
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Detect the price column index. SINAPI insumo sheets put the price under the UF
+ * code (e.g. "SP", "RJ"), often as the last column. Returns -1 if not found.
+ */
+function findPriceColumnIndex(headers: string[], defaultUf?: string): number {
+  const norm = headers.map((h) => normalizeKey(h).toUpperCase());
+
+  // 1) Match the requested UF column exactly
+  if (defaultUf) {
+    const ufUp = defaultUf.trim().toUpperCase();
+    const idx = norm.indexOf(ufUp);
+    if (idx >= 0) return idx;
+  }
+
+  // 2) Last column whose header is a UF code
+  for (let i = norm.length - 1; i >= 0; i--) {
+    if (UF_CODES.has(norm[i])) return i;
+  }
+
+  // 3) Headers like "preço" / "preço médio" / "valor"
+  for (let i = norm.length - 1; i >= 0; i--) {
+    const h = norm[i].toLowerCase();
+    if (h.includes("preço") || h.includes("preco") || h === "valor" || h.includes("valor")) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -87,7 +167,6 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // Accept either JSON {file_base64, filename?, defaults?} or raw binary upload
     let bytes: Uint8Array;
     let filename = "upload.xlsx";
     let defaults: Record<string, unknown> = {};
@@ -106,58 +185,114 @@ Deno.serve(async (req) => {
 
     if (!bytes.length) return json({ error: "Empty file" }, 400);
 
-    // Parse workbook
     const wb = XLSX.read(bytes, { type: "array" });
     const sheetName = wb.SheetNames[0];
     if (!sheetName) return json({ error: "Workbook has no sheets" }, 400);
     const sheet = wb.Sheets[sheetName];
-    const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+
+    // Read as array-of-arrays so we can locate the real header row (SINAPI files
+    // include several metadata rows before the table actually starts).
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
       defval: "",
+      blankrows: false,
     });
 
-    if (!records.length) return json({ error: "Empty sheet" }, 400);
+    if (!matrix.length) return json({ error: "Empty sheet" }, 400);
 
-    // Map rows to schema
+    const headerRowIdx = findHeaderRow(matrix);
+    if (headerRowIdx < 0) {
+      return json(
+        {
+          success: false,
+          error:
+            "Não foi possível localizar a linha de cabeçalho (esperado: 'Código do Insumo' / 'Descrição do Insumo').",
+        },
+        400,
+      );
+    }
+
+    const headerRow = (matrix[headerRowIdx] || []).map((h) => String(h ?? ""));
+    const dataRows = matrix.slice(headerRowIdx + 1);
+
+    // Build column index map for canonical fields
+    const canonicalIdx: Record<string, number> = {};
+    headerRow.forEach((h, i) => {
+      const canon = HEADER_MAP[normalizeKey(h)];
+      if (canon && canonicalIdx[canon] === undefined) canonicalIdx[canon] = i;
+    });
+
+    // Locate the price column (last UF column or matching defaults.uf)
+    const priceColIdx = findPriceColumnIndex(headerRow, String(defaults.uf ?? ""));
+
+    const codigoIdx = canonicalIdx.codigo;
+    const descricaoIdx = canonicalIdx.descricao;
+    if (codigoIdx === undefined || descricaoIdx === undefined) {
+      return json(
+        {
+          success: false,
+          error: "Colunas obrigatórias 'Código do Insumo' e 'Descrição do Insumo' não encontradas.",
+          headers: headerRow,
+        },
+        400,
+      );
+    }
+
     const rows: Record<string, unknown>[] = [];
     const skipped: { row: number; reason: string }[] = [];
 
-    records.forEach((raw, i) => {
-      const mapped: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(raw)) {
-        const canon = HEADER_MAP[normalizeKey(k)];
-        if (!canon) continue;
-        mapped[canon] = v;
-      }
-
-      const codigo = String(mapped.codigo ?? "").trim();
-      const descricao = String(mapped.descricao ?? "").trim();
+    dataRows.forEach((raw, i) => {
+      const excelRow = headerRowIdx + 2 + i; // 1-based with header offset
+      const codigo = String(raw[codigoIdx] ?? "").trim();
+      const descricao = String(raw[descricaoIdx] ?? "").trim();
       if (!codigo || !descricao) {
-        skipped.push({ row: i + 2, reason: "codigo ou descricao ausente" });
+        // ignore total/separator rows silently unless we already saw real rows
+        if (rows.length > 0) {
+          skipped.push({ row: excelRow, reason: "codigo ou descricao ausente" });
+        }
         return;
       }
 
-      const uf = String(mapped.uf ?? defaults.uf ?? "").trim().toUpperCase();
-      const mes_ano = String(mapped.mes_ano ?? defaults.mes_ano ?? "").trim();
+      const uf = String(
+        canonicalIdx.uf !== undefined ? raw[canonicalIdx.uf] : defaults.uf ?? "",
+      ).trim().toUpperCase();
+      const mes_ano = String(
+        canonicalIdx.mes_ano !== undefined ? raw[canonicalIdx.mes_ano] : defaults.mes_ano ?? "",
+      ).trim();
       if (!uf || !mes_ano) {
-        skipped.push({ row: i + 2, reason: "uf ou mes_ano ausente" });
+        skipped.push({ row: excelRow, reason: "uf ou mes_ano ausente" });
         return;
       }
 
-      const preco_material = toNumber(mapped.preco_material) ?? 0;
-      const preco_mao_de_obra = toNumber(mapped.preco_mao_de_obra) ?? 0;
+      // Price: prefer detected single-price column (SINAPI insumos), fall back
+      // to mapped preco_material header if available.
+      let precoMaterialRaw: unknown = null;
+      if (priceColIdx >= 0) precoMaterialRaw = raw[priceColIdx];
+      else if (canonicalIdx.preco_material !== undefined) {
+        precoMaterialRaw = raw[canonicalIdx.preco_material];
+      }
+      const preco_material = toNumber(precoMaterialRaw) ?? 0;
+      const preco_mao_de_obra =
+        canonicalIdx.preco_mao_de_obra !== undefined
+          ? toNumber(raw[canonicalIdx.preco_mao_de_obra]) ?? 0
+          : 0;
 
-      // NOTE: preco_total is a GENERATED column in the database
-      // (preco_material + preco_mao_de_obra). Do NOT include it in the insert.
+      const tipoVal =
+        canonicalIdx.tipo !== undefined ? String(raw[canonicalIdx.tipo] ?? "").trim() : "";
+      const unidadeVal =
+        canonicalIdx.unidade !== undefined ? String(raw[canonicalIdx.unidade] ?? "").trim() : "";
+
+      // NOTE: preco_total is a GENERATED column in the database.
       rows.push({
         codigo,
         descricao,
-        unidade: mapped.unidade ? String(mapped.unidade).trim() : null,
-        tipo: mapped.tipo ? String(mapped.tipo).trim() : (defaults.tipo ?? null),
+        unidade: unidadeVal || null,
+        tipo: tipoVal || (defaults.tipo as string | undefined) || null,
         uf,
         mes_ano,
         desonerado:
-          mapped.desonerado !== undefined
-            ? toBool(mapped.desonerado)
+          canonicalIdx.desonerado !== undefined
+            ? toBool(raw[canonicalIdx.desonerado])
             : toBool(defaults.desonerado),
         preco_material,
         preco_mao_de_obra,
@@ -166,7 +301,14 @@ Deno.serve(async (req) => {
 
     if (!rows.length) {
       return json(
-        { success: false, error: "Nenhuma linha válida encontrada", skipped },
+        {
+          success: false,
+          error: "Nenhuma linha válida encontrada",
+          header_row_index: headerRowIdx + 1,
+          detected_headers: headerRow,
+          price_column_index: priceColIdx,
+          skipped: skipped.slice(0, 20),
+        },
         400,
       );
     }
@@ -190,7 +332,10 @@ Deno.serve(async (req) => {
     return json({
       success: failures.length === 0,
       filename,
-      total_rows_read: records.length,
+      header_row_index: headerRowIdx + 1,
+      detected_headers: headerRow,
+      price_column_header: priceColIdx >= 0 ? headerRow[priceColIdx] : null,
+      total_rows_read: dataRows.length,
       total_mapped: rows.length,
       inserted,
       skipped_count: skipped.length,
