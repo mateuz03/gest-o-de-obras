@@ -145,9 +145,9 @@ Deno.serve(async (req) => {
 
       const preco_material = toNumber(mapped.preco_material) ?? 0;
       const preco_mao_de_obra = toNumber(mapped.preco_mao_de_obra) ?? 0;
-      const preco_total =
-        toNumber(mapped.preco_total) ?? preco_material + preco_mao_de_obra;
 
+      // NOTE: preco_total is a GENERATED column in the database
+      // (preco_material + preco_mao_de_obra). Do NOT include it in the insert.
       rows.push({
         codigo,
         descricao,
@@ -161,7 +161,6 @@ Deno.serve(async (req) => {
             : toBool(defaults.desonerado),
         preco_material,
         preco_mao_de_obra,
-        preco_total,
       });
     });
 
