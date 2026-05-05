@@ -80,6 +80,19 @@ const toNumber = (v: unknown): number | null => {
   return isNaN(n) ? null : n;
 };
 
+// PT-BR price sanitizer: "4.194,52" -> 4194.52, empty/invalid -> 0
+const sanitizePrice = (v: unknown): number => {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "number") return isNaN(v) ? 0 : v;
+  const raw = String(v).trim();
+  if (!raw) return 0;
+  const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(",", ".").replace(/[^\d.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+};
+
+const sanitizeText = (v: unknown): string => String(v ?? "").trim().toUpperCase();
+
 const toBool = (v: unknown): boolean => {
   if (typeof v === "boolean") return v;
   if (v === null || v === undefined) return false;
