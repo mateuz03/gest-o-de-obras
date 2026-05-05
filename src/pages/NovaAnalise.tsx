@@ -78,6 +78,9 @@ export default function NovaAnalise() {
     num_banheiros: "",
     num_vagas: "",
     modo_precisao: "ia_completa", // "ia_completa" | "hibrido_sinapi"
+    sinapi_uf: "SP",
+    sinapi_mes_ano: "2026-05",
+    sinapi_desonerado: "true", // "true" | "false"
   });
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
