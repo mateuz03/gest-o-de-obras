@@ -256,19 +256,18 @@ Deno.serve(async (req) => {
 
     dataRows.forEach((raw, i) => {
       const excelRow = headerRowIdx + 2 + i; // 1-based with header offset
-      const codigo = String(raw[codigoIdx] ?? "").trim();
-      const descricao = String(raw[descricaoIdx] ?? "").trim();
+      const codigo = sanitizeText(raw[codigoIdx]);
+      const descricao = sanitizeText(raw[descricaoIdx]);
       if (!codigo || !descricao) {
-        // ignore total/separator rows silently unless we already saw real rows
         if (rows.length > 0) {
           skipped.push({ row: excelRow, reason: "codigo ou descricao ausente" });
         }
         return;
       }
 
-      const uf = String(
+      const uf = sanitizeText(
         canonicalIdx.uf !== undefined ? raw[canonicalIdx.uf] : defaults.uf ?? "",
-      ).trim().toUpperCase();
+      );
       const mes_ano = String(
         canonicalIdx.mes_ano !== undefined ? raw[canonicalIdx.mes_ano] : defaults.mes_ano ?? "",
       ).trim();
@@ -277,30 +276,29 @@ Deno.serve(async (req) => {
         return;
       }
 
-      // Price: prefer detected single-price column (SINAPI insumos), fall back
-      // to mapped preco_material header if available.
       let precoMaterialRaw: unknown = null;
       if (priceColIdx >= 0) precoMaterialRaw = raw[priceColIdx];
       else if (canonicalIdx.preco_material !== undefined) {
         precoMaterialRaw = raw[canonicalIdx.preco_material];
       }
-      const preco_material = toNumber(precoMaterialRaw) ?? 0;
+      const preco_material = sanitizePrice(precoMaterialRaw);
       const preco_mao_de_obra =
         canonicalIdx.preco_mao_de_obra !== undefined
-          ? toNumber(raw[canonicalIdx.preco_mao_de_obra]) ?? 0
+          ? sanitizePrice(raw[canonicalIdx.preco_mao_de_obra])
           : 0;
 
       const tipoVal =
-        canonicalIdx.tipo !== undefined ? String(raw[canonicalIdx.tipo] ?? "").trim() : "";
+        canonicalIdx.tipo !== undefined ? sanitizeText(raw[canonicalIdx.tipo]) : "";
       const unidadeVal =
-        canonicalIdx.unidade !== undefined ? String(raw[canonicalIdx.unidade] ?? "").trim() : "";
+        canonicalIdx.unidade !== undefined ? sanitizeText(raw[canonicalIdx.unidade]) : "";
+      const tipoDefault = defaults.tipo ? sanitizeText(defaults.tipo) : "";
 
       // NOTE: preco_total is a GENERATED column in the database.
       rows.push({
         codigo,
         descricao,
         unidade: unidadeVal || null,
-        tipo: tipoVal || (defaults.tipo as string | undefined) || null,
+        tipo: tipoVal || tipoDefault || null,
         uf,
         mes_ano,
         desonerado:
