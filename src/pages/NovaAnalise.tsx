@@ -279,6 +279,9 @@ export default function NovaAnalise() {
         const { data: matchData, error: matchErr } = await supabase.functions.invoke("match-sinapi", {
           body: {
             measurements: result.measurements,
+            uf: formData.sinapi_uf,
+            mes_ano: formData.sinapi_mes_ano,
+            desonerado: formData.sinapi_desonerado === "true",
             regiao: formData.regiao,
             bdi_percentual: bdiValue,
           },
