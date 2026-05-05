@@ -327,16 +327,46 @@ Deno.serve(async (req) => {
     // Batch insert (500 per chunk)
     const BATCH = 500;
     let inserted = 0;
-    const failures: { batchStart: number; error: string }[] = [];
+    const failures: {
+      batchStart: number;
+      message: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+      sample_row?: Record<string, unknown>;
+    }[] = [];
 
     for (let i = 0; i < rows.length; i += BATCH) {
       const slice = rows.slice(i, i + BATCH);
-      const { error } = await supabase.from("sinapi_base_oficial").insert(slice);
-      if (error) {
-        console.error(`Batch ${i} failed:`, error.message);
-        failures.push({ batchStart: i, error: error.message });
-      } else {
-        inserted += slice.length;
+      try {
+        const { error } = await supabase.from("sinapi_base_oficial").insert(slice);
+        if (error) {
+          console.error(`Batch ${i} failed:`, {
+            message: error.message,
+            details: (error as any).details,
+            hint: (error as any).hint,
+            code: (error as any).code,
+            sample_row: slice[0],
+          });
+          failures.push({
+            batchStart: i,
+            message: error.message,
+            details: (error as any).details,
+            hint: (error as any).hint,
+            code: (error as any).code,
+            sample_row: slice[0],
+          });
+        } else {
+          inserted += slice.length;
+        }
+      } catch (e: any) {
+        console.error(`Batch ${i} threw:`, e);
+        failures.push({
+          batchStart: i,
+          message: e?.message || "unknown error",
+          details: e?.details,
+          sample_row: slice[0],
+        });
       }
     }
 
