@@ -80,6 +80,19 @@ const toNumber = (v: unknown): number | null => {
   return isNaN(n) ? null : n;
 };
 
+// PT-BR price sanitizer: "4.194,52" -> 4194.52, empty/invalid -> 0
+const sanitizePrice = (v: unknown): number => {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "number") return isNaN(v) ? 0 : v;
+  const raw = String(v).trim();
+  if (!raw) return 0;
+  const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(",", ".").replace(/[^\d.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+};
+
+const sanitizeText = (v: unknown): string => String(v ?? "").trim().toUpperCase();
+
 const toBool = (v: unknown): boolean => {
   if (typeof v === "boolean") return v;
   if (v === null || v === undefined) return false;
@@ -243,19 +256,18 @@ Deno.serve(async (req) => {
 
     dataRows.forEach((raw, i) => {
       const excelRow = headerRowIdx + 2 + i; // 1-based with header offset
-      const codigo = String(raw[codigoIdx] ?? "").trim();
-      const descricao = String(raw[descricaoIdx] ?? "").trim();
+      const codigo = sanitizeText(raw[codigoIdx]);
+      const descricao = sanitizeText(raw[descricaoIdx]);
       if (!codigo || !descricao) {
-        // ignore total/separator rows silently unless we already saw real rows
         if (rows.length > 0) {
           skipped.push({ row: excelRow, reason: "codigo ou descricao ausente" });
         }
         return;
       }
 
-      const uf = String(
+      const uf = sanitizeText(
         canonicalIdx.uf !== undefined ? raw[canonicalIdx.uf] : defaults.uf ?? "",
-      ).trim().toUpperCase();
+      );
       const mes_ano = String(
         canonicalIdx.mes_ano !== undefined ? raw[canonicalIdx.mes_ano] : defaults.mes_ano ?? "",
       ).trim();
@@ -264,30 +276,29 @@ Deno.serve(async (req) => {
         return;
       }
 
-      // Price: prefer detected single-price column (SINAPI insumos), fall back
-      // to mapped preco_material header if available.
       let precoMaterialRaw: unknown = null;
       if (priceColIdx >= 0) precoMaterialRaw = raw[priceColIdx];
       else if (canonicalIdx.preco_material !== undefined) {
         precoMaterialRaw = raw[canonicalIdx.preco_material];
       }
-      const preco_material = toNumber(precoMaterialRaw) ?? 0;
+      const preco_material = sanitizePrice(precoMaterialRaw);
       const preco_mao_de_obra =
         canonicalIdx.preco_mao_de_obra !== undefined
-          ? toNumber(raw[canonicalIdx.preco_mao_de_obra]) ?? 0
+          ? sanitizePrice(raw[canonicalIdx.preco_mao_de_obra])
           : 0;
 
       const tipoVal =
-        canonicalIdx.tipo !== undefined ? String(raw[canonicalIdx.tipo] ?? "").trim() : "";
+        canonicalIdx.tipo !== undefined ? sanitizeText(raw[canonicalIdx.tipo]) : "";
       const unidadeVal =
-        canonicalIdx.unidade !== undefined ? String(raw[canonicalIdx.unidade] ?? "").trim() : "";
+        canonicalIdx.unidade !== undefined ? sanitizeText(raw[canonicalIdx.unidade]) : "";
+      const tipoDefault = defaults.tipo ? sanitizeText(defaults.tipo) : "";
 
       // NOTE: preco_total is a GENERATED column in the database.
       rows.push({
         codigo,
         descricao,
         unidade: unidadeVal || null,
-        tipo: tipoVal || (defaults.tipo as string | undefined) || null,
+        tipo: tipoVal || tipoDefault || null,
         uf,
         mes_ano,
         desonerado:
@@ -316,16 +327,46 @@ Deno.serve(async (req) => {
     // Batch insert (500 per chunk)
     const BATCH = 500;
     let inserted = 0;
-    const failures: { batchStart: number; error: string }[] = [];
+    const failures: {
+      batchStart: number;
+      message: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+      sample_row?: Record<string, unknown>;
+    }[] = [];
 
     for (let i = 0; i < rows.length; i += BATCH) {
       const slice = rows.slice(i, i + BATCH);
-      const { error } = await supabase.from("sinapi_base_oficial").insert(slice);
-      if (error) {
-        console.error(`Batch ${i} failed:`, error.message);
-        failures.push({ batchStart: i, error: error.message });
-      } else {
-        inserted += slice.length;
+      try {
+        const { error } = await supabase.from("sinapi_base_oficial").insert(slice);
+        if (error) {
+          console.error(`Batch ${i} failed:`, {
+            message: error.message,
+            details: (error as any).details,
+            hint: (error as any).hint,
+            code: (error as any).code,
+            sample_row: slice[0],
+          });
+          failures.push({
+            batchStart: i,
+            message: error.message,
+            details: (error as any).details,
+            hint: (error as any).hint,
+            code: (error as any).code,
+            sample_row: slice[0],
+          });
+        } else {
+          inserted += slice.length;
+        }
+      } catch (e: any) {
+        console.error(`Batch ${i} threw:`, e);
+        failures.push({
+          batchStart: i,
+          message: e?.message || "unknown error",
+          details: e?.details,
+          sample_row: slice[0],
+        });
       }
     }
 
