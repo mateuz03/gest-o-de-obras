@@ -78,6 +78,9 @@ export default function NovaAnalise() {
     num_banheiros: "",
     num_vagas: "",
     modo_precisao: "ia_completa", // "ia_completa" | "hibrido_sinapi"
+    sinapi_uf: "SP",
+    sinapi_mes_ano: "2026-05",
+    sinapi_desonerado: "true", // "true" | "false"
   });
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
@@ -276,6 +279,9 @@ export default function NovaAnalise() {
         const { data: matchData, error: matchErr } = await supabase.functions.invoke("match-sinapi", {
           body: {
             measurements: result.measurements,
+            uf: formData.sinapi_uf,
+            mes_ano: formData.sinapi_mes_ano,
+            desonerado: formData.sinapi_desonerado === "true",
             regiao: formData.regiao,
             bdi_percentual: bdiValue,
           },
@@ -500,6 +506,40 @@ export default function NovaAnalise() {
                     </div>
                     <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>UF SINAPI <span className="text-destructive">*</span></Label>
+                      <Select value={formData.sinapi_uf} onValueChange={(v) => updateField("sinapi_uf", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"].map(uf => (
+                            <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mês / Ano <span className="text-destructive">*</span></Label>
+                      <Select value={formData.sinapi_mes_ano} onValueChange={(v) => updateField("sinapi_mes_ano", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2026-05">Maio / 2026</SelectItem>
+                          <SelectItem value="2026-03">Março / 2026</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Regime <span className="text-destructive">*</span></Label>
+                      <Select value={formData.sinapi_desonerado} onValueChange={(v) => updateField("sinapi_desonerado", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">Desonerado</SelectItem>
+                          <SelectItem value="false">Não Desonerado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Filtros aplicados na base oficial SINAPI para precificação automática.</p>
                 </div>
               </div>
 

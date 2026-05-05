@@ -21,20 +21,28 @@ interface LegacyItem {
 }
 
 interface MatchRequest {
-  // New flow: medições brutas → orçamento calculado
   measurements?: MeasurementItem[];
   bdi_percentual?: number;
-  // Legacy flow: only return matches per item (for AnaliseResultado.tsx reconciliation)
   items?: LegacyItem[];
+  // Filtros oficiais SINAPI
+  uf?: string;
+  mes_ano?: string;
+  desonerado?: boolean;
+  // Compatibilidade legado
   regiao?: string;
 }
 
-const stopWords = new Set(["de", "da", "do", "e", "em", "com", "para", "a", "o", "os", "as", "no", "na"]);
+const stopWords = new Set([
+  "de", "da", "do", "e", "em", "com", "para", "a", "o", "os", "as", "no", "na",
+  "um", "uma", "ou", "que", "ao", "se", "por",
+]);
+
+const normalize = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const buildSearchTerms = (text: string): string => {
-  const tokens = text
-    .toLowerCase()
-    .replace(/[^\w\sáéíóúãõâêîôûç]/gi, " ")
+  const tokens = normalize(text)
+    .replace(/[^\w\s]/gi, " ")
     .split(/\s+/)
     .filter((t) => t.length > 2 && !stopWords.has(t))
     .slice(0, 5);
@@ -42,29 +50,64 @@ const buildSearchTerms = (text: string): string => {
 };
 
 const buildKeywords = (text: string): string[] =>
-  text
-    .toLowerCase()
+  normalize(text)
+    .replace(/[^\w\s]/gi, " ")
     .split(/\s+/)
     .filter((t) => t.length > 3 && !stopWords.has(t))
     .slice(0, 3);
 
-async function searchSinapi(supabase: any, descricao: string, regiao?: string) {
-  const terms = buildSearchTerms(descricao);
-  let query = supabase.from("referencia_sinapi").select("*");
-  if (terms) {
-    query = query.textSearch("descricao", terms, { type: "plain", config: "portuguese" });
-  }
-  if (regiao) query = query.eq("regiao", regiao);
-  const { data: fts } = await query.limit(5);
-  if (fts?.length) return fts;
+interface SinapiFilters {
+  uf?: string;
+  mes_ano?: string;
+  desonerado?: boolean;
+}
 
+/**
+ * Busca o insumo na base oficial SINAPI por similaridade textual.
+ * Aplica os filtros de UF, mês/ano e desonerado quando informados.
+ */
+async function searchSinapiOficial(
+  supabase: any,
+  descricao: string,
+  filters: SinapiFilters,
+) {
+  const applyFilters = (q: any) => {
+    if (filters.uf) q = q.eq("uf", filters.uf.toUpperCase());
+    if (filters.mes_ano) q = q.eq("mes_ano", filters.mes_ano);
+    if (typeof filters.desonerado === "boolean") q = q.eq("desonerado", filters.desonerado);
+    return q;
+  };
+
+  // 1) Full Text Search (português) na coluna descricao
+  const terms = buildSearchTerms(descricao);
+  if (terms) {
+    let q = supabase.from("sinapi_base_oficial").select("*");
+    q = applyFilters(q);
+    const { data: fts, error } = await q
+      .textSearch("descricao", terms, { type: "plain", config: "portuguese" })
+      .limit(5);
+    if (!error && fts?.length) return fts;
+  }
+
+  // 2) Fallback ilike combinando palavras-chave
   const keywords = buildKeywords(descricao);
-  if (!keywords.length) return [];
-  let q2 = supabase.from("referencia_sinapi").select("*");
-  for (const kw of keywords) q2 = q2.ilike("descricao", `%${kw}%`);
-  if (regiao) q2 = q2.eq("regiao", regiao);
-  const { data: ilike } = await q2.limit(5);
-  return ilike || [];
+  if (keywords.length) {
+    let q2 = supabase.from("sinapi_base_oficial").select("*");
+    q2 = applyFilters(q2);
+    for (const kw of keywords) q2 = q2.ilike("descricao", `%${kw}%`);
+    const { data: ilike } = await q2.limit(5);
+    if (ilike?.length) return ilike;
+  }
+
+  // 3) Último recurso: ilike pela primeira palavra significativa, sem filtros opcionais
+  if (keywords[0]) {
+    let q3 = supabase.from("sinapi_base_oficial").select("*");
+    if (filters.uf) q3 = q3.eq("uf", filters.uf.toUpperCase());
+    const { data: loose } = await q3.ilike("descricao", `%${keywords[0]}%`).limit(5);
+    return loose || [];
+  }
+
+  return [];
 }
 
 serve(async (req) => {
@@ -84,20 +127,40 @@ serve(async (req) => {
     );
 
     const body: MatchRequest = await req.json();
-    const { measurements, items, regiao, bdi_percentual = 25 } = body;
+    const { measurements, items, regiao, uf, mes_ano, desonerado, bdi_percentual = 25 } = body;
+
+    // Deriva UF do campo legado "regiao" (ex: "São Paulo - SP")
+    let ufFinal = uf;
+    if (!ufFinal && regiao) {
+      const m = regiao.match(/\b([A-Z]{2})\b\s*$/);
+      if (m) ufFinal = m[1];
+    }
+
+    const filters: SinapiFilters = {
+      uf: ufFinal,
+      mes_ano,
+      desonerado,
+    };
 
     // ---------- LEGACY PATH (per-item matches only) ----------
     if (items?.length) {
       const results: Record<string, any> = {};
       for (const it of items) {
-        const matches = await searchSinapi(supabase, it.descricao, regiao);
+        const matches = await searchSinapiOficial(supabase, it.descricao, filters);
         results[it.item] = matches.length
           ? {
               matched: true,
               matches: matches.map((r: any) => ({
-                id: r.id, codigo: r.codigo, descricao: r.descricao, unidade: r.unidade,
-                preco_material: r.preco_material, preco_mao_de_obra: r.preco_mao_de_obra,
-                regiao: r.regiao, mes_ano: r.mes_ano,
+                id: r.id,
+                codigo: r.codigo,
+                descricao: r.descricao,
+                unidade: r.unidade,
+                preco_material: r.preco_material,
+                preco_mao_de_obra: r.preco_mao_de_obra,
+                preco_total: r.preco_total,
+                uf: r.uf,
+                mes_ano: r.mes_ano,
+                desonerado: r.desonerado,
               })),
             }
           : { matched: false, matches: [] };
@@ -122,13 +185,14 @@ serve(async (req) => {
     for (let idx = 0; idx < measurements.length; idx++) {
       const m = measurements[idx];
       const desc = m.descricao || m.item;
-      const matches = await searchSinapi(supabase, desc, regiao);
+      const matches = await searchSinapiOficial(supabase, desc, filters);
       const best = matches[0];
 
       const qty = Number(m.quantidade) || 0;
       const pm = best?.preco_material ? Number(best.preco_material) : 0;
       const pmo = best?.preco_mao_de_obra ? Number(best.preco_mao_de_obra) : 0;
-      const precoUnit = pm + pmo;
+      // preco_total é gerado no banco (preco_material + preco_mao_de_obra)
+      const precoUnit = best?.preco_total != null ? Number(best.preco_total) : (pm + pmo);
       const precoTotal = precoUnit * qty;
 
       const semPreco = !best || precoUnit === 0;
@@ -151,7 +215,9 @@ serve(async (req) => {
         preco_unitario: precoUnit,
         preco_total: precoTotal,
         codigo_sinapi: best?.codigo || "",
-        origem_preco: semPreco ? "Sem correspondência SINAPI" : "SINAPI",
+        origem_preco: semPreco
+          ? "Sem correspondência SINAPI"
+          : `SINAPI ${best?.uf || ""} ${best?.mes_ano || ""}`.trim(),
         sem_preco_sinapi: semPreco,
         perda_aplicada: "—",
       });
@@ -166,11 +232,20 @@ serve(async (req) => {
     const totalGeral = totalMaterial + totalMaoObra;
     const bdiValor = totalGeral * (bdi_percentual / 100);
 
+    const refLabel = [
+      "SINAPI",
+      filters.uf,
+      filters.mes_ano,
+      typeof filters.desonerado === "boolean"
+        ? (filters.desonerado ? "desonerado" : "não desonerado")
+        : null,
+    ].filter(Boolean).join(" - ");
+
     const orcamento = {
-      resumo: `Orçamento gerado por matching SINAPI (${measurements.length} itens, ${semPrecoCount} sem preço).`,
+      resumo: `Orçamento gerado por matching SINAPI Oficial (${measurements.length} itens, ${semPrecoCount} sem preço).`,
       area_total_m2: 0,
       escala_detectada: "—",
-      referencia_sinapi: regiao ? `SINAPI - ${regiao}` : "SINAPI",
+      referencia_sinapi: refLabel,
       macro_etapas,
       quantitativo_por_comodo: [],
       resumo_final: {
@@ -182,7 +257,8 @@ serve(async (req) => {
         premissas_bdi: `BDI ${bdi_percentual}% aplicado sobre custo direto`,
       },
       sem_preco_count: semPrecoCount,
-      modo_calculo: "hibrido_sinapi",
+      modo_calculo: "sinapi_oficial",
+      filtros_aplicados: filters,
     };
 
     return new Response(JSON.stringify({ orcamento }), {
