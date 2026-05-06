@@ -284,13 +284,22 @@ serve(async (req) => {
       pmo: number;
       semPreco: boolean;
     };
+    // Busca SINAPI em PARALELO (Promise.all) para evitar timeout
+    const searchResults = await Promise.all(
+      measurements.map((m) =>
+        searchSinapiOficial(supabase, m.descricao || m.item, filters).catch((e) => {
+          console.error("searchSinapiOficial falhou:", e);
+          return [];
+        })
+      )
+    );
+
     const processed: Processed[] = [];
     const fallbackIdxs: number[] = [];
 
     for (let idx = 0; idx < measurements.length; idx++) {
       const m = measurements[idx];
-      const desc = m.descricao || m.item;
-      const matches = await searchSinapiOficial(supabase, desc, filters);
+      const matches = searchResults[idx] || [];
       const best = matches[0];
 
       const pm = best?.preco_material ? Number(best.preco_material) : 0;
