@@ -315,6 +315,7 @@ serve(async (req) => {
         premissas_bdi: `BDI ${bdi_percentual}% aplicado sobre custo direto`,
       },
       sem_preco_count: semPrecoCount,
+      estimados_ia_count: estimadosIaCount,
       modo_calculo: "sinapi_oficial",
       filtros_aplicados: filters,
     };
