@@ -28,6 +28,8 @@ export interface BudgetItem {
   preco_conciliado?: boolean;
   // Hybrid SINAPI flow: true when match-sinapi could not find a match in the local DB
   sem_preco_sinapi?: boolean;
+  // Hybrid SINAPI flow: true when price came from AI estimate (fallback)
+  estimado_ia?: boolean;
 }
 
 export interface MacroEtapa {

@@ -110,8 +110,99 @@ async function searchSinapiOficial(
   return [];
 }
 
+/**
+ * Fallback: pede para a IA estimar preços unitários (BRL) realistas para itens
+ * que não tiveram correspondência na SINAPI. Usa Lovable AI Gateway com tool calling.
+ */
+async function estimatePricesWithAI(
+  items: Array<{ idx: number; descricao: string; unidade: string; uf: string }>,
+): Promise<Array<{ idx: number; preco_unitario: number }>> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.warn("LOVABLE_API_KEY ausente — fallback IA desabilitado");
+    return [];
+  }
+
+  const lista = items
+    .map((i) => `- idx=${i.idx} | ${i.descricao} | unidade=${i.unidade} | UF=${i.uf}`)
+    .join("\n");
+
+  const system =
+    "Você é um engenheiro orçamentista brasileiro. Estime o preço unitário de mercado (BRL) " +
+    "de materiais de construção considerando preço médio de varejo no Brasil em 2025. " +
+    "Responda apenas via tool call, com valores numéricos realistas e maiores que zero.";
+
+  const user =
+    `Estime o preço unitário (R$) de cada item abaixo, respeitando a unidade indicada.\n\n${lista}`;
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "registrar_estimativas",
+            description: "Registra preços unitários estimados para os itens informados.",
+            parameters: {
+              type: "object",
+              properties: {
+                estimativas: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      idx: { type: "number" },
+                      preco_unitario: { type: "number" },
+                    },
+                    required: ["idx", "preco_unitario"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["estimativas"],
+              additionalProperties: false,
+            },
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "registrar_estimativas" } },
+    }),
+  });
+
+  if (!resp.ok) {
+    console.error("Lovable AI estimate error:", resp.status, await resp.text());
+    return [];
+  }
+
+  const data = await resp.json();
+  const call = data?.choices?.[0]?.message?.tool_calls?.[0];
+  if (!call?.function?.arguments) return [];
+  try {
+    const parsed = JSON.parse(call.function.arguments);
+    const arr = parsed?.estimativas;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((x: any) => typeof x?.idx === "number" && typeof x?.preco_unitario === "number")
+      .map((x: any) => ({ idx: x.idx, preco_unitario: x.preco_unitario }));
+  } catch (e) {
+    console.error("Falha parse tool call IA:", e);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
 
   try {
     const authHeader = req.headers.get("authorization");
@@ -181,6 +272,20 @@ serve(async (req) => {
     let totalMaterial = 0;
     let totalMaoObra = 0;
     let semPrecoCount = 0;
+    let estimadosIaCount = 0;
+
+    // Pré-processa: busca SINAPI e separa itens sem correspondência para fallback IA
+    type Processed = {
+      m: MeasurementItem;
+      idx: number;
+      best: any | null;
+      precoUnit: number;
+      pm: number;
+      pmo: number;
+      semPreco: boolean;
+    };
+    const processed: Processed[] = [];
+    const fallbackIdxs: number[] = [];
 
     for (let idx = 0; idx < measurements.length; idx++) {
       const m = measurements[idx];
@@ -188,37 +293,81 @@ serve(async (req) => {
       const matches = await searchSinapiOficial(supabase, desc, filters);
       const best = matches[0];
 
-      const qty = Number(m.quantidade) || 0;
       const pm = best?.preco_material ? Number(best.preco_material) : 0;
       const pmo = best?.preco_mao_de_obra ? Number(best.preco_mao_de_obra) : 0;
-      // preco_total é gerado no banco (preco_material + preco_mao_de_obra)
       const precoUnit = best?.preco_total != null ? Number(best.preco_total) : (pm + pmo);
-      const precoTotal = precoUnit * qty;
-
       const semPreco = !best || precoUnit === 0;
-      if (semPreco) semPrecoCount++;
-      else {
-        totalMaterial += pm * qty;
-        totalMaoObra += pmo * qty;
+
+      processed.push({ m, idx, best, precoUnit, pm, pmo, semPreco });
+      if (semPreco) fallbackIdxs.push(processed.length - 1);
+    }
+
+    // Fallback IA: estima preços unitários de mercado (BR) para itens sem correspondência
+    const aiEstimates = new Map<number, number>(); // processed index -> preco unitário
+    if (fallbackIdxs.length) {
+      try {
+        const estimates = await estimatePricesWithAI(
+          fallbackIdxs.map((i) => ({
+            idx: i,
+            descricao: processed[i].m.descricao || processed[i].m.item,
+            unidade: processed[i].m.unidade,
+            uf: filters.uf || "BR",
+          })),
+        );
+        for (const e of estimates) {
+          if (typeof e.preco_unitario === "number" && e.preco_unitario > 0) {
+            aiEstimates.set(e.idx, e.preco_unitario);
+          }
+        }
+      } catch (err) {
+        console.error("Fallback IA falhou:", err);
+      }
+    }
+
+    for (const p of processed) {
+      const qty = Number(p.m.quantidade) || 0;
+      let precoUnit = p.precoUnit;
+      let origem: string;
+      let semPrecoSinapi = false;
+      let estimadoIA = false;
+
+      if (!p.semPreco) {
+        origem = `SINAPI ${p.best?.uf || ""} ${p.best?.mes_ano || ""}`.trim();
+        totalMaterial += p.pm * qty;
+        totalMaoObra += p.pmo * qty;
+      } else {
+        const aiPrice = aiEstimates.get(processed.indexOf(p));
+        if (aiPrice && aiPrice > 0) {
+          precoUnit = aiPrice;
+          origem = "Estimativa IA";
+          estimadoIA = true;
+          estimadosIaCount++;
+          // Estimativa entra no total como material (sem mão de obra separada)
+          totalMaterial += precoUnit * qty;
+        } else {
+          origem = "Sem correspondência SINAPI";
+          semPrecoSinapi = true;
+          semPrecoCount++;
+        }
       }
 
-      const etapaNome = m.macro_etapa || "Itens identificados";
+      const precoTotal = precoUnit * qty;
+      const etapaNome = p.m.macro_etapa || "Itens identificados";
       if (!etapaMap.has(etapaNome)) etapaMap.set(etapaNome, []);
       etapaMap.get(etapaNome)!.push({
-        item: `${idx + 1}`,
-        descricao: best?.descricao || desc,
-        local_aplicacao: m.local_aplicacao || "—",
+        item: `${p.idx + 1}`,
+        descricao: p.best?.descricao || p.m.descricao || p.m.item,
+        local_aplicacao: p.m.local_aplicacao || "—",
         fornecedor: "—",
         marca: "—",
         quantidade: qty,
-        unidade: best?.unidade || m.unidade,
+        unidade: p.best?.unidade || p.m.unidade,
         preco_unitario: precoUnit,
         preco_total: precoTotal,
-        codigo_sinapi: best?.codigo || "",
-        origem_preco: semPreco
-          ? "Sem correspondência SINAPI"
-          : `SINAPI ${best?.uf || ""} ${best?.mes_ano || ""}`.trim(),
-        sem_preco_sinapi: semPreco,
+        codigo_sinapi: p.best?.codigo || "",
+        origem_preco: origem,
+        sem_preco_sinapi: semPrecoSinapi,
+        estimado_ia: estimadoIA,
         perda_aplicada: "—",
       });
     }
@@ -242,7 +391,7 @@ serve(async (req) => {
     ].filter(Boolean).join(" - ");
 
     const orcamento = {
-      resumo: `Orçamento gerado por matching SINAPI Oficial (${measurements.length} itens, ${semPrecoCount} sem preço).`,
+      resumo: `Orçamento gerado por matching SINAPI Oficial (${measurements.length} itens, ${estimadosIaCount} estimados via IA, ${semPrecoCount} sem preço).`,
       area_total_m2: 0,
       escala_detectada: "—",
       referencia_sinapi: refLabel,
@@ -257,6 +406,7 @@ serve(async (req) => {
         premissas_bdi: `BDI ${bdi_percentual}% aplicado sobre custo direto`,
       },
       sem_preco_count: semPrecoCount,
+      estimados_ia_count: estimadosIaCount,
       modo_calculo: "sinapi_oficial",
       filtros_aplicados: filters,
     };

@@ -115,6 +115,13 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                 <TableCell className="text-right font-medium">
                   {item.sem_preco_sinapi ? (
                     <Badge variant="destructive" className="text-xs">Sem preço SINAPI</Badge>
+                  ) : item.estimado_ia ? (
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span>{formatCurrency(item.preco_total)}</span>
+                      <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white">
+                        ✨ Estimativa IA
+                      </Badge>
+                    </div>
                   ) : (
                     formatCurrency(item.preco_total)
                   )}
