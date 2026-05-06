@@ -300,7 +300,7 @@ serve(async (req) => {
     ].filter(Boolean).join(" - ");
 
     const orcamento = {
-      resumo: `Orçamento gerado por matching SINAPI Oficial (${measurements.length} itens, ${semPrecoCount} sem preço).`,
+      resumo: `Orçamento gerado por matching SINAPI Oficial (${measurements.length} itens, ${estimadosIaCount} estimados via IA, ${semPrecoCount} sem preço).`,
       area_total_m2: 0,
       escala_detectada: "—",
       referencia_sinapi: refLabel,
