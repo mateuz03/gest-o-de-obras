@@ -142,7 +142,7 @@ async function estimatePricesWithAI(
   const { GoogleGenerativeAI } = await import("npm:@google/generative-ai@^0.21.0");
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     systemInstruction: system,
     generationConfig: {
       temperature: 0.2,
