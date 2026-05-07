@@ -631,6 +631,8 @@ export type Database = {
           created_at: string
           id: string
           project_id: string
+          proposal: Json | null
+          proposal_status: string | null
           role: string
           user_id: string
         }
@@ -639,6 +641,8 @@ export type Database = {
           created_at?: string
           id?: string
           project_id: string
+          proposal?: Json | null
+          proposal_status?: string | null
           role: string
           user_id: string
         }
@@ -647,6 +651,8 @@ export type Database = {
           created_at?: string
           id?: string
           project_id?: string
+          proposal?: Json | null
+          proposal_status?: string | null
           role?: string
           user_id?: string
         }
