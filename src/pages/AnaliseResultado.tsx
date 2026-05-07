@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
 import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
+import { exportOrcaLinkPDF } from "@/lib/exportOrcaLink";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
 import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
 import { GanttChart } from "@/components/GanttChart";
