@@ -30,6 +30,8 @@ export interface BudgetItem {
   sem_preco_sinapi?: boolean;
   // Hybrid SINAPI flow: true when price came from AI estimate (fallback)
   estimado_ia?: boolean;
+  // Guardrail: true when unit price exceeds sanity threshold (R$ 50.000)
+  alerta_revisao?: boolean;
 }
 
 export interface MacroEtapa {

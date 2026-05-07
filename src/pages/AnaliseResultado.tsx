@@ -91,11 +91,18 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
             const hasSinapiCode = !!item.codigo_sinapi;
 
             return (
-              <TableRow key={i} className={isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : ""}>
+              <TableRow key={i} className={
+                item.alerta_revisao
+                  ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500"
+                  : isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : ""
+              }>
                 <TableCell className="font-mono text-xs">{item.item}</TableCell>
                 <TableCell className="text-sm">
                   {item.descricao}
                   {item.perda_aplicada && <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>}
+                  {item.alerta_revisao && (
+                    <Badge variant="destructive" className="ml-2 text-[10px]">⚠ Revisar — preço unitário alto</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-xs">
                   {item.local_aplicacao ? (
@@ -106,7 +113,7 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                 <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
                 <TableCell className="text-right">{item.quantidade}</TableCell>
                 <TableCell>{item.unidade}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className={`text-right ${item.alerta_revisao ? "text-red-600 font-semibold" : ""}`}>
                   {formatCurrency(item.preco_unitario)}
                   {item.preco_sinapi_unitario != null && (
                     <div className="text-xs text-green-600">SINAPI: {formatCurrency(item.preco_sinapi_unitario)}</div>

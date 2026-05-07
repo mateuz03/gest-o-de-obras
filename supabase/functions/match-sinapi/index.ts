@@ -75,6 +75,8 @@ async function searchSinapiOficial(
     if (filters.uf) q = q.eq("uf", filters.uf.toUpperCase());
     if (filters.mes_ano) q = q.eq("mes_ano", filters.mes_ano);
     if (typeof filters.desonerado === "boolean") q = q.eq("desonerado", filters.desonerado);
+    // GUARDRAIL: nunca trazer aquisição de equipamentos pesados (alucinações de orçamento)
+    q = q.not("tipo", "ilike", "%EQUIPAMENTO%");
     return q;
   };
 
@@ -361,6 +363,8 @@ serve(async (req) => {
       }
 
       const precoTotal = precoUnit * qty;
+      // GUARDRAIL: sanity check — sinaliza itens com preço unitário absurdo
+      const alertaRevisao = precoUnit > 50000;
       const etapaNome = p.m.macro_etapa || "Itens identificados";
       if (!etapaMap.has(etapaNome)) etapaMap.set(etapaNome, []);
       etapaMap.get(etapaNome)!.push({
@@ -377,6 +381,7 @@ serve(async (req) => {
         origem_preco: origem,
         sem_preco_sinapi: semPrecoSinapi,
         estimado_ia: estimadoIA,
+        alerta_revisao: alertaRevisao,
         perda_aplicada: "—",
       });
     }
