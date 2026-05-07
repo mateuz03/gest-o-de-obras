@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  GoogleGenerativeAI,
+  SchemaType,
+  type Content,
+} from "npm:@google/generative-ai@^0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +37,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const { messages, budget_items } = await req.json();
 
@@ -60,104 +65,97 @@ serve(async (req) => {
 ITENS ATUAIS DO ORÇAMENTO:
 ${budgetCtx}`;
 
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "propor_edicao_orcamento",
-          description:
-            "Propor uma alteração em um item específico do orçamento. A mudança só será aplicada após o usuário clicar em Aprovar.",
-          parameters: {
-            type: "object",
-            properties: {
-              id_do_item: {
-                type: "string",
-                description: "ID exato do item no orçamento (campo 'id' da lista de itens).",
-              },
-              novo_nome: {
-                type: "string",
-                description: "Nova descrição do item. Use o atual se não mudar.",
-              },
-              nova_quantidade: {
-                type: "number",
-                description: "Nova quantidade. Use a atual se não mudar.",
-              },
-              novo_preco_unitario: {
-                type: "number",
-                description: "Novo preço unitário em R$. Use o atual se não mudar.",
-              },
-              justificativa_da_mudanca: {
-                type: "string",
-                description: "Explicação curta e técnica do motivo da alteração.",
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: systemPrompt,
+      tools: [
+        {
+          functionDeclarations: [
+            {
+              name: "propor_edicao_orcamento",
+              description:
+                "Propor uma alteração em um item específico do orçamento. A mudança só será aplicada após o usuário clicar em Aprovar.",
+              parameters: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  id_do_item: {
+                    type: SchemaType.STRING,
+                    description: "ID exato do item no orçamento (campo 'id' da lista de itens).",
+                  },
+                  novo_nome: {
+                    type: SchemaType.STRING,
+                    description: "Nova descrição do item. Use o atual se não mudar.",
+                  },
+                  nova_quantidade: {
+                    type: SchemaType.NUMBER,
+                    description: "Nova quantidade. Use a atual se não mudar.",
+                  },
+                  novo_preco_unitario: {
+                    type: SchemaType.NUMBER,
+                    description: "Novo preço unitário em R$. Use o atual se não mudar.",
+                  },
+                  justificativa_da_mudanca: {
+                    type: SchemaType.STRING,
+                    description: "Explicação curta e técnica do motivo da alteração.",
+                  },
+                },
+                required: [
+                  "id_do_item",
+                  "novo_nome",
+                  "nova_quantidade",
+                  "novo_preco_unitario",
+                  "justificativa_da_mudanca",
+                ],
               },
             },
-            required: [
-              "id_do_item",
-              "novo_nome",
-              "nova_quantidade",
-              "novo_preco_unitario",
-              "justificativa_da_mudanca",
-            ],
-            additionalProperties: false,
-          },
+          ],
         },
-      },
-    ];
-
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        tools,
-      }),
+      ],
     });
 
-    if (!resp.ok) {
-      if (resp.status === 429) {
+    // Map OpenAI-style messages to Gemini Content[]
+    const contents: Content[] = messages
+      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+
+    let result;
+    try {
+      result = await model.generateContent({ contents });
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      console.error("Gemini error:", msg);
+      if (/quota|rate|429/i.test(msg)) {
         return new Response(
-          JSON.stringify({ error: "Limite de requisições atingido. Tente novamente em instantes." }),
+          JSON.stringify({ error: "Limite de requisições da API Gemini atingido. Tente novamente em instantes." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      if (resp.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos esgotados na Lovable AI. Adicione créditos no workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      const t = await resp.text();
-      console.error("AI gateway error:", resp.status, t);
-      return new Response(JSON.stringify({ error: "Erro no gateway de IA." }), {
+      return new Response(JSON.stringify({ error: "Erro ao chamar Gemini." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await resp.json();
-    const choice = data.choices?.[0]?.message;
-    const content: string = choice?.content || "";
-    const toolCalls = choice?.tool_calls || [];
+    const response = result.response;
+    let text = "";
+    try { text = response.text(); } catch { text = ""; }
 
     let proposal: any = null;
-    if (toolCalls.length > 0) {
-      const tc = toolCalls[0];
-      if (tc.function?.name === "propor_edicao_orcamento") {
-        try {
-          proposal = JSON.parse(tc.function.arguments || "{}");
-        } catch (e) {
-          console.error("Failed to parse tool args:", e);
-        }
+    const calls = response.functionCalls?.() || [];
+    if (calls.length > 0) {
+      const tc = calls.find((c: any) => c.name === "propor_edicao_orcamento") || calls[0];
+      if (tc?.name === "propor_edicao_orcamento") {
+        proposal = tc.args || null;
       }
     }
 
     return new Response(
       JSON.stringify({
-        reply: content || (proposal ? "Tenho uma proposta de alteração para você revisar:" : ""),
+        reply: text || (proposal ? "Tenho uma proposta de alteração para você revisar:" : ""),
         proposal,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
