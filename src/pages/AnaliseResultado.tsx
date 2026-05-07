@@ -664,6 +664,8 @@ export default function AnaliseResultado() {
           onSelect={handleLinkPrice}
         />
       )}
+
+      {id && <ProjectCopilotChat projectId={id} />}
     </div>
   );
 }
