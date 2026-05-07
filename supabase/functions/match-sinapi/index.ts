@@ -141,19 +141,29 @@ async function estimatePricesWithAI(
 
   const { GoogleGenerativeAI } = await import("npm:@google/generative-ai@^0.21.0");
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    systemInstruction: system,
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: "application/json",
-    },
-  });
+  const callModel = async (modelName: string) => {
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      systemInstruction: system,
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+    });
+    const result = await model.generateContent(user);
+    return result.response.text();
+  };
 
   let text: string;
   try {
-    const result = await model.generateContent(user);
-    text = result.response.text();
+    try {
+      text = await callModel("gemini-2.5-flash");
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      if (/\b(503|500)\b|service unavailable|overloaded|high demand/i.test(msg)) {
+        console.warn("match-sinapi: primary failed, trying gemini-1.5-flash:", msg);
+        text = await callModel("gemini-1.5-flash");
+      } else {
+        throw e;
+      }
+    }
   } catch (e) {
     console.error("Gemini estimate error:", e);
     return [];

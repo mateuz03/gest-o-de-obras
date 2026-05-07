@@ -18,11 +18,6 @@ async function generateWithGemini(opts: {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    systemInstruction: opts.systemPrompt,
-    generationConfig: { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens },
-  });
 
   const parts: any[] = [{ text: opts.userText }];
   for (const img of opts.images) {
@@ -33,12 +28,32 @@ async function generateWithGemini(opts: {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-  try {
+
+  const tryModel = async (modelName: string) => {
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      systemInstruction: opts.systemPrompt,
+      generationConfig: { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens },
+    });
     const result = await model.generateContent(
       { contents: [{ role: "user", parts }] },
       { signal: controller.signal } as any,
     );
     return result.response.text();
+  };
+
+  try {
+    try {
+      return await tryModel("gemini-2.5-flash");
+    } catch (error: any) {
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
+      const msg = error?.message || String(error);
+      if (/\b(503|500)\b|service unavailable|overloaded|high demand/i.test(msg)) {
+        console.warn("Primary model failed, trying fallback gemini-1.5-flash:", msg);
+        return await tryModel("gemini-1.5-flash");
+      }
+      throw error;
+    }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("A análise excedeu o tempo seguro de processamento. Envie menos imagens ou imagens mais leves e tente novamente.");

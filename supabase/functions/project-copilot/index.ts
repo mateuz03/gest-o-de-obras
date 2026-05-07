@@ -66,8 +66,8 @@ ITENS ATUAIS DO ORÇAMENTO:
 ${budgetCtx}`;
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+    const buildModel = (modelName: string) => genAI.getGenerativeModel({
+      model: modelName,
       systemInstruction: systemPrompt,
       tools: [
         {
@@ -124,7 +124,17 @@ ${budgetCtx}`;
 
     let result;
     try {
-      result = await model.generateContent({ contents });
+      try {
+        result = await buildModel("gemini-2.5-flash").generateContent({ contents });
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        if (/\b(503|500)\b|service unavailable|overloaded|high demand/i.test(msg)) {
+          console.warn("project-copilot: primary failed, trying gemini-1.5-flash:", msg);
+          result = await buildModel("gemini-1.5-flash").generateContent({ contents });
+        } else {
+          throw e;
+        }
+      }
     } catch (e: any) {
       const msg = e?.message || String(e);
       console.error("Gemini error:", msg);
