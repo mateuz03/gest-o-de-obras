@@ -20,6 +20,7 @@ import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
 import { AlertHistoryTimeline } from "@/components/AlertHistoryTimeline";
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
+import { ProjectCopilotChat } from "@/components/ProjectCopilotChat";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -663,6 +664,8 @@ export default function AnaliseResultado() {
           onSelect={handleLinkPrice}
         />
       )}
+
+      {id && <ProjectCopilotChat projectId={id} />}
     </div>
   );
 }
