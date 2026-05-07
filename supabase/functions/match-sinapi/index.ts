@@ -147,8 +147,11 @@ async function estimatePricesWithAI(
       systemInstruction: system,
       generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
     });
+    const t0 = Date.now();
     const result = await model.generateContent(user);
-    return result.response.text();
+    const text = result.response.text();
+    console.log(`✅ [SUCESSO] Estimativa de preços concluída. Modelo utilizado: ${modelName} | Tempo de processamento: ${Date.now() - t0}ms`);
+    return text;
   };
 
   let text: string;

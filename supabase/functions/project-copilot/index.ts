@@ -123,6 +123,8 @@ ${budgetCtx}`;
       }));
 
     let result;
+    let modeloUtilizado = "gemini-2.5-flash";
+    const t0 = Date.now();
     try {
       try {
         result = await buildModel("gemini-2.5-flash").generateContent({ contents });
@@ -130,11 +132,13 @@ ${budgetCtx}`;
         const msg = e?.message || String(e);
         if (/\b(503|500)\b|service unavailable|overloaded|high demand/i.test(msg)) {
           console.warn("project-copilot: primary failed, trying gemini-1.5-flash:", msg);
+          modeloUtilizado = "gemini-1.5-flash";
           result = await buildModel("gemini-1.5-flash").generateContent({ contents });
         } else {
           throw e;
         }
       }
+      console.log(`✅ [SUCESSO] Copiloto respondeu. Modelo utilizado: ${modeloUtilizado} | Tempo de processamento: ${Date.now() - t0}ms`);
     } catch (e: any) {
       const msg = e?.message || String(e);
       console.error("Gemini error:", msg);

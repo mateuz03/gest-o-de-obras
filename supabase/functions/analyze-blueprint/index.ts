@@ -35,11 +35,14 @@ async function generateWithGemini(opts: {
       systemInstruction: opts.systemPrompt,
       generationConfig: { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens },
     });
+    const t0 = Date.now();
     const result = await model.generateContent(
       { contents: [{ role: "user", parts }] },
       { signal: controller.signal } as any,
     );
-    return result.response.text();
+    const text = result.response.text();
+    console.log(`✅ [SUCESSO] Análise concluída. Modelo utilizado: ${modelName} | Tempo de processamento: ${Date.now() - t0}ms`);
+    return text;
   };
 
   try {
