@@ -28,6 +28,8 @@ const ESCALA_LABELS: Record<string, string> = {
 };
 
 const MAX_FILES = 5;
+const ANALYSIS_IMAGE_MAX_SIDE = 1600;
+const ANALYSIS_IMAGE_QUALITY = 0.78;
 
 type AnalysisMode = "planta" | "foto_ambiente";
 
@@ -197,13 +199,46 @@ export default function NovaAnalise() {
   };
 
   const fileToBase64 = (f: File): Promise<{ base64: string; mime_type: string }> =>
-    new Promise((resolve) => {
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
         resolve({ base64: result.split(",")[1], mime_type: f.type });
       };
+      reader.onerror = () => reject(new Error(`Falha ao ler o arquivo ${f.name}`));
       reader.readAsDataURL(f);
+    });
+
+  const imageToOptimizedBase64 = (f: File): Promise<{ base64: string; mime_type: string }> =>
+    new Promise((resolve, reject) => {
+      if (!f.type.startsWith("image/")) {
+        fileToBase64(f).then(resolve).catch(reject);
+        return;
+      }
+
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(f);
+      img.onload = () => {
+        const scale = Math.min(1, ANALYSIS_IMAGE_MAX_SIDE / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error("Não foi possível otimizar a imagem"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(objectUrl);
+        const dataUrl = canvas.toDataURL("image/jpeg", ANALYSIS_IMAGE_QUALITY);
+        resolve({ base64: dataUrl.split(",")[1], mime_type: "image/jpeg" });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        fileToBase64(f).then(resolve).catch(reject);
+      };
+      img.src = objectUrl;
     });
 
   const handleSubmit = async () => {
@@ -213,9 +248,9 @@ export default function NovaAnalise() {
     setShowSummary(false);
 
     try {
-      // Convert all image/pdf files to base64 for AI
+      // Convert files to compact base64 for AI to avoid Cloud idle timeouts
       const imageFiles = files.filter(f => !isDwg(f));
-      const images = await Promise.all(imageFiles.map(fileToBase64));
+      const images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
 
