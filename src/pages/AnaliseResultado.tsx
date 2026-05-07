@@ -20,7 +20,7 @@ import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
 import { AlertHistoryTimeline } from "@/components/AlertHistoryTimeline";
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
-import { ProjectCopilotChat } from "@/components/ProjectCopilotChat";
+import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -386,6 +386,92 @@ export default function AnaliseResultado() {
     toast.success(`Preço SINAPI vinculado ao item ${itemCode}`);
   }, [linkModal.item, localResult, analysis, id]);
 
+  // Build flat list of budget items for the AI Copilot context
+  const copilotBudgetItems: CopilotBudgetItem[] = useMemo(() => {
+    if (!localResult?.macro_etapas) return [];
+    const out: CopilotBudgetItem[] = [];
+    for (const etapa of localResult.macro_etapas) {
+      for (const it of etapa.itens || []) {
+        out.push({
+          id: it.item,
+          descricao: it.descricao,
+          quantidade: it.quantidade,
+          unidade: it.unidade,
+          preco_unitario: it.preco_unitario,
+          etapa: etapa.nome,
+        });
+      }
+    }
+    return out;
+  }, [localResult]);
+
+  // Apply an approved proposal: update the matching item, recalc subtotals, persist to DB
+  const handleApplyProposal = useCallback(
+    async (p: ProposalPayload): Promise<boolean> => {
+      if (!localResult || !id) return false;
+
+      let found = false;
+      const updated: AnalysisResult = {
+        ...localResult,
+        macro_etapas: localResult.macro_etapas.map((etapa) => ({
+          ...etapa,
+          itens: etapa.itens.map((it) => {
+            if (it.item !== p.id_do_item) return it;
+            found = true;
+            const qty = Number(p.nova_quantidade);
+            const unit = Number(p.novo_preco_unitario);
+            return {
+              ...it,
+              descricao: p.novo_nome || it.descricao,
+              quantidade: isNaN(qty) ? it.quantidade : qty,
+              preco_unitario: isNaN(unit) ? it.preco_unitario : unit,
+              preco_total: (isNaN(qty) ? Number(it.quantidade) || 0 : qty) * (isNaN(unit) ? Number(it.preco_unitario) || 0 : unit),
+            };
+          }),
+          subtotal: 0,
+        })),
+      };
+
+      if (!found) {
+        toast.error(`Item ${p.id_do_item} não encontrado no orçamento.`);
+        return false;
+      }
+
+      updated.macro_etapas = updated.macro_etapas.map((etapa) => ({
+        ...etapa,
+        subtotal: etapa.itens.reduce((sum, it) => {
+          const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+          return sum + (isNaN(t) ? 0 : t);
+        }, 0),
+      }));
+
+      const bdi = analysis?.bdi_percentual || 25;
+      updated.resumo_final = recalculateTotals(updated, bdi);
+
+      setLocalResult(updated);
+
+      const totalGeral =
+        typeof updated.resumo_final.total_geral === "string"
+          ? parseFloat(updated.resumo_final.total_geral)
+          : updated.resumo_final.total_geral;
+
+      const { error } = await supabase
+        .from("analyses")
+        .update({
+          resultado_json: updated as any,
+          total_estimado: isNaN(totalGeral) ? null : totalGeral,
+        })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Erro ao salvar alteração: " + error.message);
+        return false;
+      }
+      return true;
+    },
+    [localResult, analysis, id],
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -665,7 +751,13 @@ export default function AnaliseResultado() {
         />
       )}
 
-      {id && <ProjectCopilotChat projectId={id} />}
+      {id && (
+        <ProjectCopilotChat
+          projectId={id}
+          budgetItems={copilotBudgetItems}
+          onApplyProposal={handleApplyProposal}
+        />
+      )}
     </div>
   );
 }
