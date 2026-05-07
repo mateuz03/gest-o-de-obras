@@ -665,7 +665,13 @@ export default function AnaliseResultado() {
         />
       )}
 
-      {id && <ProjectCopilotChat projectId={id} />}
+      {id && (
+        <ProjectCopilotChat
+          projectId={id}
+          budgetItems={copilotBudgetItems}
+          onApplyProposal={handleApplyProposal}
+        />
+      )}
     </div>
   );
 }
