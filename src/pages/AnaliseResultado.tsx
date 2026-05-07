@@ -245,6 +245,7 @@ export default function AnaliseResultado() {
   const [localResult, setLocalResult] = useState<AnalysisResult | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
   const [diarioRefreshKey, setDiarioRefreshKey] = useState(0);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Build dynamic room grouping from all macro_etapas items
   const roomGroups = useMemo(() => {
