@@ -5,6 +5,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const AI_TIMEOUT_MS = 115_000;
+
+async function fetchAiWithTimeout(body: Record<string, unknown>) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  try {
+    return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("A análise excedeu o tempo seguro de processamento. Envie menos imagens ou imagens mais leves e tente novamente.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const BLUEPRINT_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de plantas baixas e orçamentos de obras no padrão brasileiro.
 
 Ao receber uma ou mais imagens de planta baixa, você deve:
@@ -238,9 +266,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     const { images, escala, tipo_construcao, regiao, bdi_percentual, instrucoes_adicionais, modo_analise,
       area_m2, pe_direito, num_pavimentos, padrao_acabamento, tipo_fundacao, tipo_cobertura,
       num_quartos, num_banheiros, num_vagas, modo_precisao } = await req.json();
@@ -254,6 +279,7 @@ serve(async (req) => {
 
     const isPhotoMode = modo_analise === "foto_ambiente";
     const isHybrid = modo_precisao === "hibrido";
+    const analysisImages = isHybrid ? images.slice(0, 3) : images.slice(0, 4);
 
     const systemPrompt = isHybrid
       ? HYBRID_SYSTEM_PROMPT
@@ -286,26 +312,21 @@ serve(async (req) => {
     if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais: ${instrucoes_adicionais}`;
 
     const contentParts: any[] = [{ type: "text", text: userPrompt }];
-    for (const img of images) {
+    for (const img of analysisImages) {
       contentParts.push({
         type: "image_url",
-        image_url: { url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}` },
+        image_url: { url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}`, detail: isHybrid ? "low" : "auto" },
       });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: contentParts },
-        ],
-      }),
+    const response = await fetchAiWithTimeout({
+      model: isHybrid ? "google/gemini-2.5-flash" : "google/gemini-2.5-pro",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: contentParts },
+      ],
+      temperature: 0.1,
+      max_tokens: isHybrid ? 6000 : 12000,
     });
 
     if (!response.ok) {
