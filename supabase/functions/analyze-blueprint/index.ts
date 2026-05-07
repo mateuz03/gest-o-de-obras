@@ -327,43 +327,24 @@ serve(async (req) => {
 
     if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais: ${instrucoes_adicionais}`;
 
-    const contentParts: any[] = [{ type: "text", text: userPrompt }];
-    for (const img of analysisImages) {
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}`, detail: isHybrid ? "low" : "auto" },
+    let content: string;
+    try {
+      content = await generateWithGemini({
+        systemPrompt,
+        userText: userPrompt,
+        images: analysisImages,
+        maxOutputTokens: isHybrid ? 6000 : 12000,
       });
-    }
-
-    const response = await fetchAiWithTimeout({
-      model: isHybrid ? "google/gemini-2.5-flash" : "google/gemini-2.5-pro",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: contentParts },
-      ],
-      temperature: 0.1,
-      max_tokens: isHybrid ? 6000 : 12000,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.error("Gemini error:", msg);
+      if (/quota|rate/i.test(msg)) {
+        return new Response(JSON.stringify({ error: "Limite de requisições da API Gemini excedido. Tente novamente em alguns minutos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em Settings > Workspace > Usage." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw err;
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
     if (!content) throw new Error("No content in AI response");
 
     let parsed;
