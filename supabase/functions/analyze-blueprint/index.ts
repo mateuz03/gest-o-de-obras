@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@^0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,22 +8,37 @@ const corsHeaders = {
 
 const AI_TIMEOUT_MS = 115_000;
 
-async function fetchAiWithTimeout(body: Record<string, unknown>) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+async function generateWithGemini(opts: {
+  systemPrompt: string;
+  userText: string;
+  images: Array<{ mime_type?: string; base64: string }>;
+  maxOutputTokens: number;
+}): Promise<string> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    systemInstruction: opts.systemPrompt,
+    generationConfig: { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens },
+  });
+
+  const parts: any[] = [{ text: opts.userText }];
+  for (const img of opts.images) {
+    parts.push({
+      inlineData: { mimeType: img.mime_type || "image/jpeg", data: img.base64 },
+    });
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
-    return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    const result = await model.generateContent(
+      { contents: [{ role: "user", parts }] },
+      { signal: controller.signal } as any,
+    );
+    return result.response.text();
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("A análise excedeu o tempo seguro de processamento. Envie menos imagens ou imagens mais leves e tente novamente.");
