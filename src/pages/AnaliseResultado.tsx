@@ -431,8 +431,29 @@ export default function AnaliseResultado() {
               {matchingPrices ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
               Conciliar SINAPI
             </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                setDownloadingPdf(true);
+                try {
+                  await new Promise((r) => setTimeout(r, 50));
+                  exportOrcaLinkPDF(analysis.nome_projeto, result, computedSummary);
+                  toast.success("PDF gerado com sucesso!");
+                } catch (e) {
+                  console.error(e);
+                  toast.error("Erro ao gerar PDF.");
+                } finally {
+                  setDownloadingPdf(false);
+                }
+              }}
+              disabled={downloadingPdf}
+              className="bg-[hsl(173,80%,36%)] hover:bg-[hsl(173,80%,30%)] text-white"
+            >
+              {downloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+              Baixar PDF
+            </Button>
             <Button variant="outline" size="sm" onClick={() => exportToPDF(analysis.nome_projeto, result)}>
-              <Download className="mr-1 h-4 w-4" /> PDF
+              <FileText className="mr-1 h-4 w-4" /> PDF Completo
             </Button>
             <Button variant="outline" size="sm" onClick={() => exportToExcel(analysis.nome_projeto, result)}>
               <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
