@@ -65,7 +65,7 @@ export function ProjectCopilotChat({ projectId, budgetItems, onApplyProposal }: 
       if (error) {
         toast({ title: "Erro ao carregar histórico", description: error.message, variant: "destructive" });
       } else {
-        setMessages((data || []) as ChatRow[]);
+        setMessages((data || []) as unknown as ChatRow[]);
       }
       setLoading(false);
     })();
@@ -101,7 +101,7 @@ export function ProjectCopilotChat({ projectId, budgetItems, onApplyProposal }: 
       return;
     }
 
-    const newHistory = [...messages, userMsg as ChatRow];
+    const newHistory = [...messages, userMsg as unknown as ChatRow];
     setMessages(newHistory);
     setInput("");
 
@@ -134,7 +134,7 @@ export function ProjectCopilotChat({ projectId, budgetItems, onApplyProposal }: 
         .single();
 
       if (aErr) throw aErr;
-      setMessages((prev) => [...prev, assistantMsg as ChatRow]);
+      setMessages((prev) => [...prev, assistantMsg as unknown as ChatRow]);
     } catch (err: any) {
       toast({
         title: "Erro do copiloto",
