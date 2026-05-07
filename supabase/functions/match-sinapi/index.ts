@@ -75,6 +75,8 @@ async function searchSinapiOficial(
     if (filters.uf) q = q.eq("uf", filters.uf.toUpperCase());
     if (filters.mes_ano) q = q.eq("mes_ano", filters.mes_ano);
     if (typeof filters.desonerado === "boolean") q = q.eq("desonerado", filters.desonerado);
+    // GUARDRAIL: nunca trazer aquisição de equipamentos pesados (alucinações de orçamento)
+    q = q.not("tipo", "ilike", "%EQUIPAMENTO%");
     return q;
   };
 
