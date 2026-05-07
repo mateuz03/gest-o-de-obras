@@ -363,6 +363,8 @@ serve(async (req) => {
       }
 
       const precoTotal = precoUnit * qty;
+      // GUARDRAIL: sanity check — sinaliza itens com preço unitário absurdo
+      const alertaRevisao = precoUnit > 50000;
       const etapaNome = p.m.macro_etapa || "Itens identificados";
       if (!etapaMap.has(etapaNome)) etapaMap.set(etapaNome, []);
       etapaMap.get(etapaNome)!.push({
@@ -379,6 +381,7 @@ serve(async (req) => {
         origem_preco: origem,
         sem_preco_sinapi: semPrecoSinapi,
         estimado_ia: estimadoIA,
+        alerta_revisao: alertaRevisao,
         perda_aplicada: "—",
       });
     }
