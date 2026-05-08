@@ -53,6 +53,8 @@ const MODE_CONFIG = {
 export default function NovaAnalise() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get("id");
   const [mode, setMode] = useState<AnalysisMode | null>(null);
   const [step, setStep] = useState(0); // 0 = mode selection
   const [files, setFiles] = useState<File[]>([]);
@@ -62,6 +64,8 @@ export default function NovaAnalise() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [hydrating, setHydrating] = useState(!!draftId);
+  const [existingFiles, setExistingFiles] = useState<{ name: string; url: string; path: string }[]>([]);
 
   const [formData, setFormData] = useState({
     nome_projeto: "",
