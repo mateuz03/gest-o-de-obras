@@ -563,6 +563,25 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
   ]
 }
 ${STRICT_JSON_RULES}`;
+
+const STRUCTURED_BLUEPRINT_JSON_STRUCTURE = `
+Retorne APENAS um JSON válido (sem markdown, sem backticks) obedecendo ao Response Schema configurado.
+
+A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
+- "1_servicos_preliminares"
+- "2_infraestrutura"
+- "3_superestrutura"
+- "4_cobertura"
+- "5_esquadrias"
+- "6_eletrica"
+- "7_hidraulica"
+- "8_acabamentos"
+
+Cada chave deve conter um array de itens daquela etapa. NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
+Cada array deve conter no mínimo 3 itens detalhados, preferencialmente 5 ou mais quando aplicável.
+
+Inclua também, quando possível: resumo, area_total_m2, escala_detectada, referencia_sinapi, quantitativo_por_comodo e recomendacoes.
+${STRICT_JSON_RULES}`;
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -586,7 +605,9 @@ serve(async (req) => {
 
     const systemPrompt = isHybrid
       ? HYBRID_SYSTEM_PROMPT
-      : (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
+      : isPhotoMode
+        ? PHOTO_SYSTEM_PROMPT + JSON_STRUCTURE
+        : BLUEPRINT_SYSTEM_PROMPT + STRUCTURED_BLUEPRINT_JSON_STRUCTURE;
 
     let userPrompt = isHybrid
       ? "Identifique e meça TODOS os itens construtivos visíveis. NÃO estime preços. Devolva apenas o array measurements no JSON solicitado."
@@ -621,6 +642,7 @@ serve(async (req) => {
         userText: userPrompt,
         images: analysisImages,
         maxOutputTokens: isHybrid ? 6000 : 12000,
+        responseSchema: !isHybrid && !isPhotoMode ? BLUEPRINT_RESPONSE_SCHEMA : undefined,
       });
     } catch (err: any) {
       const msg = err?.message || String(err);
@@ -646,6 +668,7 @@ serve(async (req) => {
         parsed = JSON.parse(repairedText);
         console.log("✅ [JSON REPAIR] Resposta da IA reparada e parseada com sucesso.");
       }
+      parsed = normalizeStructuredBlueprintResponse(parsed);
     } catch (parseErr: any) {
       console.error("Raw AI Response que falhou no parse:", rawText);
       throw new Error(`Failed to parse AI response as JSON. Error: ${parseErr?.message || parseErr}`);
