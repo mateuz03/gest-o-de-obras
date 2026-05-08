@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@^0.21.0";
+import { jsonrepair } from "npm:jsonrepair@^3.13.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,92 @@ const corsHeaders = {
 };
 
 const AI_TIMEOUT_MS = 115_000;
+
+const STRICT_JSON_RULES = `
+
+REGRAS CRÍTICAS DE FORMATAÇÃO JSON:
+- Você deve retornar APENAS um JSON válido. NUNCA use aspas duplas (") dentro dos valores das strings. Se precisar indicar polegadas, escreva 'pol' ou use aspas simples (').
+- Verifique rigorosamente a estrutura do seu JSON. Garanta que TODOS os objetos dentro de um array estejam devidamente separados por vírgula (,).
+- Não inclua texto antes ou depois do JSON, comentários, markdown, blocos \`\`\`json, reticências ou placeholders como [...].
+`;
+
+function stripMarkdownAndExtractJson(text: string): string {
+  const cleaned = text
+    .replace(/```json\s?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  const firstObject = cleaned.indexOf("{");
+  const firstArray = cleaned.indexOf("[");
+  const start = firstObject === -1 ? firstArray : firstArray === -1 ? firstObject : Math.min(firstObject, firstArray);
+  if (start === -1) return cleaned;
+
+  const opening = cleaned[start];
+  const closing = opening === "[" ? "]" : "}";
+  const end = cleaned.lastIndexOf(closing);
+  return end > start ? cleaned.slice(start, end + 1).trim() : cleaned.slice(start).trim();
+}
+
+function escapeLikelyUnescapedQuotes(jsonText: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < jsonText.length; i++) {
+    const char = jsonText[i];
+
+    if (escaped) {
+      output += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\" && inString) {
+      output += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      if (!inString) {
+        inString = true;
+        output += char;
+        continue;
+      }
+
+      const rest = jsonText.slice(i + 1);
+      const nextNonSpace = rest.match(/\S/)?.[0] ?? "";
+      if ([",", "}", "]", ":"].includes(nextNonSpace)) {
+        inString = false;
+        output += char;
+      } else {
+        output += '\\"';
+      }
+      continue;
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function repairAiJson(rawText: string): string {
+  const normalized = stripMarkdownAndExtractJson(rawText)
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/}\s*{/g, "},{")
+    .replace(/]\s*{/g, "],{")
+    .replace(/}\s*\[/g, "},[")
+    .trim();
+
+  try {
+    return jsonrepair(normalized);
+  } catch (repairErr) {
+    console.warn("jsonrepair não conseguiu reparar na primeira tentativa:", repairErr);
+    return jsonrepair(escapeLikelyUnescapedQuotes(normalized));
+  }
+}
 
 async function generateWithGemini(opts: {
   systemPrompt: string;
@@ -243,7 +330,8 @@ Retorne APENAS um JSON válido (sem markdown):
   "measurements": [
     { "macro_etapa": "Alvenaria", "item": "...", "descricao": "...", "quantidade": 0, "unidade": "m²", "local_aplicacao": "Sala" }
   ]
-}`;
+}
+${STRICT_JSON_RULES}`;
 
 const JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
@@ -277,7 +365,9 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
   "quantitativo_por_comodo": [
     {
       "comodo": "Banheiro",
-      "itens": [...],
+      "itens": [
+        { "item": "1.1", "descricao": "Descrição do item", "quantidade": 0, "unidade": "un", "subtotal": 0.00 }
+      ],
       "subtotal": 0.00
     }
   ],
@@ -297,7 +387,8 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
       ]
     }
   ]
-}`;
+}
+${STRICT_JSON_RULES}`;
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -371,14 +462,15 @@ serve(async (req) => {
 
     let parsed;
     const rawText = content;
-    const cleanText = rawText.replace(/```json\s?/g, '').replace(/```/g, '').trim();
+    const cleanText = stripMarkdownAndExtractJson(rawText);
     try {
       try {
         parsed = JSON.parse(cleanText);
-      } catch {
-        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON found in response");
-        parsed = JSON.parse(jsonMatch[0]);
+      } catch (initialParseErr) {
+        console.warn("JSON.parse inicial falhou; tentando reparar resposta da IA:", initialParseErr);
+        const repairedText = repairAiJson(cleanText);
+        parsed = JSON.parse(repairedText);
+        console.log("✅ [JSON REPAIR] Resposta da IA reparada e parseada com sucesso.");
       }
     } catch (parseErr: any) {
       console.error("Raw AI Response que falhou no parse:", rawText);
