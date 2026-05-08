@@ -35,7 +35,7 @@ async function generateWithGemini(opts: {
       systemInstruction: opts.systemPrompt,
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: opts.maxOutputTokens,
+        maxOutputTokens: 8192,
         responseMimeType: "application/json",
       },
     });
