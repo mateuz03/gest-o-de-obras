@@ -229,24 +229,43 @@ export default function NovaAnalise() {
   };
 
   const handleSaveDraft = async () => {
-    if (!files.length || !user) return;
+    if (!user) return;
+    if (!files.length && !existingFiles.length) return;
     setSavingDraft(true);
     try {
       const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
 
-      const { data: draft, error: insertErr } = await supabase.from("analyses").insert({
-        user_id: user.id,
-        nome_projeto: formData.nome_projeto || "Rascunho sem título",
-        escala: formData.escala || null,
-        tipo_construcao: formData.tipo_construcao,
-        regiao: formData.regiao || null,
-        status: "pending",
-      }).select().single();
-      if (insertErr) throw insertErr;
+      let analysisId = draftId;
+      if (analysisId) {
+        const { error: updErr } = await supabase
+          .from("analyses")
+          .update({
+            nome_projeto: formData.nome_projeto || "Rascunho sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            status: "pending",
+          } as any)
+          .eq("id", analysisId);
+        if (updErr) throw updErr;
+      } else {
+        const { data: draft, error: insertErr } = await supabase.from("analyses").insert({
+          user_id: user.id,
+          nome_projeto: formData.nome_projeto || "Rascunho sem título",
+          escala: formData.escala || null,
+          tipo_construcao: formData.tipo_construcao,
+          regiao: formData.regiao || null,
+          status: "pending",
+        }).select().single();
+        if (insertErr) throw insertErr;
+        analysisId = (draft as any).id;
+      }
 
-      const uploaded = await uploadAllFiles((draft as any).id, allFiles);
-      if (uploaded[0]) {
-        await supabase.from("analyses").update({ imagem_url: uploaded[0].url }).eq("id", (draft as any).id);
+      if (allFiles.length) {
+        const uploaded = await uploadAllFiles(analysisId!, allFiles);
+        if (uploaded[0]) {
+          await supabase.from("analyses").update({ imagem_url: uploaded[0].url }).eq("id", analysisId!);
+        }
       }
       toast.success("Rascunho salvo!");
       navigate("/dashboard");
