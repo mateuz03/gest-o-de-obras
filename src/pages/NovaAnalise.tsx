@@ -641,13 +641,45 @@ export default function NovaAnalise() {
           </Card>
         )}
 
-        {step === 2 && !showSummary && (
+        {hydrating && (
+          <Card>
+            <CardContent className="flex items-center gap-3 py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Carregando rascunho do projeto...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!hydrating && step === 2 && !showSummary && (
           <Card>
             <CardHeader>
-              <CardTitle>Detalhes do Projeto</CardTitle>
-              <CardDescription>Campos com <span className="text-destructive font-medium">*</span> são obrigatórios</CardDescription>
+              <CardTitle>{draftId ? "Continuar Projeto" : "Detalhes do Projeto"}</CardTitle>
+              <CardDescription>
+                {draftId
+                  ? "Revise os dados salvos e clique em Gerar Orçamento para tentar a análise novamente."
+                  : <>Campos com <span className="text-destructive font-medium">*</span> são obrigatórios</>}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {draftId && existingFiles.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileImage className="h-4 w-4 text-amber-700" />
+                    <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
+                      {existingFiles.length} arquivo(s) já vinculado(s)
+                    </span>
+                  </div>
+                  <ul className="text-xs text-amber-900 space-y-0.5">
+                    {existingFiles.slice(0, 5).map((f, i) => (
+                      <li key={i} className="truncate">• {f.name}</li>
+                    ))}
+                    {existingFiles.length > 5 && <li>+{existingFiles.length - 5} outro(s)</li>}
+                  </ul>
+                  <p className="mt-2 text-xs text-amber-800">
+                    Você pode reutilizar esses arquivos ou anexar novos no passo anterior.
+                  </p>
+                </div>
+              )}
               {/* Section: Dados do Projeto */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
