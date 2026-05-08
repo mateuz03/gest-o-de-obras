@@ -184,6 +184,60 @@ function repairAiJson(rawText: string): string {
   }
 }
 
+function normalizeStructuredBlueprintResponse(parsed: any) {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  const hasStructuredStages = MACRO_ETAPA_SCHEMA_KEYS.some(({ key }) => Array.isArray(parsed[key]));
+  if (!hasStructuredStages) return parsed;
+
+  const macro_etapas = MACRO_ETAPA_SCHEMA_KEYS.map(({ key, nome }, stageIndex) => {
+    const itens = (Array.isArray(parsed[key]) ? parsed[key] : []).map((rawItem: any, itemIndex: number) => {
+      const quantidade = Number(rawItem?.quantidade ?? rawItem?.quant ?? rawItem?.quantity ?? 0) || 0;
+      const precoUnitario = Number(rawItem?.preco_unitario ?? rawItem?.preco_unit ?? rawItem?.unit_price ?? 0) || 0;
+      const precoTotal = Number(rawItem?.preco_total ?? rawItem?.subtotal ?? quantidade * precoUnitario) || 0;
+      return {
+        item: rawItem?.item || `${stageIndex + 1}.${itemIndex + 1}`,
+        descricao: rawItem?.descricao || rawItem?.description || "Item estimado",
+        local_aplicacao: rawItem?.local_aplicacao || rawItem?.local || "Obra geral",
+        fornecedor: rawItem?.fornecedor || "—",
+        marca: rawItem?.marca || "—",
+        quantidade,
+        unidade: rawItem?.unidade || rawItem?.unit || "un",
+        preco_unitario: precoUnitario,
+        preco_total: precoTotal,
+        codigo_sinapi: rawItem?.codigo_sinapi || "",
+        origem_preco: rawItem?.origem_preco || "SINAPI",
+        perda_aplicada: rawItem?.perda_aplicada || rawItem?.perda || "10%",
+      };
+    });
+
+    return {
+      nome,
+      itens,
+      subtotal: itens.reduce((sum: number, item: any) => sum + (Number(item.preco_total) || 0), 0),
+    };
+  });
+
+  const totalMateriais = macro_etapas.reduce((sum, etapa) => sum + etapa.subtotal, 0);
+  const bdiPercentual = Number(parsed?.resumo_final?.bdi_percentual ?? 25) || 25;
+  const bdiValor = Number(parsed?.resumo_final?.bdi_valor ?? totalMateriais * (bdiPercentual / 100)) || 0;
+
+  const normalized = {
+    ...parsed,
+    macro_etapas,
+    resumo_final: {
+      total_materiais: Number(parsed?.resumo_final?.total_materiais ?? totalMateriais) || totalMateriais,
+      total_mao_de_obra: Number(parsed?.resumo_final?.total_mao_de_obra ?? 0) || 0,
+      total_geral: Number(parsed?.resumo_final?.total_geral ?? totalMateriais + bdiValor) || totalMateriais + bdiValor,
+      bdi_percentual: bdiPercentual,
+      bdi_valor: bdiValor,
+      premissas_bdi: parsed?.resumo_final?.premissas_bdi || "BDI padrão de 25% aplicado",
+    },
+  };
+
+  for (const { key } of MACRO_ETAPA_SCHEMA_KEYS) delete normalized[key];
+  return normalized;
+}
+
 async function generateWithGemini(opts: {
   systemPrompt: string;
   userText: string;
