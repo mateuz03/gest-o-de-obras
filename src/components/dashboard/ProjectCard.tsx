@@ -163,21 +163,34 @@ export function ProjectCard({ analysis: a, imageUrl, onPickCover }: ProjectCardP
 
         {/* Actions */}
         <div className="mt-auto flex gap-2 pt-2">
-          <Button
-            variant="outline"
-            asChild
-            className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
-          >
-            <Link to={`/analise/${a.id}`}>
-              <FileText className="mr-1.5 h-4 w-4" /> Orçamento
-            </Link>
-          </Button>
-          <Button
-            asChild
-            className="flex-[1.2] bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-          >
-            <Link to={`/analise/${a.id}`}>Ver Detalhes</Link>
-          </Button>
+          {isAnalysisIncomplete(a) ? (
+            <Button
+              asChild
+              className="flex-1 bg-amber-600 text-white shadow-sm hover:bg-amber-700"
+            >
+              <Link to={`/nova-analise?id=${a.id}`}>
+                <Pencil className="mr-1.5 h-4 w-4" /> Continuar Edição
+              </Link>
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                asChild
+                className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+              >
+                <Link to={`/analise/${a.id}`}>
+                  <FileText className="mr-1.5 h-4 w-4" /> Orçamento
+                </Link>
+              </Button>
+              <Button
+                asChild
+                className="flex-[1.2] bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+              >
+                <Link to={`/analise/${a.id}`}>Ver Detalhes</Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
