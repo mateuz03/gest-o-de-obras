@@ -89,6 +89,61 @@ export default function NovaAnalise() {
     sinapi_desonerado: "true", // "true" | "false"
   });
 
+  // Hydrate from draft (URL ?id=) — load saved analysis row + linked source files
+  useEffect(() => {
+    if (!draftId || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("analyses")
+          .select("*")
+          .eq("id", draftId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          toast.error("Projeto não encontrado.");
+          navigate("/dashboard");
+          return;
+        }
+        if (cancelled) return;
+
+        setFormData((prev) => ({
+          ...prev,
+          nome_projeto: data.nome_projeto || "",
+          escala: data.escala || "",
+          tipo_construcao: data.tipo_construcao || prev.tipo_construcao,
+          regiao: data.regiao || "",
+          bdi_percentual: data.bdi_percentual != null ? String(data.bdi_percentual) : prev.bdi_percentual,
+        }));
+
+        // List previously uploaded files for this draft
+        const prefix = `${user.id}/${draftId}`;
+        const { data: listed } = await supabase.storage.from("blueprints").list(prefix, { limit: 100 });
+        if (listed && !cancelled) {
+          const items = listed
+            .filter((f) => f.name && !f.name.startsWith("."))
+            .map((f) => {
+              const path = `${prefix}/${f.name}`;
+              const { data: u } = supabase.storage.from("blueprints").getPublicUrl(path);
+              return { name: f.name.replace(/^\d+_/, ""), url: u.publicUrl, path };
+            });
+          setExistingFiles(items);
+        }
+
+        // Skip mode + upload steps; jump straight to details
+        setMode("planta");
+        setStep(2);
+      } catch (err: any) {
+        toast.error(err?.message || "Erro ao carregar rascunho");
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftId, user, navigate]);
+
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
 
   const addFile = useCallback((f: File) => {
