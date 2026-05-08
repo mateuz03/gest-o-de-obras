@@ -189,6 +189,7 @@ async function generateWithGemini(opts: {
   userText: string;
   images: Array<{ mime_type?: string; base64: string }>;
   maxOutputTokens: number;
+  responseSchema?: any;
 }): Promise<string> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -213,6 +214,7 @@ async function generateWithGemini(opts: {
         temperature: 0.1,
         maxOutputTokens: 8192,
         responseMimeType: "application/json",
+        ...(opts.responseSchema ? { responseSchema: opts.responseSchema } : {}),
       },
     });
     const t0 = Date.now();
