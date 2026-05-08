@@ -480,11 +480,55 @@ export default function AnaliseResultado() {
     );
   }
 
-  if (!analysis || !localResult) {
+  if (!analysis) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Resultado não encontrado</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-muted-foreground">Projeto não encontrado.</p>
         <Button asChild><Link to="/dashboard">Voltar ao Dashboard</Link></Button>
+      </div>
+    );
+  }
+
+  if (!localResult || analysis.status === "pending" || analysis.status === "error") {
+    const isError = analysis.status === "error";
+    return (
+      <div className="min-h-screen bg-background">
+        <nav className="border-b bg-primary text-primary-foreground">
+          <div className="container flex h-16 items-center gap-4">
+            <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
+              <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
+            </Button>
+            <div className="flex items-center gap-2 font-bold">
+              <Box className="h-5 w-5" />
+              {analysis.nome_projeto}
+            </div>
+          </div>
+        </nav>
+        <div className="container max-w-xl py-16">
+          <Card>
+            <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full ${isError ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
+                <FolderOpen className="h-8 w-8" />
+              </div>
+              <h2 className="text-xl font-semibold text-foreground">
+                {isError ? "A análise anterior falhou" : "Este projeto ainda é um rascunho ou aguarda processamento."}
+              </h2>
+              <p className="max-w-md text-sm text-muted-foreground">
+                {isError
+                  ? "Algo deu errado durante a geração do orçamento. Você pode revisar os dados e tentar novamente sem precisar reenviar tudo."
+                  : "Os dados básicos foram salvos, mas o orçamento ainda não foi gerado. Continue de onde parou para gerar o orçamento com IA."}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                <Button asChild>
+                  <Link to={`/nova-analise?id=${analysis.id}`}>Continuar Edição</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/dashboard">Voltar ao Dashboard</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

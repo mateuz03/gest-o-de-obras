@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +53,8 @@ const MODE_CONFIG = {
 export default function NovaAnalise() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get("id");
   const [mode, setMode] = useState<AnalysisMode | null>(null);
   const [step, setStep] = useState(0); // 0 = mode selection
   const [files, setFiles] = useState<File[]>([]);
@@ -62,6 +64,8 @@ export default function NovaAnalise() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [hydrating, setHydrating] = useState(!!draftId);
+  const [existingFiles, setExistingFiles] = useState<{ name: string; url: string; path: string }[]>([]);
 
   const [formData, setFormData] = useState({
     nome_projeto: "",
@@ -84,6 +88,61 @@ export default function NovaAnalise() {
     sinapi_mes_ano: "2026-05",
     sinapi_desonerado: "true", // "true" | "false"
   });
+
+  // Hydrate from draft (URL ?id=) — load saved analysis row + linked source files
+  useEffect(() => {
+    if (!draftId || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("analyses")
+          .select("*")
+          .eq("id", draftId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          toast.error("Projeto não encontrado.");
+          navigate("/dashboard");
+          return;
+        }
+        if (cancelled) return;
+
+        setFormData((prev) => ({
+          ...prev,
+          nome_projeto: data.nome_projeto || "",
+          escala: data.escala || "",
+          tipo_construcao: data.tipo_construcao || prev.tipo_construcao,
+          regiao: data.regiao || "",
+          bdi_percentual: data.bdi_percentual != null ? String(data.bdi_percentual) : prev.bdi_percentual,
+        }));
+
+        // List previously uploaded files for this draft
+        const prefix = `${user.id}/${draftId}`;
+        const { data: listed } = await supabase.storage.from("blueprints").list(prefix, { limit: 100 });
+        if (listed && !cancelled) {
+          const items = listed
+            .filter((f) => f.name && !f.name.startsWith("."))
+            .map((f) => {
+              const path = `${prefix}/${f.name}`;
+              const { data: u } = supabase.storage.from("blueprints").getPublicUrl(path);
+              return { name: f.name.replace(/^\d+_/, ""), url: u.publicUrl, path };
+            });
+          setExistingFiles(items);
+        }
+
+        // Skip mode + upload steps; jump straight to details
+        setMode("planta");
+        setStep(2);
+      } catch (err: any) {
+        toast.error(err?.message || "Erro ao carregar rascunho");
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftId, user, navigate]);
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
 
@@ -170,24 +229,43 @@ export default function NovaAnalise() {
   };
 
   const handleSaveDraft = async () => {
-    if (!files.length || !user) return;
+    if (!user) return;
+    if (!files.length && !existingFiles.length) return;
     setSavingDraft(true);
     try {
       const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
 
-      const { data: draft, error: insertErr } = await supabase.from("analyses").insert({
-        user_id: user.id,
-        nome_projeto: formData.nome_projeto || "Rascunho sem título",
-        escala: formData.escala || null,
-        tipo_construcao: formData.tipo_construcao,
-        regiao: formData.regiao || null,
-        status: "pending",
-      }).select().single();
-      if (insertErr) throw insertErr;
+      let analysisId = draftId;
+      if (analysisId) {
+        const { error: updErr } = await supabase
+          .from("analyses")
+          .update({
+            nome_projeto: formData.nome_projeto || "Rascunho sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            status: "pending",
+          } as any)
+          .eq("id", analysisId);
+        if (updErr) throw updErr;
+      } else {
+        const { data: draft, error: insertErr } = await supabase.from("analyses").insert({
+          user_id: user.id,
+          nome_projeto: formData.nome_projeto || "Rascunho sem título",
+          escala: formData.escala || null,
+          tipo_construcao: formData.tipo_construcao,
+          regiao: formData.regiao || null,
+          status: "pending",
+        }).select().single();
+        if (insertErr) throw insertErr;
+        analysisId = (draft as any).id;
+      }
 
-      const uploaded = await uploadAllFiles((draft as any).id, allFiles);
-      if (uploaded[0]) {
-        await supabase.from("analyses").update({ imagem_url: uploaded[0].url }).eq("id", (draft as any).id);
+      if (allFiles.length) {
+        const uploaded = await uploadAllFiles(analysisId!, allFiles);
+        if (uploaded[0]) {
+          await supabase.from("analyses").update({ imagem_url: uploaded[0].url }).eq("id", analysisId!);
+        }
       }
       toast.success("Rascunho salvo!");
       navigate("/dashboard");
@@ -241,8 +319,25 @@ export default function NovaAnalise() {
       img.src = objectUrl;
     });
 
+  const urlToOptimizedBase64 = async (url: string, name: string): Promise<{ base64: string; mime_type: string } | null> => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const file = new File([blob], name, { type: blob.type || "image/jpeg" });
+      if (!file.type.startsWith("image/")) return null; // skip PDFs/DWG when re-running
+      return await imageToOptimizedBase64(file);
+    } catch (e) {
+      console.error("Failed to fetch existing file", name, e);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!files.length || !user) return;
+    if (!user) return;
+    if (!files.length && !existingFiles.length) {
+      toast.error("Anexe pelo menos um arquivo.");
+      return;
+    }
     if (!validate()) return;
     setLoading(true);
     setShowSummary(false);
@@ -250,34 +345,62 @@ export default function NovaAnalise() {
     try {
       // Convert files to compact base64 for AI to avoid Cloud idle timeouts
       const imageFiles = files.filter(f => !isDwg(f));
-      const images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
+      let images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
+
+      // If reprocessing a draft without new uploads, hydrate images from storage
+      if (!images.length && existingFiles.length) {
+        const fetched = await Promise.all(existingFiles.map((f) => urlToOptimizedBase64(f.url, f.name)));
+        images = fetched.filter((x): x is { base64: string; mime_type: string } => !!x);
+        if (!images.length) {
+          throw new Error("Nenhum arquivo de imagem reutilizável encontrado. Anexe novos arquivos.");
+        }
+      }
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
 
-      // 1) Insert analysis row first (so we can group uploads under {userId}/{analysisId}/)
-      const { data: analysis, error: insertErr } = await supabase
-        .from("analyses")
-        .insert({
-          user_id: user.id,
-          nome_projeto: formData.nome_projeto || "Análise sem título",
-          escala: formData.escala || null,
-          tipo_construcao: formData.tipo_construcao,
-          regiao: formData.regiao || null,
-          bdi_percentual: bdiValue,
-          status: "processing",
-        } as any)
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
-
-      // 2) Upload ALL source files under prefix {userId}/{analysisId}/ for traceability
-      const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
-      const uploaded = await uploadAllFiles((analysis as any).id, allFiles);
-      if (uploaded[0]) {
-        await supabase
+      // 1) Reuse existing draft row when available, otherwise insert
+      let analysisId = draftId;
+      if (analysisId) {
+        const { error: updErr } = await supabase
           .from("analyses")
-          .update({ imagem_url: uploaded[0].url } as any)
-          .eq("id", (analysis as any).id);
+          .update({
+            nome_projeto: formData.nome_projeto || "Análise sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            bdi_percentual: bdiValue,
+            status: "processing",
+          } as any)
+          .eq("id", analysisId);
+        if (updErr) throw updErr;
+      } else {
+        const { data: analysis, error: insertErr } = await supabase
+          .from("analyses")
+          .insert({
+            user_id: user.id,
+            nome_projeto: formData.nome_projeto || "Análise sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            bdi_percentual: bdiValue,
+            status: "processing",
+          } as any)
+          .select()
+          .single();
+        if (insertErr) throw insertErr;
+        analysisId = (analysis as any).id;
+      }
+
+      // 2) Upload any newly-attached files under prefix {userId}/{analysisId}/
+      const newFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
+      if (newFiles.length) {
+        const uploaded = await uploadAllFiles(analysisId!, newFiles);
+        if (uploaded[0]) {
+          await supabase
+            .from("analyses")
+            .update({ imagem_url: uploaded[0].url } as any)
+            .eq("id", analysisId!);
+        }
       }
 
 
@@ -339,13 +462,17 @@ export default function NovaAnalise() {
       await supabase
         .from("analyses")
         .update({ resultado_json: finalResult, status: "completed", total_estimado: totalGeral } as any)
-        .eq("id", (analysis as any).id);
+        .eq("id", analysisId!);
 
       toast.success("Análise concluída!");
-      navigate(`/analise/${(analysis as any).id}`);
+      navigate(`/analise/${analysisId}`);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro ao processar análise");
+      // Mark draft as error so dashboard reflects it
+      if (draftId) {
+        await supabase.from("analyses").update({ status: "error" } as any).eq("id", draftId);
+      }
       setLoading(false);
     }
   };
@@ -514,13 +641,45 @@ export default function NovaAnalise() {
           </Card>
         )}
 
-        {step === 2 && !showSummary && (
+        {hydrating && (
+          <Card>
+            <CardContent className="flex items-center gap-3 py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Carregando rascunho do projeto...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!hydrating && step === 2 && !showSummary && (
           <Card>
             <CardHeader>
-              <CardTitle>Detalhes do Projeto</CardTitle>
-              <CardDescription>Campos com <span className="text-destructive font-medium">*</span> são obrigatórios</CardDescription>
+              <CardTitle>{draftId ? "Continuar Projeto" : "Detalhes do Projeto"}</CardTitle>
+              <CardDescription>
+                {draftId
+                  ? "Revise os dados salvos e clique em Gerar Orçamento para tentar a análise novamente."
+                  : <>Campos com <span className="text-destructive font-medium">*</span> são obrigatórios</>}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {draftId && existingFiles.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileImage className="h-4 w-4 text-amber-700" />
+                    <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
+                      {existingFiles.length} arquivo(s) já vinculado(s)
+                    </span>
+                  </div>
+                  <ul className="text-xs text-amber-900 space-y-0.5">
+                    {existingFiles.slice(0, 5).map((f, i) => (
+                      <li key={i} className="truncate">• {f.name}</li>
+                    ))}
+                    {existingFiles.length > 5 && <li>+{existingFiles.length - 5} outro(s)</li>}
+                  </ul>
+                  <p className="mt-2 text-xs text-amber-800">
+                    Você pode reutilizar esses arquivos ou anexar novos no passo anterior.
+                  </p>
+                </div>
+              )}
               {/* Section: Dados do Projeto */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
