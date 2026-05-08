@@ -365,7 +365,9 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
   "quantitativo_por_comodo": [
     {
       "comodo": "Banheiro",
-      "itens": [...],
+      "itens": [
+        { "item": "1.1", "descricao": "Descrição do item", "quantidade": 0, "unidade": "un", "subtotal": 0.00 }
+      ],
       "subtotal": 0.00
     }
   ],
