@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Image as ImageIcon } from "lucide-react";
+import { ArrowRight, Image as ImageIcon, Pencil } from "lucide-react";
+import { getProjectRoute, isAnalysisIncomplete } from "@/lib/projectStatus";
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
   pending: { label: "Planejamento", classes: "bg-amber-100 text-amber-800" },
