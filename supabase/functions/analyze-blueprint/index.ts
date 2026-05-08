@@ -460,14 +460,15 @@ serve(async (req) => {
 
     let parsed;
     const rawText = content;
-    const cleanText = rawText.replace(/```json\s?/g, '').replace(/```/g, '').trim();
+    const cleanText = stripMarkdownAndExtractJson(rawText);
     try {
       try {
         parsed = JSON.parse(cleanText);
-      } catch {
-        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON found in response");
-        parsed = JSON.parse(jsonMatch[0]);
+      } catch (initialParseErr) {
+        console.warn("JSON.parse inicial falhou; tentando reparar resposta da IA:", initialParseErr);
+        const repairedText = repairAiJson(cleanText);
+        parsed = JSON.parse(repairedText);
+        console.log("✅ [JSON REPAIR] Resposta da IA reparada e parseada com sucesso.");
       }
     } catch (parseErr: any) {
       console.error("Raw AI Response que falhou no parse:", rawText);
