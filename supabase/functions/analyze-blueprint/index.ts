@@ -330,7 +330,8 @@ Retorne APENAS um JSON válido (sem markdown):
   "measurements": [
     { "macro_etapa": "Alvenaria", "item": "...", "descricao": "...", "quantidade": 0, "unidade": "m²", "local_aplicacao": "Sala" }
   ]
-}`;
+}
+${STRICT_JSON_RULES}`;
 
 const JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
@@ -384,7 +385,8 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
       ]
     }
   ]
-}`;
+}
+${STRICT_JSON_RULES}`;
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
