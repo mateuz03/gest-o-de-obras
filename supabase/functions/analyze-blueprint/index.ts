@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@^0.21.0";
+import { GoogleGenerativeAI, SchemaType } from "npm:@google/generative-ai@^0.21.0";
 import { jsonrepair } from "npm:jsonrepair@^3.13.0";
 
 const corsHeaders = {
@@ -8,6 +8,95 @@ const corsHeaders = {
 };
 
 const AI_TIMEOUT_MS = 115_000;
+
+const MACRO_ETAPA_SCHEMA_KEYS = [
+  { key: "1_servicos_preliminares", nome: "Serviços Preliminares" },
+  { key: "2_infraestrutura", nome: "Infraestrutura / Fundação" },
+  { key: "3_superestrutura", nome: "Superestrutura — Alvenaria / Concreto" },
+  { key: "4_cobertura", nome: "Cobertura" },
+  { key: "5_esquadrias", nome: "Esquadrias" },
+  { key: "6_eletrica", nome: "Instalações Elétricas" },
+  { key: "7_hidraulica", nome: "Instalações Hidrossanitárias" },
+  { key: "8_acabamentos", nome: "Acabamentos" },
+] as const;
+
+const ORCAMENTO_ITEM_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    item: { type: SchemaType.STRING },
+    descricao: { type: SchemaType.STRING },
+    local_aplicacao: { type: SchemaType.STRING },
+    fornecedor: { type: SchemaType.STRING },
+    marca: { type: SchemaType.STRING },
+    quantidade: { type: SchemaType.NUMBER },
+    unidade: { type: SchemaType.STRING },
+    preco_unitario: { type: SchemaType.NUMBER },
+    preco_total: { type: SchemaType.NUMBER },
+    codigo_sinapi: { type: SchemaType.STRING },
+    origem_preco: { type: SchemaType.STRING },
+    perda_aplicada: { type: SchemaType.STRING },
+  },
+  required: ["descricao", "quantidade", "unidade", "preco_unitario"],
+} as const;
+
+const BLUEPRINT_RESPONSE_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    resumo: { type: SchemaType.STRING },
+    area_total_m2: { type: SchemaType.NUMBER },
+    escala_detectada: { type: SchemaType.STRING },
+    referencia_sinapi: { type: SchemaType.STRING },
+    ...Object.fromEntries(
+      MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => [
+        key,
+        { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
+      ]),
+    ),
+    quantitativo_por_comodo: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          comodo: { type: SchemaType.STRING },
+          itens: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                item: { type: SchemaType.STRING },
+                descricao: { type: SchemaType.STRING },
+                quantidade: { type: SchemaType.NUMBER },
+                unidade: { type: SchemaType.STRING },
+                subtotal: { type: SchemaType.NUMBER },
+              },
+            },
+          },
+          subtotal: { type: SchemaType.NUMBER },
+        },
+      },
+    },
+    recomendacoes: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          material: { type: SchemaType.STRING },
+          marcas: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                nome: { type: SchemaType.STRING },
+                justificativa: { type: SchemaType.STRING },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  required: MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => key),
+} as const;
 
 const STRICT_JSON_RULES = `
 
