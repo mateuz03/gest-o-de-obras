@@ -57,12 +57,14 @@ export function ProjectsTable({ analyses, onPickCover }: ProjectsTableProps) {
               const gasto = Math.round(orcamento * (progress / 100));
               const cover = (a as any).cover_image_url || a.imagem_url;
               const progressColor = a.status === "completed" ? "bg-emerald-500" : "bg-blue-500";
+              const incomplete = isAnalysisIncomplete(a);
+              const route = getProjectRoute(a);
 
               return (
                 <tr
                   key={a.id}
                   className="transition-colors hover:bg-slate-50 cursor-pointer"
-                  onClick={() => navigate(`/analise/${a.id}`)}
+                  onClick={() => navigate(route)}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -118,11 +120,19 @@ export function ProjectsTable({ analyses, onPickCover }: ProjectsTableProps) {
                       variant="ghost"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/analise/${a.id}`);
+                        navigate(route);
                       }}
-                      className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                      className={
+                        incomplete
+                          ? "text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                          : "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                      }
                     >
-                      Abrir <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                      {incomplete ? (
+                        <>Continuar <Pencil className="ml-1 h-3.5 w-3.5" /></>
+                      ) : (
+                        <>Abrir <ArrowRight className="ml-1 h-3.5 w-3.5" /></>
+                      )}
                     </Button>
                   </td>
                 </tr>
