@@ -319,8 +319,25 @@ export default function NovaAnalise() {
       img.src = objectUrl;
     });
 
+  const urlToOptimizedBase64 = async (url: string, name: string): Promise<{ base64: string; mime_type: string } | null> => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const file = new File([blob], name, { type: blob.type || "image/jpeg" });
+      if (!file.type.startsWith("image/")) return null; // skip PDFs/DWG when re-running
+      return await imageToOptimizedBase64(file);
+    } catch (e) {
+      console.error("Failed to fetch existing file", name, e);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!files.length || !user) return;
+    if (!user) return;
+    if (!files.length && !existingFiles.length) {
+      toast.error("Anexe pelo menos um arquivo.");
+      return;
+    }
     if (!validate()) return;
     setLoading(true);
     setShowSummary(false);
@@ -328,34 +345,62 @@ export default function NovaAnalise() {
     try {
       // Convert files to compact base64 for AI to avoid Cloud idle timeouts
       const imageFiles = files.filter(f => !isDwg(f));
-      const images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
+      let images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
+
+      // If reprocessing a draft without new uploads, hydrate images from storage
+      if (!images.length && existingFiles.length) {
+        const fetched = await Promise.all(existingFiles.map((f) => urlToOptimizedBase64(f.url, f.name)));
+        images = fetched.filter((x): x is { base64: string; mime_type: string } => !!x);
+        if (!images.length) {
+          throw new Error("Nenhum arquivo de imagem reutilizável encontrado. Anexe novos arquivos.");
+        }
+      }
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
 
-      // 1) Insert analysis row first (so we can group uploads under {userId}/{analysisId}/)
-      const { data: analysis, error: insertErr } = await supabase
-        .from("analyses")
-        .insert({
-          user_id: user.id,
-          nome_projeto: formData.nome_projeto || "Análise sem título",
-          escala: formData.escala || null,
-          tipo_construcao: formData.tipo_construcao,
-          regiao: formData.regiao || null,
-          bdi_percentual: bdiValue,
-          status: "processing",
-        } as any)
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
-
-      // 2) Upload ALL source files under prefix {userId}/{analysisId}/ for traceability
-      const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
-      const uploaded = await uploadAllFiles((analysis as any).id, allFiles);
-      if (uploaded[0]) {
-        await supabase
+      // 1) Reuse existing draft row when available, otherwise insert
+      let analysisId = draftId;
+      if (analysisId) {
+        const { error: updErr } = await supabase
           .from("analyses")
-          .update({ imagem_url: uploaded[0].url } as any)
-          .eq("id", (analysis as any).id);
+          .update({
+            nome_projeto: formData.nome_projeto || "Análise sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            bdi_percentual: bdiValue,
+            status: "processing",
+          } as any)
+          .eq("id", analysisId);
+        if (updErr) throw updErr;
+      } else {
+        const { data: analysis, error: insertErr } = await supabase
+          .from("analyses")
+          .insert({
+            user_id: user.id,
+            nome_projeto: formData.nome_projeto || "Análise sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            bdi_percentual: bdiValue,
+            status: "processing",
+          } as any)
+          .select()
+          .single();
+        if (insertErr) throw insertErr;
+        analysisId = (analysis as any).id;
+      }
+
+      // 2) Upload any newly-attached files under prefix {userId}/{analysisId}/
+      const newFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
+      if (newFiles.length) {
+        const uploaded = await uploadAllFiles(analysisId!, newFiles);
+        if (uploaded[0]) {
+          await supabase
+            .from("analyses")
+            .update({ imagem_url: uploaded[0].url } as any)
+            .eq("id", analysisId!);
+        }
       }
 
 
@@ -417,13 +462,17 @@ export default function NovaAnalise() {
       await supabase
         .from("analyses")
         .update({ resultado_json: finalResult, status: "completed", total_estimado: totalGeral } as any)
-        .eq("id", (analysis as any).id);
+        .eq("id", analysisId!);
 
       toast.success("Análise concluída!");
-      navigate(`/analise/${(analysis as any).id}`);
+      navigate(`/analise/${analysisId}`);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro ao processar análise");
+      // Mark draft as error so dashboard reflects it
+      if (draftId) {
+        await supabase.from("analyses").update({ status: "error" } as any).eq("id", draftId);
+      }
       setLoading(false);
     }
   };
