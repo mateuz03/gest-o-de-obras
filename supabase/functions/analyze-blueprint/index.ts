@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@^0.21.0";
+import { GoogleGenerativeAI, SchemaType } from "npm:@google/generative-ai@^0.21.0";
 import { jsonrepair } from "npm:jsonrepair@^3.13.0";
 
 const corsHeaders = {
@@ -8,6 +8,95 @@ const corsHeaders = {
 };
 
 const AI_TIMEOUT_MS = 115_000;
+
+const MACRO_ETAPA_SCHEMA_KEYS = [
+  { key: "1_servicos_preliminares", nome: "Serviços Preliminares" },
+  { key: "2_infraestrutura", nome: "Infraestrutura / Fundação" },
+  { key: "3_superestrutura", nome: "Superestrutura — Alvenaria / Concreto" },
+  { key: "4_cobertura", nome: "Cobertura" },
+  { key: "5_esquadrias", nome: "Esquadrias" },
+  { key: "6_eletrica", nome: "Instalações Elétricas" },
+  { key: "7_hidraulica", nome: "Instalações Hidrossanitárias" },
+  { key: "8_acabamentos", nome: "Acabamentos" },
+] as const;
+
+const ORCAMENTO_ITEM_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    item: { type: SchemaType.STRING },
+    descricao: { type: SchemaType.STRING },
+    local_aplicacao: { type: SchemaType.STRING },
+    fornecedor: { type: SchemaType.STRING },
+    marca: { type: SchemaType.STRING },
+    quantidade: { type: SchemaType.NUMBER },
+    unidade: { type: SchemaType.STRING },
+    preco_unitario: { type: SchemaType.NUMBER },
+    preco_total: { type: SchemaType.NUMBER },
+    codigo_sinapi: { type: SchemaType.STRING },
+    origem_preco: { type: SchemaType.STRING },
+    perda_aplicada: { type: SchemaType.STRING },
+  },
+  required: ["descricao", "quantidade", "unidade", "preco_unitario"],
+} as const;
+
+const BLUEPRINT_RESPONSE_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    resumo: { type: SchemaType.STRING },
+    area_total_m2: { type: SchemaType.NUMBER },
+    escala_detectada: { type: SchemaType.STRING },
+    referencia_sinapi: { type: SchemaType.STRING },
+    ...Object.fromEntries(
+      MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => [
+        key,
+        { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
+      ]),
+    ),
+    quantitativo_por_comodo: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          comodo: { type: SchemaType.STRING },
+          itens: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                item: { type: SchemaType.STRING },
+                descricao: { type: SchemaType.STRING },
+                quantidade: { type: SchemaType.NUMBER },
+                unidade: { type: SchemaType.STRING },
+                subtotal: { type: SchemaType.NUMBER },
+              },
+            },
+          },
+          subtotal: { type: SchemaType.NUMBER },
+        },
+      },
+    },
+    recomendacoes: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          material: { type: SchemaType.STRING },
+          marcas: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                nome: { type: SchemaType.STRING },
+                justificativa: { type: SchemaType.STRING },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  required: MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => key),
+} as const;
 
 const STRICT_JSON_RULES = `
 
@@ -95,11 +184,66 @@ function repairAiJson(rawText: string): string {
   }
 }
 
+function normalizeStructuredBlueprintResponse(parsed: any) {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  const hasStructuredStages = MACRO_ETAPA_SCHEMA_KEYS.some(({ key }) => Array.isArray(parsed[key]));
+  if (!hasStructuredStages) return parsed;
+
+  const macro_etapas = MACRO_ETAPA_SCHEMA_KEYS.map(({ key, nome }, stageIndex) => {
+    const itens = (Array.isArray(parsed[key]) ? parsed[key] : []).map((rawItem: any, itemIndex: number) => {
+      const quantidade = Number(rawItem?.quantidade ?? rawItem?.quant ?? rawItem?.quantity ?? 0) || 0;
+      const precoUnitario = Number(rawItem?.preco_unitario ?? rawItem?.preco_unit ?? rawItem?.unit_price ?? 0) || 0;
+      const precoTotal = Number(rawItem?.preco_total ?? rawItem?.subtotal ?? quantidade * precoUnitario) || 0;
+      return {
+        item: rawItem?.item || `${stageIndex + 1}.${itemIndex + 1}`,
+        descricao: rawItem?.descricao || rawItem?.description || "Item estimado",
+        local_aplicacao: rawItem?.local_aplicacao || rawItem?.local || "Obra geral",
+        fornecedor: rawItem?.fornecedor || "—",
+        marca: rawItem?.marca || "—",
+        quantidade,
+        unidade: rawItem?.unidade || rawItem?.unit || "un",
+        preco_unitario: precoUnitario,
+        preco_total: precoTotal,
+        codigo_sinapi: rawItem?.codigo_sinapi || "",
+        origem_preco: rawItem?.origem_preco || "SINAPI",
+        perda_aplicada: rawItem?.perda_aplicada || rawItem?.perda || "10%",
+      };
+    });
+
+    return {
+      nome,
+      itens,
+      subtotal: itens.reduce((sum: number, item: any) => sum + (Number(item.preco_total) || 0), 0),
+    };
+  });
+
+  const totalMateriais = macro_etapas.reduce((sum, etapa) => sum + etapa.subtotal, 0);
+  const bdiPercentual = Number(parsed?.resumo_final?.bdi_percentual ?? 25) || 25;
+  const bdiValor = Number(parsed?.resumo_final?.bdi_valor ?? totalMateriais * (bdiPercentual / 100)) || 0;
+
+  const normalized = {
+    ...parsed,
+    macro_etapas,
+    resumo_final: {
+      total_materiais: Number(parsed?.resumo_final?.total_materiais ?? totalMateriais) || totalMateriais,
+      total_mao_de_obra: Number(parsed?.resumo_final?.total_mao_de_obra ?? 0) || 0,
+      total_geral: Number(parsed?.resumo_final?.total_geral ?? totalMateriais + bdiValor) || totalMateriais + bdiValor,
+      bdi_percentual: bdiPercentual,
+      bdi_valor: bdiValor,
+      premissas_bdi: parsed?.resumo_final?.premissas_bdi || "BDI padrão de 25% aplicado",
+    },
+  };
+
+  for (const { key } of MACRO_ETAPA_SCHEMA_KEYS) delete normalized[key];
+  return normalized;
+}
+
 async function generateWithGemini(opts: {
   systemPrompt: string;
   userText: string;
   images: Array<{ mime_type?: string; base64: string }>;
   maxOutputTokens: number;
+  responseSchema?: any;
 }): Promise<string> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -124,6 +268,7 @@ async function generateWithGemini(opts: {
         temperature: 0.1,
         maxOutputTokens: 8192,
         responseMimeType: "application/json",
+        ...(opts.responseSchema ? { responseSchema: opts.responseSchema } : {}),
       },
     });
     const t0 = Date.now();
@@ -418,6 +563,25 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
   ]
 }
 ${STRICT_JSON_RULES}`;
+
+const STRUCTURED_BLUEPRINT_JSON_STRUCTURE = `
+Retorne APENAS um JSON válido (sem markdown, sem backticks) obedecendo ao Response Schema configurado.
+
+A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
+- "1_servicos_preliminares"
+- "2_infraestrutura"
+- "3_superestrutura"
+- "4_cobertura"
+- "5_esquadrias"
+- "6_eletrica"
+- "7_hidraulica"
+- "8_acabamentos"
+
+Cada chave deve conter um array de itens daquela etapa. NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
+Cada array deve conter no mínimo 3 itens detalhados, preferencialmente 5 ou mais quando aplicável.
+
+Inclua também, quando possível: resumo, area_total_m2, escala_detectada, referencia_sinapi, quantitativo_por_comodo e recomendacoes.
+${STRICT_JSON_RULES}`;
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -441,7 +605,9 @@ serve(async (req) => {
 
     const systemPrompt = isHybrid
       ? HYBRID_SYSTEM_PROMPT
-      : (isPhotoMode ? PHOTO_SYSTEM_PROMPT : BLUEPRINT_SYSTEM_PROMPT) + JSON_STRUCTURE;
+      : isPhotoMode
+        ? PHOTO_SYSTEM_PROMPT + JSON_STRUCTURE
+        : BLUEPRINT_SYSTEM_PROMPT + STRUCTURED_BLUEPRINT_JSON_STRUCTURE;
 
     let userPrompt = isHybrid
       ? "Identifique e meça TODOS os itens construtivos visíveis. NÃO estime preços. Devolva apenas o array measurements no JSON solicitado."
@@ -476,6 +642,7 @@ serve(async (req) => {
         userText: userPrompt,
         images: analysisImages,
         maxOutputTokens: isHybrid ? 6000 : 12000,
+        responseSchema: !isHybrid && !isPhotoMode ? BLUEPRINT_RESPONSE_SCHEMA : undefined,
       });
     } catch (err: any) {
       const msg = err?.message || String(err);
@@ -501,6 +668,7 @@ serve(async (req) => {
         parsed = JSON.parse(repairedText);
         console.log("✅ [JSON REPAIR] Resposta da IA reparada e parseada com sucesso.");
       }
+      parsed = normalizeStructuredBlueprintResponse(parsed);
     } catch (parseErr: any) {
       console.error("Raw AI Response que falhou no parse:", rawText);
       throw new Error(`Failed to parse AI response as JSON. Error: ${parseErr?.message || parseErr}`);
