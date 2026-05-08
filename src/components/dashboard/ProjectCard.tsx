@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
-import { Calendar, MapPin, Users, FileText, ImagePlus } from "lucide-react";
+import { Calendar, MapPin, Users, FileText, ImagePlus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Analysis } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { isAnalysisIncomplete } from "@/lib/projectStatus";
 
 const COVER_IMAGES = [
   "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80",
