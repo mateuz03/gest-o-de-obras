@@ -33,7 +33,11 @@ async function generateWithGemini(opts: {
     const model = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction: opts.systemPrompt,
-      generationConfig: { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens },
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: opts.maxOutputTokens,
+        responseMimeType: "application/json",
+      },
     });
     const t0 = Date.now();
     const result = await model.generateContent(
@@ -366,16 +370,19 @@ serve(async (req) => {
     if (!content) throw new Error("No content in AI response");
 
     let parsed;
+    const rawText = content;
+    const cleanText = rawText.replace(/```json\s?/g, '').replace(/```/g, '').trim();
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
+      try {
+        parsed = JSON.parse(cleanText);
+      } catch {
+        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("No JSON found in response");
         parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
       }
-    } catch (parseErr) {
-      console.error("Failed to parse AI response:", content);
-      throw new Error("Failed to parse AI response as JSON");
+    } catch (parseErr: any) {
+      console.error("Raw AI Response que falhou no parse:", rawText);
+      throw new Error(`Failed to parse AI response as JSON. Error: ${parseErr?.message || parseErr}`);
     }
 
     return new Response(JSON.stringify(parsed), {
