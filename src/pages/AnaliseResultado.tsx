@@ -602,27 +602,63 @@ export default function AnaliseResultado() {
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-primary text-primary-foreground">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
-              <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
-            </Button>
-            <div className="flex items-center gap-2 font-bold">
-              <Box className="h-5 w-5" />
-              {analysis.nome_projeto}
-            </div>
+        <div className="container flex h-14 items-center gap-4">
+          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
+          </Button>
+          <div className="flex items-center gap-2 font-semibold text-sm opacity-90">
+            <Box className="h-4 w-4" />
+            OrçaLink
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => {
-              const shareUrl = `${window.location.origin}/share/${id}`;
-              navigator.clipboard.writeText(shareUrl);
-              toast.success("Link copiado! Envie para o cliente.");
-            }}>
+        </div>
+      </nav>
+
+      <div className="container pt-8 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight truncate">{analysis.nome_projeto}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Detalhes do Projeto · {analysis.tipo_construcao || "Obra"}{result.area_total_m2 ? ` · ${result.area_total_m2} m²` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => {
+                const shareUrl = `${window.location.origin}/share/${id}`;
+                navigator.clipboard.writeText(shareUrl);
+                toast.success("Link copiado! Envie para o cliente.");
+              }}
+            >
               <Share2 className="mr-1 h-4 w-4" /> Compartilhar
             </Button>
-            <Button variant="outline" size="sm" onClick={runMatching} disabled={matchingPrices}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={runMatching}
+              disabled={matchingPrices}
+            >
               {matchingPrices ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
               Conciliar SINAPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => exportToPDF(analysis.nome_projeto, result)}
+            >
+              <FileText className="mr-1 h-4 w-4" /> PDF Completo
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => exportToExcel(analysis.nome_projeto, result)}
+            >
+              <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
             </Button>
             <Button
               size="sm"
@@ -640,55 +676,47 @@ export default function AnaliseResultado() {
                 }
               }}
               disabled={downloadingPdf}
-              className="bg-[hsl(173,80%,36%)] hover:bg-[hsl(173,80%,30%)] text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
               {downloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
               Baixar PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={() => exportToPDF(analysis.nome_projeto, result)}>
-              <FileText className="mr-1 h-4 w-4" /> PDF Completo
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => exportToExcel(analysis.nome_projeto, result)}>
-              <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
-            </Button>
           </div>
         </div>
-      </nav>
+      </div>
 
-      <div className="container py-8 space-y-6">
+      <div className="container pb-8 space-y-6">
         <Card>
           <CardContent className="pt-6">
             <div className="grid gap-4 sm:grid-cols-4">
               <div>
-                <p className="text-sm text-muted-foreground">Área Total</p>
-                <p className="text-2xl font-bold">{result.area_total_m2} m²</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Área Total</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{result.area_total_m2} m²</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Escala</p>
-                <p className="text-2xl font-bold">{result.escala_detectada}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Escala</p>
+                <p className="text-2xl font-bold text-slate-900">{result.escala_detectada}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Tipo</p>
-                <p className="text-2xl font-bold">{analysis.tipo_construcao || "—"}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Tipo</p>
+                <p className="text-2xl font-bold text-slate-900">{analysis.tipo_construcao || "—"}</p>
               </div>
               {result.referencia_sinapi && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Ref. SINAPI</p>
-                  <p className="text-lg font-bold">{result.referencia_sinapi}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Ref. SINAPI</p>
+                  <p className="text-lg font-bold text-slate-900">{result.referencia_sinapi}</p>
                 </div>
               )}
             </div>
-            {result.resumo && <p className="mt-4 text-muted-foreground">{result.resumo}</p>}
+            {result.resumo && <p className="mt-4 text-sm text-slate-600">{result.resumo}</p>}
           </CardContent>
         </Card>
 
         <ExecutiveDashboard result={result} resumo={computedSummary} analysisId={id} />
 
         <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
-        <AlertHistoryTimeline analysisId={id!} projectName={analysis.nome_projeto} refreshKey={diarioRefreshKey} />
 
         <SummaryCard resumo={computedSummary} />
-
         {hasMacroEtapas ? (
           <>
             {/* Search filter */}
