@@ -17,7 +17,7 @@ import { GanttChart } from "@/components/GanttChart";
 import { MemorialDescritivo } from "@/components/MemorialDescritivo";
 import { PredictiveDelayAlert } from "@/components/PredictiveDelayAlert";
 import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
-import { AlertHistoryTimeline } from "@/components/AlertHistoryTimeline";
+
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
@@ -73,7 +73,7 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
       {title && <h4 className="text-sm font-semibold mb-2 text-foreground">{title}</h4>}
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-slate-50">
             <TableHead className="w-16">Item</TableHead>
             <TableHead>Descrição</TableHead>
             <TableHead>Local</TableHead>
@@ -91,12 +91,13 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
             const match = sinapiMatches[item.item];
             const isConciliado = item.preco_conciliado;
             const hasSinapiCode = !!item.codigo_sinapi;
+            const zebra = items.length > 5 && i % 2 === 1 ? "bg-slate-50/60" : "";
 
             return (
               <TableRow key={i} className={
                 item.alerta_revisao
                   ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500"
-                  : isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : ""
+                  : isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : zebra
               }>
                 <TableCell className="font-mono text-xs">{item.item}</TableCell>
                 <TableCell className="text-sm">
@@ -113,15 +114,15 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
-                <TableCell className="text-right">{item.quantidade}</TableCell>
+                <TableCell className="text-right tabular-nums">{item.quantidade}</TableCell>
                 <TableCell>{item.unidade}</TableCell>
-                <TableCell className={`text-right ${item.alerta_revisao ? "text-red-600 font-semibold" : ""}`}>
+                <TableCell className={`text-right tabular-nums ${item.alerta_revisao ? "text-red-600 font-semibold" : ""}`}>
                   {formatCurrency(item.preco_unitario)}
                   {item.preco_sinapi_unitario != null && (
                     <div className="text-xs text-green-600">SINAPI: {formatCurrency(item.preco_sinapi_unitario)}</div>
                   )}
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-right font-medium tabular-nums">
                   {item.sem_preco_sinapi ? (
                     <Badge variant="destructive" className="text-xs">Sem preço SINAPI</Badge>
                   ) : item.estimado_ia ? (
@@ -601,27 +602,63 @@ export default function AnaliseResultado() {
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-primary text-primary-foreground">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
-              <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
-            </Button>
-            <div className="flex items-center gap-2 font-bold">
-              <Box className="h-5 w-5" />
-              {analysis.nome_projeto}
-            </div>
+        <div className="container flex h-14 items-center gap-4">
+          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
+          </Button>
+          <div className="flex items-center gap-2 font-semibold text-sm opacity-90">
+            <Box className="h-4 w-4" />
+            OrçaLink
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => {
-              const shareUrl = `${window.location.origin}/share/${id}`;
-              navigator.clipboard.writeText(shareUrl);
-              toast.success("Link copiado! Envie para o cliente.");
-            }}>
+        </div>
+      </nav>
+
+      <div className="container pt-8 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight truncate">{analysis.nome_projeto}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Detalhes do Projeto · {analysis.tipo_construcao || "Obra"}{result.area_total_m2 ? ` · ${result.area_total_m2} m²` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => {
+                const shareUrl = `${window.location.origin}/share/${id}`;
+                navigator.clipboard.writeText(shareUrl);
+                toast.success("Link copiado! Envie para o cliente.");
+              }}
+            >
               <Share2 className="mr-1 h-4 w-4" /> Compartilhar
             </Button>
-            <Button variant="outline" size="sm" onClick={runMatching} disabled={matchingPrices}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={runMatching}
+              disabled={matchingPrices}
+            >
               {matchingPrices ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
               Conciliar SINAPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => exportToPDF(analysis.nome_projeto, result)}
+            >
+              <FileText className="mr-1 h-4 w-4" /> PDF Completo
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => exportToExcel(analysis.nome_projeto, result)}
+            >
+              <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
             </Button>
             <Button
               size="sm"
@@ -639,55 +676,47 @@ export default function AnaliseResultado() {
                 }
               }}
               disabled={downloadingPdf}
-              className="bg-[hsl(173,80%,36%)] hover:bg-[hsl(173,80%,30%)] text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
               {downloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
               Baixar PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={() => exportToPDF(analysis.nome_projeto, result)}>
-              <FileText className="mr-1 h-4 w-4" /> PDF Completo
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => exportToExcel(analysis.nome_projeto, result)}>
-              <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
-            </Button>
           </div>
         </div>
-      </nav>
+      </div>
 
-      <div className="container py-8 space-y-6">
+      <div className="container pb-8 space-y-6">
         <Card>
           <CardContent className="pt-6">
             <div className="grid gap-4 sm:grid-cols-4">
               <div>
-                <p className="text-sm text-muted-foreground">Área Total</p>
-                <p className="text-2xl font-bold">{result.area_total_m2} m²</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Área Total</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{result.area_total_m2} m²</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Escala</p>
-                <p className="text-2xl font-bold">{result.escala_detectada}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Escala</p>
+                <p className="text-2xl font-bold text-slate-900">{result.escala_detectada}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Tipo</p>
-                <p className="text-2xl font-bold">{analysis.tipo_construcao || "—"}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Tipo</p>
+                <p className="text-2xl font-bold text-slate-900">{analysis.tipo_construcao || "—"}</p>
               </div>
               {result.referencia_sinapi && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Ref. SINAPI</p>
-                  <p className="text-lg font-bold">{result.referencia_sinapi}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Ref. SINAPI</p>
+                  <p className="text-lg font-bold text-slate-900">{result.referencia_sinapi}</p>
                 </div>
               )}
             </div>
-            {result.resumo && <p className="mt-4 text-muted-foreground">{result.resumo}</p>}
+            {result.resumo && <p className="mt-4 text-sm text-slate-600">{result.resumo}</p>}
           </CardContent>
         </Card>
 
         <ExecutiveDashboard result={result} resumo={computedSummary} analysisId={id} />
 
         <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
-        <AlertHistoryTimeline analysisId={id!} projectName={analysis.nome_projeto} refreshKey={diarioRefreshKey} />
 
         <SummaryCard resumo={computedSummary} />
-
         {hasMacroEtapas ? (
           <>
             {/* Search filter */}
@@ -702,27 +731,25 @@ export default function AnaliseResultado() {
             </div>
 
             <Tabs defaultValue="orcamento" className="space-y-4">
-              <TabsList className="flex-wrap h-auto gap-1">
-                <TabsTrigger value="orcamento">Visão Geral (Categorias)</TabsTrigger>
-                <TabsTrigger value="comodos">
-                  <Home className="h-3.5 w-3.5 mr-1" /> Visão por Cômodo
-                </TabsTrigger>
-                <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
-                <TabsTrigger value="cronograma">
-                  <CalendarDays className="h-3.5 w-3.5 mr-1" /> Cronograma (Gantt)
-                </TabsTrigger>
-                <TabsTrigger value="diario">
-                  <ClipboardList className="h-3.5 w-3.5 mr-1" /> Diário de Obra
-                </TabsTrigger>
-                <TabsTrigger value="memorial">
-                  <ScrollText className="h-3.5 w-3.5 mr-1" /> Memorial Descritivo
-                </TabsTrigger>
-                <TabsTrigger value="conflitos">
-                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Conflitos
-                </TabsTrigger>
-                <TabsTrigger value="arquivos">
-                  <FolderOpen className="h-3.5 w-3.5 mr-1" /> Arquivos Base
-                </TabsTrigger>
+              <TabsList className="flex-wrap h-auto gap-0 bg-transparent p-0 border-b border-slate-200 rounded-none w-full justify-start">
+                {[
+                  { v: "orcamento", icon: null, label: "Visão Geral (Categorias)" },
+                  { v: "comodos", icon: Home, label: "Visão por Cômodo" },
+                  { v: "recomendacoes", icon: null, label: "Marcas" },
+                  { v: "cronograma", icon: CalendarDays, label: "Cronograma (Gantt)" },
+                  { v: "diario", icon: ClipboardList, label: "Diário de Obra" },
+                  { v: "memorial", icon: ScrollText, label: "Memorial Descritivo" },
+                  { v: "conflitos", icon: ShieldCheck, label: "Conflitos" },
+                  { v: "arquivos", icon: FolderOpen, label: "Arquivos Base" },
+                ].map(({ v, icon: Icon, label }) => (
+                  <TabsTrigger
+                    key={v}
+                    value={v}
+                    className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2.5 text-sm text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:font-bold data-[state=active]:shadow-none hover:text-slate-700"
+                  >
+                    {Icon && <Icon className="h-3.5 w-3.5 mr-1" />} {label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
               <TabsContent value="orcamento" className="space-y-6">

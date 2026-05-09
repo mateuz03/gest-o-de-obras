@@ -116,96 +116,96 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
     <div className="space-y-4">
       {/* Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-primary/20">
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <DollarSign className="h-5 w-5 text-primary" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-emerald-50 p-2.5 shrink-0">
+                <DollarSign className="h-5 w-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Custo Total c/ BDI</p>
-                <p className="text-xl font-bold text-primary">{formatCurrency(totalGeral)}</p>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Custo Total c/ BDI</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums truncate">{formatCurrency(totalGeral)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-accent p-2.5">
-                <Ruler className="h-5 w-5 text-accent-foreground" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-slate-100 p-2.5 shrink-0">
+                <Ruler className="h-5 w-5 text-slate-700" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Custo por m²</p>
-                <p className="text-xl font-bold">
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Custo por m²</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums truncate">
                   {area > 0 ? formatCurrency(custoM2) : "—"}
                 </p>
                 {area > 0 && (
-                  <p className="text-xs text-muted-foreground">{area} m² de área</p>
+                  <p className="text-xs text-slate-500">{area} m² de área</p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-accent p-2.5">
-                <HardHat className="h-5 w-5 text-accent-foreground" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-slate-100 p-2.5 shrink-0">
+                <HardHat className="h-5 w-5 text-slate-700" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Peso Mão de Obra</p>
-                <p className="text-xl font-bold">{pesoMaoDeObra.toFixed(1)}%</p>
-                <p className="text-xs text-muted-foreground">{formatCurrency(totalMaoDeObra)}</p>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Peso Mão de Obra</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{pesoMaoDeObra.toFixed(1)}%</p>
+                <p className="text-xs text-slate-500 truncate">{formatCurrency(totalMaoDeObra)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-accent p-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-slate-100 p-2.5 shrink-0">
                 {custoM2 > MEDIA_MERCADO_M2 ? (
                   <TrendingUp className="h-5 w-5 text-destructive" />
                 ) : (
-                  <TrendingDown className="h-5 w-5 text-accent-foreground" />
+                  <TrendingDown className="h-5 w-5 text-emerald-600" />
                 )}
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">vs. Média Mercado</p>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">vs. Média Mercado</p>
                 {area > 0 ? (
                   <>
-                    <p className="text-xl font-bold">
+                    <p className="text-2xl font-bold text-slate-900 tabular-nums">
                       {custoM2 >= MEDIA_MERCADO_M2 ? "+" : ""}
                       {((custoM2 / MEDIA_MERCADO_M2 - 1) * 100).toFixed(1)}%
                     </p>
-                    <p className="text-xs text-muted-foreground">Ref: {formatCurrency(MEDIA_MERCADO_M2)}/m²</p>
+                    <p className="text-xs text-slate-500">Ref: {formatCurrency(MEDIA_MERCADO_M2)}/m²</p>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Área não informada</p>
+                  <p className="text-sm text-slate-500">Área não informada</p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className={conflictCounts.high > 0 ? "border-destructive/40 bg-destructive/5" : conflictCounts.open > 0 ? "border-amber-500/40" : ""}>
+        <Card className={`border-slate-200 ${conflictCounts.high > 0 ? "border-destructive/40 bg-destructive/5" : conflictCounts.open > 0 ? "border-amber-500/40" : ""}`}>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2.5 ${conflictCounts.high > 0 ? "bg-destructive/15" : conflictCounts.open > 0 ? "bg-amber-500/15" : "bg-accent"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className={`rounded-lg p-2.5 shrink-0 ${conflictCounts.high > 0 ? "bg-destructive/15" : conflictCounts.open > 0 ? "bg-amber-100" : "bg-slate-100"}`}>
                 {conflictCounts.open === 0 ? (
-                  <ShieldCheck className="h-5 w-5 text-accent-foreground" />
+                  <ShieldCheck className="h-5 w-5 text-slate-700" />
                 ) : (
                   <ShieldAlert className={`h-5 w-5 ${conflictCounts.high > 0 ? "text-destructive" : "text-amber-600"}`} />
                 )}
               </div>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground">Conflitos Abertos</p>
-                <div className="flex items-baseline gap-2">
-                  <p className={`text-xl font-bold ${conflictCounts.high > 0 ? "text-destructive" : ""}`}>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Conflitos Abertos</p>
+                <div className="flex items-baseline gap-2 justify-end">
+                  <p className={`text-2xl font-bold tabular-nums ${conflictCounts.high > 0 ? "text-destructive" : "text-slate-900"}`}>
                     {conflictCounts.open}
                   </p>
                   {conflictCounts.high > 0 && (
@@ -214,7 +214,7 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
                     </Badge>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   {conflictCounts.open === 0 ? "Sem incompatibilidades" : "Diário × Orçamento"}
                 </p>
               </div>
@@ -233,46 +233,57 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
       ))}
 
       {/* Pie Chart */}
-      {pieData.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Distribuição de Custos por Macroetapa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    labelLine={false}
-                  >
-                    {pieData.map((_, idx) => (
-                      <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              {pieData.map((d, idx) => (
-                <div key={idx} className="flex items-center gap-1.5 text-xs">
-                  <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                  <span className="text-muted-foreground">{d.name}</span>
-                  <Badge variant="secondary" className="text-xs font-mono ml-1">{formatCurrency(d.value)}</Badge>
+      {pieData.length > 0 && (() => {
+        const total = pieData.reduce((s, d) => s + d.value, 0);
+        return (
+          <Card className="border-slate-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-slate-900">Distribuição de Custos por Macroetapa</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-[1fr,1fr] items-center max-h-80">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={95}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {pieData.map((_, idx) => (
+                          <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <ul className="space-y-2 max-h-72 overflow-auto pr-2">
+                  {pieData
+                    .map((d, idx) => ({ ...d, idx, pct: total > 0 ? (d.value / total) * 100 : 0 }))
+                    .sort((a, b) => b.value - a.value)
+                    .map((d) => (
+                      <li key={d.idx} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: COLORS[d.idx % COLORS.length] }} />
+                          <span className="text-sm text-slate-700 truncate">{d.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-slate-500 tabular-nums">{formatCurrency(d.value)}</span>
+                          <span className="text-sm font-semibold text-slate-900 tabular-nums w-12 text-right">{d.pct.toFixed(1)}%</span>
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 }
