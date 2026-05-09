@@ -731,27 +731,25 @@ export default function AnaliseResultado() {
             </div>
 
             <Tabs defaultValue="orcamento" className="space-y-4">
-              <TabsList className="flex-wrap h-auto gap-1">
-                <TabsTrigger value="orcamento">Visão Geral (Categorias)</TabsTrigger>
-                <TabsTrigger value="comodos">
-                  <Home className="h-3.5 w-3.5 mr-1" /> Visão por Cômodo
-                </TabsTrigger>
-                <TabsTrigger value="recomendacoes">Marcas</TabsTrigger>
-                <TabsTrigger value="cronograma">
-                  <CalendarDays className="h-3.5 w-3.5 mr-1" /> Cronograma (Gantt)
-                </TabsTrigger>
-                <TabsTrigger value="diario">
-                  <ClipboardList className="h-3.5 w-3.5 mr-1" /> Diário de Obra
-                </TabsTrigger>
-                <TabsTrigger value="memorial">
-                  <ScrollText className="h-3.5 w-3.5 mr-1" /> Memorial Descritivo
-                </TabsTrigger>
-                <TabsTrigger value="conflitos">
-                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Conflitos
-                </TabsTrigger>
-                <TabsTrigger value="arquivos">
-                  <FolderOpen className="h-3.5 w-3.5 mr-1" /> Arquivos Base
-                </TabsTrigger>
+              <TabsList className="flex-wrap h-auto gap-0 bg-transparent p-0 border-b border-slate-200 rounded-none w-full justify-start">
+                {[
+                  { v: "orcamento", icon: null, label: "Visão Geral (Categorias)" },
+                  { v: "comodos", icon: Home, label: "Visão por Cômodo" },
+                  { v: "recomendacoes", icon: null, label: "Marcas" },
+                  { v: "cronograma", icon: CalendarDays, label: "Cronograma (Gantt)" },
+                  { v: "diario", icon: ClipboardList, label: "Diário de Obra" },
+                  { v: "memorial", icon: ScrollText, label: "Memorial Descritivo" },
+                  { v: "conflitos", icon: ShieldCheck, label: "Conflitos" },
+                  { v: "arquivos", icon: FolderOpen, label: "Arquivos Base" },
+                ].map(({ v, icon: Icon, label }) => (
+                  <TabsTrigger
+                    key={v}
+                    value={v}
+                    className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2.5 text-sm text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:font-bold data-[state=active]:shadow-none hover:text-slate-700"
+                  >
+                    {Icon && <Icon className="h-3.5 w-3.5 mr-1" />} {label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
               <TabsContent value="orcamento" className="space-y-6">
