@@ -600,9 +600,13 @@ A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
 - "7_hidraulica"
 - "8_acabamentos"
 
-Cada chave deve conter um array de itens daquela etapa. NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
-Cada array deve conter no mínimo 3 itens detalhados, preferencialmente 5 ou mais quando aplicável.
+Cada chave deve conter um OBJETO com:
+- "itens": array com no mínimo 3 itens detalhados (idealmente 5+);
+- "duracao_dias_estimada": número inteiro de dias úteis estimados para executar a etapa em uma obra residencial padrão (ex: 7, 25, 30...).
 
+Cada ITEM deve OBRIGATORIAMENTE conter o campo "marca_sugerida" — uma marca brasileira reconhecida e adequada ao padrão informado (ex: 'Votorantim', 'Tigre', 'Suvinil', 'Deca', 'Portobello'). Se o item não tiver marca aplicável (ex: areia, brita, mão de obra), use 'Genérico'.
+
+NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
 Inclua também, quando possível: resumo, area_total_m2, escala_detectada, referencia_sinapi, quantitativo_por_comodo e recomendacoes.
 ${STRICT_JSON_RULES}`;
 serve(async (req) => {
