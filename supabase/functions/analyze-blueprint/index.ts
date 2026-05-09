@@ -59,7 +59,7 @@ const BLUEPRINT_RESPONSE_SCHEMA = {
     ...Object.fromEntries(
       MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => [
         key,
-        { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
+        MACRO_ETAPA_OBJECT_SCHEMA,
       ]),
     ),
     quantitativo_por_comodo: {
