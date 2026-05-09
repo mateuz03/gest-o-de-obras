@@ -18,7 +18,7 @@ interface ScheduleTask {
 
 interface GanttChartProps {
   analysisId: string;
-  macroEtapas: { nome: string }[];
+  macroEtapas: { nome: string; duracao_dias_estimada?: number }[];
   areaM2: number;
   onSaved?: () => void;
 }
@@ -48,22 +48,26 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-function generateDefaultTasks(analysisId: string, etapas: { nome: string }[], areaM2: number): ScheduleTask[] {
-  const daysPerTask = areaM2 < 100 ? 10 : areaM2 < 200 ? 15 : 20;
+function generateDefaultTasks(analysisId: string, etapas: { nome: string; duracao_dias_estimada?: number }[], areaM2: number): ScheduleTask[] {
+  const fallbackDays = areaM2 < 100 ? 10 : areaM2 < 200 ? 15 : 20;
   const today = new Date().toISOString().split("T")[0];
   const tasks: ScheduleTask[] = [];
   let currentStart = today;
 
   etapas.forEach((etapa, i) => {
-    const end = addDays(currentStart, daysPerTask);
+    const duration = Number(etapa.duracao_dias_estimada) > 0
+      ? Math.round(Number(etapa.duracao_dias_estimada))
+      : fallbackDays;
+    const end = addDays(currentStart, duration);
     tasks.push({
       analysis_id: analysisId,
       task_name: etapa.nome,
       start_date: currentStart,
       end_date: end,
-      duration_days: daysPerTask,
+      duration_days: duration,
       sort_order: i,
     });
+    // Cascade: next stage starts the day after this one ends
     currentStart = addDays(end, 1);
   });
 
