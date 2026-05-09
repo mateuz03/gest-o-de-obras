@@ -196,11 +196,22 @@ function repairAiJson(rawText: string): string {
 
 function normalizeStructuredBlueprintResponse(parsed: any) {
   if (!parsed || typeof parsed !== "object") return parsed;
-  const hasStructuredStages = MACRO_ETAPA_SCHEMA_KEYS.some(({ key }) => Array.isArray(parsed[key]));
+  const hasStructuredStages = MACRO_ETAPA_SCHEMA_KEYS.some(({ key }) => {
+    const val = parsed[key];
+    return Array.isArray(val) || (val && typeof val === "object" && Array.isArray(val.itens));
+  });
   if (!hasStructuredStages) return parsed;
 
+  const DEFAULT_DURATIONS = [7, 25, 30, 15, 10, 15, 15, 30];
+
   const macro_etapas = MACRO_ETAPA_SCHEMA_KEYS.map(({ key, nome }, stageIndex) => {
-    const itens = (Array.isArray(parsed[key]) ? parsed[key] : []).map((rawItem: any, itemIndex: number) => {
+    const raw = parsed[key];
+    const itensSrc = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.itens) ? raw.itens : []);
+    const duracao_dias_estimada = Number(
+      (raw && !Array.isArray(raw) && raw.duracao_dias_estimada) ?? DEFAULT_DURATIONS[stageIndex] ?? 15
+    ) || DEFAULT_DURATIONS[stageIndex];
+
+    const itens = itensSrc.map((rawItem: any, itemIndex: number) => {
       const quantidade = Number(rawItem?.quantidade ?? rawItem?.quant ?? rawItem?.quantity ?? 0) || 0;
       const precoUnitario = Number(rawItem?.preco_unitario ?? rawItem?.preco_unit ?? rawItem?.unit_price ?? 0) || 0;
       const precoTotal = Number(rawItem?.preco_total ?? rawItem?.subtotal ?? quantidade * precoUnitario) || 0;
@@ -210,6 +221,7 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
         local_aplicacao: rawItem?.local_aplicacao || rawItem?.local || "Obra geral",
         fornecedor: rawItem?.fornecedor || "—",
         marca: rawItem?.marca || "—",
+        marca_sugerida: rawItem?.marca_sugerida || rawItem?.marca || "—",
         quantidade,
         unidade: rawItem?.unidade || rawItem?.unit || "un",
         preco_unitario: precoUnitario,
@@ -223,6 +235,7 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
     return {
       nome,
       itens,
+      duracao_dias_estimada,
       subtotal: itens.reduce((sum: number, item: any) => sum + (Number(item.preco_total) || 0), 0),
     };
   });
