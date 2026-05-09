@@ -73,7 +73,7 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
       {title && <h4 className="text-sm font-semibold mb-2 text-foreground">{title}</h4>}
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-slate-50">
             <TableHead className="w-16">Item</TableHead>
             <TableHead>Descrição</TableHead>
             <TableHead>Local</TableHead>
@@ -91,12 +91,13 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
             const match = sinapiMatches[item.item];
             const isConciliado = item.preco_conciliado;
             const hasSinapiCode = !!item.codigo_sinapi;
+            const zebra = items.length > 5 && i % 2 === 1 ? "bg-slate-50/60" : "";
 
             return (
               <TableRow key={i} className={
                 item.alerta_revisao
                   ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500"
-                  : isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : ""
+                  : isConciliado ? "bg-green-50/50 dark:bg-green-950/20" : zebra
               }>
                 <TableCell className="font-mono text-xs">{item.item}</TableCell>
                 <TableCell className="text-sm">
@@ -113,15 +114,15 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
-                <TableCell className="text-right">{item.quantidade}</TableCell>
+                <TableCell className="text-right tabular-nums">{item.quantidade}</TableCell>
                 <TableCell>{item.unidade}</TableCell>
-                <TableCell className={`text-right ${item.alerta_revisao ? "text-red-600 font-semibold" : ""}`}>
+                <TableCell className={`text-right tabular-nums ${item.alerta_revisao ? "text-red-600 font-semibold" : ""}`}>
                   {formatCurrency(item.preco_unitario)}
                   {item.preco_sinapi_unitario != null && (
                     <div className="text-xs text-green-600">SINAPI: {formatCurrency(item.preco_sinapi_unitario)}</div>
                   )}
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-right font-medium tabular-nums">
                   {item.sem_preco_sinapi ? (
                     <Badge variant="destructive" className="text-xs">Sem preço SINAPI</Badge>
                   ) : item.estimado_ia ? (
