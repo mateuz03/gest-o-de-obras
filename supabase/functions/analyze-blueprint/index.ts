@@ -28,6 +28,7 @@ const ORCAMENTO_ITEM_SCHEMA = {
     local_aplicacao: { type: SchemaType.STRING },
     fornecedor: { type: SchemaType.STRING },
     marca: { type: SchemaType.STRING },
+    marca_sugerida: { type: SchemaType.STRING },
     quantidade: { type: SchemaType.NUMBER },
     unidade: { type: SchemaType.STRING },
     preco_unitario: { type: SchemaType.NUMBER },
@@ -36,7 +37,16 @@ const ORCAMENTO_ITEM_SCHEMA = {
     origem_preco: { type: SchemaType.STRING },
     perda_aplicada: { type: SchemaType.STRING },
   },
-  required: ["descricao", "quantidade", "unidade", "preco_unitario"],
+  required: ["descricao", "quantidade", "unidade", "preco_unitario", "marca_sugerida"],
+} as const;
+
+const MACRO_ETAPA_OBJECT_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    itens: { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
+    duracao_dias_estimada: { type: SchemaType.NUMBER },
+  },
+  required: ["itens", "duracao_dias_estimada"],
 } as const;
 
 const BLUEPRINT_RESPONSE_SCHEMA = {
