@@ -801,7 +801,7 @@ export default function AnaliseResultado() {
               </TabsContent>
 
               <TabsContent value="recomendacoes">
-                <RecommendationsSection items={result.recomendacoes} />
+                <RecommendationsSection items={result.recomendacoes} macroEtapas={result.macro_etapas} />
               </TabsContent>
 
               <TabsContent value="cronograma">
