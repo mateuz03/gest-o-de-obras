@@ -17,7 +17,7 @@ import { GanttChart } from "@/components/GanttChart";
 import { MemorialDescritivo } from "@/components/MemorialDescritivo";
 import { PredictiveDelayAlert } from "@/components/PredictiveDelayAlert";
 import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
-import { AlertHistoryTimeline } from "@/components/AlertHistoryTimeline";
+
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
