@@ -116,96 +116,96 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
     <div className="space-y-4">
       {/* Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-primary/20">
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <DollarSign className="h-5 w-5 text-primary" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-emerald-50 p-2.5 shrink-0">
+                <DollarSign className="h-5 w-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Custo Total c/ BDI</p>
-                <p className="text-xl font-bold text-primary">{formatCurrency(totalGeral)}</p>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Custo Total c/ BDI</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums truncate">{formatCurrency(totalGeral)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-accent p-2.5">
-                <Ruler className="h-5 w-5 text-accent-foreground" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-slate-100 p-2.5 shrink-0">
+                <Ruler className="h-5 w-5 text-slate-700" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Custo por m²</p>
-                <p className="text-xl font-bold">
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Custo por m²</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums truncate">
                   {area > 0 ? formatCurrency(custoM2) : "—"}
                 </p>
                 {area > 0 && (
-                  <p className="text-xs text-muted-foreground">{area} m² de área</p>
+                  <p className="text-xs text-slate-500">{area} m² de área</p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-accent p-2.5">
-                <HardHat className="h-5 w-5 text-accent-foreground" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-slate-100 p-2.5 shrink-0">
+                <HardHat className="h-5 w-5 text-slate-700" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Peso Mão de Obra</p>
-                <p className="text-xl font-bold">{pesoMaoDeObra.toFixed(1)}%</p>
-                <p className="text-xs text-muted-foreground">{formatCurrency(totalMaoDeObra)}</p>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Peso Mão de Obra</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{pesoMaoDeObra.toFixed(1)}%</p>
+                <p className="text-xs text-slate-500 truncate">{formatCurrency(totalMaoDeObra)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-accent p-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg bg-slate-100 p-2.5 shrink-0">
                 {custoM2 > MEDIA_MERCADO_M2 ? (
                   <TrendingUp className="h-5 w-5 text-destructive" />
                 ) : (
-                  <TrendingDown className="h-5 w-5 text-accent-foreground" />
+                  <TrendingDown className="h-5 w-5 text-emerald-600" />
                 )}
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">vs. Média Mercado</p>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">vs. Média Mercado</p>
                 {area > 0 ? (
                   <>
-                    <p className="text-xl font-bold">
+                    <p className="text-2xl font-bold text-slate-900 tabular-nums">
                       {custoM2 >= MEDIA_MERCADO_M2 ? "+" : ""}
                       {((custoM2 / MEDIA_MERCADO_M2 - 1) * 100).toFixed(1)}%
                     </p>
-                    <p className="text-xs text-muted-foreground">Ref: {formatCurrency(MEDIA_MERCADO_M2)}/m²</p>
+                    <p className="text-xs text-slate-500">Ref: {formatCurrency(MEDIA_MERCADO_M2)}/m²</p>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Área não informada</p>
+                  <p className="text-sm text-slate-500">Área não informada</p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className={conflictCounts.high > 0 ? "border-destructive/40 bg-destructive/5" : conflictCounts.open > 0 ? "border-amber-500/40" : ""}>
+        <Card className={`border-slate-200 ${conflictCounts.high > 0 ? "border-destructive/40 bg-destructive/5" : conflictCounts.open > 0 ? "border-amber-500/40" : ""}`}>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2.5 ${conflictCounts.high > 0 ? "bg-destructive/15" : conflictCounts.open > 0 ? "bg-amber-500/15" : "bg-accent"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className={`rounded-lg p-2.5 shrink-0 ${conflictCounts.high > 0 ? "bg-destructive/15" : conflictCounts.open > 0 ? "bg-amber-100" : "bg-slate-100"}`}>
                 {conflictCounts.open === 0 ? (
-                  <ShieldCheck className="h-5 w-5 text-accent-foreground" />
+                  <ShieldCheck className="h-5 w-5 text-slate-700" />
                 ) : (
                   <ShieldAlert className={`h-5 w-5 ${conflictCounts.high > 0 ? "text-destructive" : "text-amber-600"}`} />
                 )}
               </div>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground">Conflitos Abertos</p>
-                <div className="flex items-baseline gap-2">
-                  <p className={`text-xl font-bold ${conflictCounts.high > 0 ? "text-destructive" : ""}`}>
+              <div className="text-right min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Conflitos Abertos</p>
+                <div className="flex items-baseline gap-2 justify-end">
+                  <p className={`text-2xl font-bold tabular-nums ${conflictCounts.high > 0 ? "text-destructive" : "text-slate-900"}`}>
                     {conflictCounts.open}
                   </p>
                   {conflictCounts.high > 0 && (
@@ -214,7 +214,7 @@ export function ExecutiveDashboard({ result, resumo, analysisId }: Props) {
                     </Badge>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   {conflictCounts.open === 0 ? "Sem incompatibilidades" : "Diário × Orçamento"}
                 </p>
               </div>
