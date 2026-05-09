@@ -244,7 +244,7 @@ export function ProjectCopilotChat({ projectId, budgetItems, onApplyProposal }: 
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-white shadow-xl hover:shadow-2xl hover:bg-emerald-700 transition-all hover:scale-105"
         >
           <Sparkles className="h-5 w-5" />
           <span className="text-sm font-semibold">Copiloto IA</span>
