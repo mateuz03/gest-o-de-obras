@@ -28,6 +28,7 @@ const ORCAMENTO_ITEM_SCHEMA = {
     local_aplicacao: { type: SchemaType.STRING },
     fornecedor: { type: SchemaType.STRING },
     marca: { type: SchemaType.STRING },
+    marca_sugerida: { type: SchemaType.STRING },
     quantidade: { type: SchemaType.NUMBER },
     unidade: { type: SchemaType.STRING },
     preco_unitario: { type: SchemaType.NUMBER },
@@ -36,7 +37,16 @@ const ORCAMENTO_ITEM_SCHEMA = {
     origem_preco: { type: SchemaType.STRING },
     perda_aplicada: { type: SchemaType.STRING },
   },
-  required: ["descricao", "quantidade", "unidade", "preco_unitario"],
+  required: ["descricao", "quantidade", "unidade", "preco_unitario", "marca_sugerida"],
+} as const;
+
+const MACRO_ETAPA_OBJECT_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    itens: { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
+    duracao_dias_estimada: { type: SchemaType.NUMBER },
+  },
+  required: ["itens", "duracao_dias_estimada"],
 } as const;
 
 const BLUEPRINT_RESPONSE_SCHEMA = {
@@ -49,7 +59,7 @@ const BLUEPRINT_RESPONSE_SCHEMA = {
     ...Object.fromEntries(
       MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => [
         key,
-        { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
+        MACRO_ETAPA_OBJECT_SCHEMA,
       ]),
     ),
     quantitativo_por_comodo: {
@@ -186,11 +196,22 @@ function repairAiJson(rawText: string): string {
 
 function normalizeStructuredBlueprintResponse(parsed: any) {
   if (!parsed || typeof parsed !== "object") return parsed;
-  const hasStructuredStages = MACRO_ETAPA_SCHEMA_KEYS.some(({ key }) => Array.isArray(parsed[key]));
+  const hasStructuredStages = MACRO_ETAPA_SCHEMA_KEYS.some(({ key }) => {
+    const val = parsed[key];
+    return Array.isArray(val) || (val && typeof val === "object" && Array.isArray(val.itens));
+  });
   if (!hasStructuredStages) return parsed;
 
+  const DEFAULT_DURATIONS = [7, 25, 30, 15, 10, 15, 15, 30];
+
   const macro_etapas = MACRO_ETAPA_SCHEMA_KEYS.map(({ key, nome }, stageIndex) => {
-    const itens = (Array.isArray(parsed[key]) ? parsed[key] : []).map((rawItem: any, itemIndex: number) => {
+    const raw = parsed[key];
+    const itensSrc = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.itens) ? raw.itens : []);
+    const duracao_dias_estimada = Number(
+      (raw && !Array.isArray(raw) && raw.duracao_dias_estimada) ?? DEFAULT_DURATIONS[stageIndex] ?? 15
+    ) || DEFAULT_DURATIONS[stageIndex];
+
+    const itens = itensSrc.map((rawItem: any, itemIndex: number) => {
       const quantidade = Number(rawItem?.quantidade ?? rawItem?.quant ?? rawItem?.quantity ?? 0) || 0;
       const precoUnitario = Number(rawItem?.preco_unitario ?? rawItem?.preco_unit ?? rawItem?.unit_price ?? 0) || 0;
       const precoTotal = Number(rawItem?.preco_total ?? rawItem?.subtotal ?? quantidade * precoUnitario) || 0;
@@ -200,6 +221,7 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
         local_aplicacao: rawItem?.local_aplicacao || rawItem?.local || "Obra geral",
         fornecedor: rawItem?.fornecedor || "—",
         marca: rawItem?.marca || "—",
+        marca_sugerida: rawItem?.marca_sugerida || rawItem?.marca || "—",
         quantidade,
         unidade: rawItem?.unidade || rawItem?.unit || "un",
         preco_unitario: precoUnitario,
@@ -213,6 +235,7 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
     return {
       nome,
       itens,
+      duracao_dias_estimada,
       subtotal: itens.reduce((sum: number, item: any) => sum + (Number(item.preco_total) || 0), 0),
     };
   });
@@ -577,9 +600,13 @@ A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
 - "7_hidraulica"
 - "8_acabamentos"
 
-Cada chave deve conter um array de itens daquela etapa. NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
-Cada array deve conter no mínimo 3 itens detalhados, preferencialmente 5 ou mais quando aplicável.
+Cada chave deve conter um OBJETO com:
+- "itens": array com no mínimo 3 itens detalhados (idealmente 5+);
+- "duracao_dias_estimada": número inteiro de dias úteis estimados para executar a etapa em uma obra residencial padrão (ex: 7, 25, 30...).
 
+Cada ITEM deve OBRIGATORIAMENTE conter o campo "marca_sugerida" — uma marca brasileira reconhecida e adequada ao padrão informado (ex: 'Votorantim', 'Tigre', 'Suvinil', 'Deca', 'Portobello'). Se o item não tiver marca aplicável (ex: areia, brita, mão de obra), use 'Genérico'.
+
+NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
 Inclua também, quando possível: resumo, area_total_m2, escala_detectada, referencia_sinapi, quantitativo_por_comodo e recomendacoes.
 ${STRICT_JSON_RULES}`;
 serve(async (req) => {

@@ -15,6 +15,7 @@ export interface BudgetItem {
   local_aplicacao?: string;
   fornecedor: string;
   marca: string;
+  marca_sugerida?: string;
   quantidade: number | string;
   unidade: string;
   preco_unitario: number | string;
@@ -38,6 +39,7 @@ export interface MacroEtapa {
   nome: string;
   itens: BudgetItem[];
   subtotal: number | string;
+  duracao_dias_estimada?: number;
 }
 
 export interface ComodoQuantitativo {

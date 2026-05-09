@@ -203,34 +203,95 @@ function SummaryCard({ resumo }: { resumo: ResumoFinal }) {
   );
 }
 
-function RecommendationsSection({ items }: { items: BrandRecommendation[] }) {
-  if (!items?.length) return null;
+function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommendation[]; macroEtapas?: { nome: string; itens: BudgetItem[] }[] }) {
+  // Extract unique brands suggested per item, grouped by macroetapa
+  const sugeridasPorEtapa = useMemo(() => {
+    if (!macroEtapas?.length) return [] as { etapa: string; marcas: { nome: string; itens: string[] }[] }[];
+    return macroEtapas.map((etapa) => {
+      const map = new Map<string, Set<string>>();
+      for (const it of etapa.itens || []) {
+        const marca = (it.marca_sugerida || "").trim();
+        if (!marca || marca === "—" || marca.toLowerCase() === "generico" || marca.toLowerCase() === "genérico") continue;
+        if (!map.has(marca)) map.set(marca, new Set());
+        map.get(marca)!.add(it.descricao || "Item");
+      }
+      const marcas = Array.from(map.entries())
+        .map(([nome, itensSet]) => ({ nome, itens: Array.from(itensSet) }))
+        .sort((a, b) => b.itens.length - a.itens.length);
+      return { etapa: etapa.nome, marcas };
+    }).filter((g) => g.marcas.length > 0);
+  }, [macroEtapas]);
+
+  if (!sugeridasPorEtapa.length && !items?.length) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-sm text-muted-foreground text-center">
+          Nenhuma marca sugerida foi retornada pela IA para este orçamento.
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <FileText className="h-5 w-5 text-primary" /> Recomendações de Marcas
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {items.map((rec, i) => (
-          <div key={i}>
-            <h4 className="mb-2 font-semibold">{rec.material}</h4>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {rec.marcas.map((m, j) => (
-                <div key={j} className="rounded-lg border bg-muted/30 p-3">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">#{j + 1}</Badge>
-                    <span className="font-medium">{m.nome}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{m.justificativa}</p>
+    <div className="space-y-4">
+      {sugeridasPorEtapa.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-primary" /> Marcas Sugeridas pela IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {sugeridasPorEtapa.map((grupo, gi) => (
+              <div key={gi}>
+                <h4 className="mb-2 font-semibold text-sm text-muted-foreground uppercase tracking-wide">{grupo.etapa}</h4>
+                <div className="flex flex-wrap gap-2">
+                  {grupo.marcas.map((m, mi) => (
+                    <div key={mi} className="rounded-lg border bg-muted/30 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{m.itens.length} itens</Badge>
+                        <span className="font-medium">{m.nome}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-1 max-w-[260px]" title={m.itens.join(" · ")}>
+                        {m.itens.slice(0, 3).join(" · ")}{m.itens.length > 3 ? "…" : ""}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {items?.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-primary" /> Recomendações por Categoria
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {items.map((rec, i) => (
+              <div key={i}>
+                <h4 className="mb-2 font-semibold">{rec.material}</h4>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {rec.marcas.map((m, j) => (
+                    <div key={j} className="rounded-lg border bg-muted/30 p-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">#{j + 1}</Badge>
+                        <span className="font-medium">{m.nome}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{m.justificativa}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -740,7 +801,7 @@ export default function AnaliseResultado() {
               </TabsContent>
 
               <TabsContent value="recomendacoes">
-                <RecommendationsSection items={result.recomendacoes} />
+                <RecommendationsSection items={result.recomendacoes} macroEtapas={result.macro_etapas} />
               </TabsContent>
 
               <TabsContent value="cronograma">
