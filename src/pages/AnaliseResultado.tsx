@@ -21,6 +21,7 @@ import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
+import { EditableBudgetTable } from "@/components/EditableBudgetTable";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -534,6 +535,58 @@ export default function AnaliseResultado() {
     [localResult, analysis, id],
   );
 
+  // Generic mutation helper: applies a transform on macro_etapas, recalculates subtotals/resumo and persists.
+  const mutateAndPersist = useCallback(
+    async (transform: (etapas: MacroEtapa[]) => MacroEtapa[]) => {
+      if (!localResult || !id) return;
+      const newEtapas = transform(localResult.macro_etapas || []).map((etapa) => ({
+        ...etapa,
+        subtotal: (etapa.itens || []).reduce((s, it) => {
+          const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+          return s + (isNaN(t) ? 0 : t);
+        }, 0),
+      }));
+      const updated: AnalysisResult = { ...localResult, macro_etapas: newEtapas };
+      const bdi = analysis?.bdi_percentual || 25;
+      updated.resumo_final = recalculateTotals(updated, bdi);
+      setLocalResult(updated);
+      const totalGeral = typeof updated.resumo_final.total_geral === "string"
+        ? parseFloat(updated.resumo_final.total_geral)
+        : updated.resumo_final.total_geral;
+      const { error } = await supabase
+        .from("analyses")
+        .update({ resultado_json: updated as any, total_estimado: isNaN(totalGeral) ? null : totalGeral })
+        .eq("id", id);
+      if (error) {
+        toast.error("Erro ao salvar: " + error.message);
+      } else {
+        toast.success("Orçamento atualizado.");
+      }
+    },
+    [localResult, analysis, id],
+  );
+
+  const handleUpdateItem = useCallback(
+    async (originalItemId: string, updated: BudgetItem) => {
+      await mutateAndPersist((etapas) =>
+        etapas.map((etapa) => ({
+          ...etapa,
+          itens: (etapa.itens || []).map((it) => (it.item === originalItemId ? { ...it, ...updated } : it)),
+        })),
+      );
+    },
+    [mutateAndPersist],
+  );
+
+  const handleAddItemToEtapa = useCallback(
+    async (etapaIndex: number, newItem: BudgetItem) => {
+      await mutateAndPersist((etapas) =>
+        etapas.map((etapa, i) => (i === etapaIndex ? { ...etapa, itens: [...(etapa.itens || []), newItem] } : etapa)),
+      );
+    },
+    [mutateAndPersist],
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -771,11 +824,12 @@ export default function AnaliseResultado() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <BudgetTable
+                        <EditableBudgetTable
                           items={filtered}
-                          title=""
                           sinapiMatches={sinapiMatches}
                           onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                          onUpdateItem={handleUpdateItem}
+                          onAddItem={(newItem) => handleAddItemToEtapa(i, newItem)}
                         />
                       </CardContent>
                     </Card>
@@ -808,11 +862,11 @@ export default function AnaliseResultado() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <BudgetTable
+                        <EditableBudgetTable
                           items={filtered}
-                          title=""
                           sinapiMatches={sinapiMatches}
                           onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                          onUpdateItem={handleUpdateItem}
                         />
                       </CardContent>
                     </Card>
