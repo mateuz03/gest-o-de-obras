@@ -871,11 +871,11 @@ export default function AnaliseResultado() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <BudgetTable
+                        <EditableBudgetTable
                           items={filtered}
-                          title=""
                           sinapiMatches={sinapiMatches}
                           onLinkClick={(item, suggestions) => setLinkModal({ open: true, item, suggestions })}
+                          onUpdateItem={handleUpdateItem}
                         />
                       </CardContent>
                     </Card>
