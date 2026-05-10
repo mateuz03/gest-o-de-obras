@@ -21,6 +21,7 @@ import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
 import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
+import { EditableBudgetTable } from "@/components/EditableBudgetTable";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
