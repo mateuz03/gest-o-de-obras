@@ -535,7 +535,67 @@ export default function AnaliseResultado() {
     [localResult, analysis, id],
   );
 
-  if (loading) {
+  // Generic mutation helper: applies a transform on macro_etapas, recalculates subtotals/resumo and persists.
+  const mutateAndPersist = useCallback(
+    async (transform: (etapas: MacroEtapa[]) => MacroEtapa[]) => {
+      if (!localResult || !id) return;
+      const newEtapas = transform(localResult.macro_etapas || []).map((etapa) => ({
+        ...etapa,
+        subtotal: (etapa.itens || []).reduce((s, it) => {
+          const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
+          return s + (isNaN(t) ? 0 : t);
+        }, 0),
+      }));
+      const updated: AnalysisResult = { ...localResult, macro_etapas: newEtapas };
+      const bdi = analysis?.bdi_percentual || 25;
+      updated.resumo_final = recalculateTotals(updated, bdi);
+      setLocalResult(updated);
+      const totalGeral = typeof updated.resumo_final.total_geral === "string"
+        ? parseFloat(updated.resumo_final.total_geral)
+        : updated.resumo_final.total_geral;
+      const { error } = await supabase
+        .from("analyses")
+        .update({ resultado_json: updated as any, total_estimado: isNaN(totalGeral) ? null : totalGeral })
+        .eq("id", id);
+      if (error) {
+        toast.error("Erro ao salvar: " + error.message);
+      } else {
+        toast.success("Orçamento atualizado.");
+      }
+    },
+    [localResult, analysis, id],
+  );
+
+  // Find which etapa contains an item by id
+  const findEtapaIndexForItem = useCallback(
+    (itemId: string): number => {
+      if (!localResult?.macro_etapas) return -1;
+      return localResult.macro_etapas.findIndex((e) => (e.itens || []).some((it) => it.item === itemId));
+    },
+    [localResult],
+  );
+
+  const handleUpdateItem = useCallback(
+    async (originalItemId: string, updated: BudgetItem) => {
+      await mutateAndPersist((etapas) =>
+        etapas.map((etapa) => ({
+          ...etapa,
+          itens: (etapa.itens || []).map((it) => (it.item === originalItemId ? { ...it, ...updated } : it)),
+        })),
+      );
+    },
+    [mutateAndPersist],
+  );
+
+  const handleAddItemToEtapa = useCallback(
+    async (etapaIndex: number, newItem: BudgetItem) => {
+      await mutateAndPersist((etapas) =>
+        etapas.map((etapa, i) => (i === etapaIndex ? { ...etapa, itens: [...(etapa.itens || []), newItem] } : etapa)),
+      );
+    },
+    [mutateAndPersist],
+  );
+
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
