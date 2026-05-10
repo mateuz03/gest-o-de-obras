@@ -566,15 +566,6 @@ export default function AnaliseResultado() {
     [localResult, analysis, id],
   );
 
-  // Find which etapa contains an item by id
-  const findEtapaIndexForItem = useCallback(
-    (itemId: string): number => {
-      if (!localResult?.macro_etapas) return -1;
-      return localResult.macro_etapas.findIndex((e) => (e.itens || []).some((it) => it.item === itemId));
-    },
-    [localResult],
-  );
-
   const handleUpdateItem = useCallback(
     async (originalItemId: string, updated: BudgetItem) => {
       await mutateAndPersist((etapas) =>
