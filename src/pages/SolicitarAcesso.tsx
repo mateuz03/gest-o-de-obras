@@ -58,7 +58,7 @@ export default function SolicitarAcesso() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.from("access_requests").insert(parsed.data);
+    const { error } = await supabase.from("access_requests").insert([parsed.data]);
     setLoading(false);
     if (error) {
       toast.error("Erro ao enviar solicitação. Tente novamente.");
