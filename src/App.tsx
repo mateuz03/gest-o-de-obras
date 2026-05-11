@@ -17,6 +17,8 @@ import NotasFiscais from "./pages/NotasFiscais";
 import Perfil from "./pages/Perfil";
 import Admin from "./pages/Admin";
 import AdminSinapiImport from "./pages/AdminSinapiImport";
+import Marketplace from "./pages/Marketplace";
+import Profissionais from "./pages/Profissionais";
 
 const queryClient = new QueryClient();
 
