@@ -33,6 +33,9 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/share/:analysisId" element={<ShareAnalise />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/profissionais" element={<Profissionais />} />
+            <Route path="/servicos" element={<Profissionais />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
             <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
