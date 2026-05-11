@@ -136,7 +136,7 @@ export default function Index() {
                   <Link to="/auth">Entrar</Link>
                 </Button>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Link to="/auth?tab=signup">Começar Grátis</Link>
+                  <Link to="/solicitar-acesso">Começar Grátis</Link>
                 </Button>
               </>
             )}
@@ -163,7 +163,7 @@ export default function Index() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white text-base px-8 h-12" asChild>
-                  <Link to={user ? "/nova-analise" : "/auth?tab=signup"}>
+                  <Link to={user ? "/nova-analise" : "/solicitar-acesso"}>
                     Analisar minha primeira planta agora <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
@@ -648,7 +648,7 @@ export default function Index() {
               Comece agora, faça suas primeiras 3 análises gratuitamente e veja o resultado em minutos.
             </p>
             <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white text-base px-10 h-12" asChild>
-              <Link to={user ? "/nova-analise" : "/auth?tab=signup"}>
+              <Link to={user ? "/nova-analise" : "/solicitar-acesso"}>
                 Começar Grátis <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
@@ -657,26 +657,66 @@ export default function Index() {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="border-t border-slate-200 py-10 bg-white">
+      <footer className="border-t border-slate-200 py-14 bg-white">
         <div className="container">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <Box className="h-5 w-5 text-emerald-600" />
-              <span className="font-bold text-slate-900">AI Construct</span>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+            {/* Col 1: Brand */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Box className="h-6 w-6 text-emerald-600" />
+                <span className="font-bold text-slate-900 text-lg">Obra Link</span>
+              </div>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Seu negócio de Arquitetura ou Construção, digital.
+              </p>
             </div>
-            <div className="flex items-center gap-6 text-sm text-slate-500">
-              <a href="#funcionalidades" className="hover:text-slate-900 transition-colors">Funcionalidades</a>
-              <a href="#roi" className="hover:text-slate-900 transition-colors">ROI</a>
-              <a href="#faq" className="hover:text-slate-900 transition-colors">FAQ</a>
-              <Link to="/auth" className="hover:text-slate-900 transition-colors">Entrar</Link>
+
+            {/* Col 2: Soluções */}
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-3 text-sm">Soluções</h4>
+              <ul className="space-y-2 text-sm text-slate-500">
+                <li><Link to="/solicitar-acesso" className="hover:text-slate-900 transition-colors">Construtoras</Link></li>
+                <li><Link to="/solicitar-acesso" className="hover:text-slate-900 transition-colors">Empreiteiros</Link></li>
+                <li><Link to="/solicitar-acesso" className="hover:text-slate-900 transition-colors">Escritórios de Arquitetura</Link></li>
+              </ul>
             </div>
-            <div className="flex items-center gap-3 text-slate-400">
-              <a href="#" className="hover:text-slate-600 transition-colors"><Linkedin className="h-5 w-5" /></a>
-              <a href="#" className="hover:text-slate-600 transition-colors"><Instagram className="h-5 w-5" /></a>
+
+            {/* Col 3: Recursos */}
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-3 text-sm">Recursos</h4>
+              <ul className="space-y-2 text-sm text-slate-500">
+                <li><a href="#" className="hover:text-slate-900 transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-slate-900 transition-colors">Guias</a></li>
+                <li><a href="#" className="hover:text-slate-900 transition-colors">Eventos</a></li>
+              </ul>
+            </div>
+
+            {/* Col 4: Geral */}
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-3 text-sm">Geral</h4>
+              <ul className="space-y-2 text-sm text-slate-500">
+                <li><a href="#" className="hover:text-slate-900 transition-colors">Carreira</a></li>
+                <li><a href="#" className="hover:text-slate-900 transition-colors">Termos de Uso</a></li>
+                <li><a href="#" className="hover:text-slate-900 transition-colors">Política de Privacidade</a></li>
+              </ul>
+            </div>
+
+            {/* Col 5: Social */}
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-3 text-sm">Social</h4>
+              <div className="flex items-center gap-3 text-slate-400 mb-3">
+                <a href="#" className="hover:text-emerald-600 transition-colors"><Linkedin className="h-5 w-5" /></a>
+                <a href="#" className="hover:text-emerald-600 transition-colors"><Instagram className="h-5 w-5" /></a>
+                <a href="#" className="hover:text-emerald-600 transition-colors"><Github className="h-5 w-5" /></a>
+              </div>
+              <a href="mailto:contato@obralink.com.br" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
+                contato@obralink.com.br
+              </a>
             </div>
           </div>
-          <div className="mt-6 text-center text-xs text-slate-400">
-            © {new Date().getFullYear()} AI Construct. Todos os direitos reservados.
+
+          <div className="mt-10 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+            © {new Date().getFullYear()} Obra Link. Todos os direitos reservados.
           </div>
         </div>
       </footer>

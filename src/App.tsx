@@ -19,6 +19,7 @@ import Admin from "./pages/Admin";
 import AdminSinapiImport from "./pages/AdminSinapiImport";
 import Marketplace from "./pages/Marketplace";
 import Profissionais from "./pages/Profissionais";
+import SolicitarAcesso from "./pages/SolicitarAcesso";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/share/:analysisId" element={<ShareAnalise />} />
+            <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/profissionais" element={<Profissionais />} />
             <Route path="/servicos" element={<Profissionais />} />
