@@ -19,6 +19,7 @@ import Admin from "./pages/Admin";
 import AdminSinapiImport from "./pages/AdminSinapiImport";
 import Marketplace from "./pages/Marketplace";
 import Profissionais from "./pages/Profissionais";
+import SolicitarAcesso from "./pages/SolicitarAcesso";
 
 const queryClient = new QueryClient();
 
