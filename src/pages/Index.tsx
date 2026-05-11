@@ -163,7 +163,7 @@ export default function Index() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white text-base px-8 h-12" asChild>
-                  <Link to={user ? "/nova-analise" : "/auth?tab=signup"}>
+                  <Link to={user ? "/nova-analise" : "/solicitar-acesso"}>
                     Analisar minha primeira planta agora <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
