@@ -34,6 +34,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/share/:analysisId" element={<ShareAnalise />} />
+            <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/profissionais" element={<Profissionais />} />
             <Route path="/servicos" element={<Profissionais />} />
