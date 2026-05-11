@@ -136,7 +136,7 @@ export default function Index() {
                   <Link to="/auth">Entrar</Link>
                 </Button>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Link to="/auth?tab=signup">Começar Grátis</Link>
+                  <Link to="/solicitar-acesso">Começar Grátis</Link>
                 </Button>
               </>
             )}
