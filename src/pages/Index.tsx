@@ -121,9 +121,9 @@ export default function Index() {
             <span>AI Construct</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#funcionalidades" className="hover:text-slate-900 transition-colors">Funcionalidades</a>
-            <a href="#roi" className="hover:text-slate-900 transition-colors">ROI</a>
-            <a href="#faq" className="hover:text-slate-900 transition-colors">FAQ</a>
+            <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900 transition-colors">Gestão de Projetos</Link>
+            <Link to="/marketplace" className="hover:text-slate-900 transition-colors">Marketplace</Link>
+            <Link to="/profissionais" className="hover:text-slate-900 transition-colors">Prestar Serviços</Link>
           </div>
           <div className="flex items-center gap-3">
             {user ? (
