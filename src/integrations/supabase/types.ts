@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_requests: {
+        Row: {
+          ano_criacao: number
+          celular: string
+          created_at: string
+          email: string
+          id: string
+          nome_completo: string
+          nome_empresa: string
+          qtd_funcionarios: string
+          qtd_obras: number
+          status: string
+          tipo_empresa: string
+          updated_at: string
+        }
+        Insert: {
+          ano_criacao: number
+          celular: string
+          created_at?: string
+          email: string
+          id?: string
+          nome_completo: string
+          nome_empresa: string
+          qtd_funcionarios: string
+          qtd_obras: number
+          status?: string
+          tipo_empresa: string
+          updated_at?: string
+        }
+        Update: {
+          ano_criacao?: number
+          celular?: string
+          created_at?: string
+          email?: string
+          id?: string
+          nome_completo?: string
+          nome_empresa?: string
+          qtd_funcionarios?: string
+          qtd_obras?: number
+          status?: string
+          tipo_empresa?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       alertas_preditivos: {
         Row: {
           analysis_id: string
