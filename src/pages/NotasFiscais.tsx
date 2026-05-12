@@ -219,7 +219,7 @@ export default function NotasFiscais() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/dashboard")}>
             <Box className="h-6 w-6" />
-            <span className="text-lg font-bold">AI Construct</span>
+            <span className="text-lg font-bold">Obra Link</span>
           </div>
           <nav className="hidden md:flex items-center gap-1">
             <NavLink to="/dashboard">Dashboard</NavLink>

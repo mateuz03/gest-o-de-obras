@@ -103,7 +103,7 @@ export default function Index() {
   const faqItems = [
     { q: "Quais formatos de planta são suportados?", a: "Aceitamos PDF, JPG, PNG e arquivos DWG (até 50MB para DWG e 20MB para os demais). A IA funciona melhor com plantas em escala e boa resolução." },
     { q: "Como funciona a integração com o SINAPI?", a: "Você pode fazer upload da planilha oficial do SINAPI para sua região. A IA vincula automaticamente cada insumo identificado ao código SINAPI mais próximo por similaridade de descrição." },
-    { q: "A IA substitui o orçamentista?", a: "Não. O AI Construct é um copiloto que acelera o trabalho do profissional. A revisão humana continua sendo fundamental, especialmente em projetos complexos." },
+    { q: "A IA substitui o orçamentista?", a: "Não. O Obra Link é um copiloto que acelera o trabalho do profissional. A revisão humana continua sendo fundamental, especialmente em projetos complexos." },
     { q: "Qual a margem de precisão da análise?", a: "Para plantas com escala definida e área informada, a precisão fica entre 85-95%. Sem escala, a margem de erro pode chegar a 30%. Sempre recomendamos calibração manual." },
     { q: "Posso usar para obras de grande porte?", a: "Sim. O sistema suporta múltiplos pavimentos e diversas tipologias construtivas. Para obras muito complexas, recomendamos dividir a análise por etapas ou blocos." },
     { q: "Como funciona o BDI configurável?", a: "Você define os percentuais de administração central, lucro, impostos e outros encargos. O BDI é aplicado sobre o custo direto de cada item do orçamento." },
@@ -118,7 +118,7 @@ export default function Index() {
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
             <Box className="h-6 w-6 text-emerald-600" />
-            <span>AI Construct</span>
+            <span>Obra Link</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900 transition-colors">Gestão de Projetos</Link>
@@ -188,7 +188,7 @@ export default function Index() {
                   <div className="w-3 h-3 rounded-full bg-red-500" />
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="ml-3 text-sm text-slate-400 font-mono">AI Construct — Análise em andamento</span>
+                  <span className="ml-3 text-sm text-slate-400 font-mono">Obra Link — Análise em andamento</span>
                 </div>
                 <div className="space-y-3 font-mono text-sm">
                   <div className="text-slate-300">
@@ -306,7 +306,7 @@ export default function Index() {
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
               Do Escalímetro para a Inteligência Artificial
             </h2>
-            <p className="text-lg text-slate-500">Compare o processo tradicional com o AI Construct.</p>
+            <p className="text-lg text-slate-500">Compare o processo tradicional com o Obra Link.</p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
@@ -343,7 +343,7 @@ export default function Index() {
                 <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
                   <Check className="h-5 w-5 text-emerald-600" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">O Hoje com AI Construct</h3>
+                <h3 className="text-xl font-bold text-slate-900">O Hoje com Obra Link</h3>
               </div>
               <ul className="space-y-3">
                 {[
@@ -437,7 +437,7 @@ export default function Index() {
               </div>
 
               <p className="text-center text-sm text-slate-500">
-                Com o AI Construct, você elimina 90% do tempo manual, recuperando{" "}
+                Com o Obra Link, você elimina 90% do tempo manual, recuperando{" "}
                 <strong className="text-emerald-600">{horasRecuperadas} horas por mês</strong>.{" "}
                 <span className="text-slate-400">(Hora técnica estimada: R$ 150)</span>
               </p>
@@ -570,7 +570,7 @@ export default function Index() {
           {/* Dark Banner */}
           <motion.div {...fadeInUp} className="rounded-xl bg-slate-900 p-6 text-center">
             <p className="text-slate-300 text-sm leading-relaxed max-w-2xl mx-auto">
-              <strong className="text-white">Nosso compromisso:</strong> AI Construct é um{" "}
+              <strong className="text-white">Nosso compromisso:</strong> Obra Link é um{" "}
               <strong className="text-emerald-400">Copiloto</strong>, não um substituto do engenheiro.
               A IA acelera e organiza — a decisão técnica final é sempre do profissional.
             </p>

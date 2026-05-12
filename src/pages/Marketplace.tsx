@@ -63,7 +63,7 @@ export default function Marketplace() {
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
             <Box className="h-6 w-6 text-emerald-600" />
-            <span>AI Construct</span>
+            <span>Obra Link</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900">Gestão de Projetos</Link>

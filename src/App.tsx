@@ -20,6 +20,7 @@ import AdminSinapiImport from "./pages/AdminSinapiImport";
 import Marketplace from "./pages/Marketplace";
 import Profissionais from "./pages/Profissionais";
 import SolicitarAcesso from "./pages/SolicitarAcesso";
+import CadastrarProfissional from "./pages/CadastrarProfissional";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/profissionais" element={<Profissionais />} />
             <Route path="/servicos" element={<Profissionais />} />
+            <Route path="/cadastrar-profissional" element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
             <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />

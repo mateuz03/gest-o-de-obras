@@ -32,7 +32,7 @@ export function exportToPDF(projectName: string, result: AnalysisResult) {
   let y = 15;
 
   doc.setFontSize(18);
-  doc.text("AI Construct Estimator — Orçamento", 14, y);
+  doc.text("Obra Link Estimator — Orçamento", 14, y);
   y += 8;
   doc.setFontSize(13);
   doc.text(projectName, 14, y);

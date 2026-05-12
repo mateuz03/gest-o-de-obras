@@ -92,7 +92,7 @@ export default function Profissionais() {
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
             <Box className="h-6 w-6 text-emerald-600" />
-            <span>AI Construct</span>
+            <span>Obra Link</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900">Gestão de Projetos</Link>
@@ -125,12 +125,14 @@ export default function Profissionais() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
+                  asChild
                   size="lg"
                   className="bg-emerald-500 hover:bg-emerald-600 text-white h-12 px-8 text-base"
-                  onClick={() => toast.success("Em breve: cadastro de profissionais")}
                 >
-                  <HardHat className="h-5 w-5" />
-                  Cadastrar minha Mão de Obra
+                  <Link to={user ? "/cadastrar-profissional" : "/auth?redirect=/cadastrar-profissional"}>
+                    <HardHat className="h-5 w-5" />
+                    Cadastrar minha Mão de Obra
+                  </Link>
                 </Button>
                 <Button
                   size="lg"
