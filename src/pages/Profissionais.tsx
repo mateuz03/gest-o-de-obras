@@ -125,12 +125,14 @@ export default function Profissionais() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
+                  asChild
                   size="lg"
                   className="bg-emerald-500 hover:bg-emerald-600 text-white h-12 px-8 text-base"
-                  onClick={() => toast.success("Em breve: cadastro de profissionais")}
                 >
-                  <HardHat className="h-5 w-5" />
-                  Cadastrar minha Mão de Obra
+                  <Link to={user ? "/cadastrar-profissional" : "/auth?redirect=/cadastrar-profissional"}>
+                    <HardHat className="h-5 w-5" />
+                    Cadastrar minha Mão de Obra
+                  </Link>
                 </Button>
                 <Button
                   size="lg"
