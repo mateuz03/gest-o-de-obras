@@ -673,6 +673,42 @@ export type Database = {
         }
         Relationships: []
       }
+      profissionais: {
+        Row: {
+          created_at: string
+          especialidade: string
+          id: string
+          regiao: string
+          resumo: string
+          telefone: string
+          updated_at: string
+          user_id: string
+          valor_diaria: number
+        }
+        Insert: {
+          created_at?: string
+          especialidade: string
+          id?: string
+          regiao: string
+          resumo: string
+          telefone: string
+          updated_at?: string
+          user_id: string
+          valor_diaria?: number
+        }
+        Update: {
+          created_at?: string
+          especialidade?: string
+          id?: string
+          regiao?: string
+          resumo?: string
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+          valor_diaria?: number
+        }
+        Relationships: []
+      }
       project_chats: {
         Row: {
           content: string
