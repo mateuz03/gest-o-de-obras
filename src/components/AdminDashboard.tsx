@@ -106,7 +106,7 @@ export function AdminDashboard({ profiles = [] }: AdminDashboardProps) {
                   <ShieldCheck className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold tracking-wide">AI Construct</p>
+                  <p className="text-sm font-semibold tracking-wide">Obra Link</p>
                   <h1 className="text-lg font-bold leading-tight">Admin</h1>
                 </div>
               </div>

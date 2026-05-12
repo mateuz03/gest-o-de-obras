@@ -164,7 +164,7 @@ export default function ShareAnalise() {
             <h1 className="font-bold text-lg">
               {projectName}
             </h1>
-            <p className="text-xs text-muted-foreground">Estimativa de Materiais — AI Construct</p>
+            <p className="text-xs text-muted-foreground">Estimativa de Materiais — Obra Link</p>
           </div>
         </div>
       </nav>
@@ -310,7 +310,7 @@ export default function ShareAnalise() {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-8 pb-4 border-t">
-          <p>Estimativa gerada por <strong>AI Construct Estimator</strong></p>
+          <p>Estimativa gerada por <strong>Obra Link Estimator</strong></p>
           <p className="mt-1">Os valores são estimativas e podem variar conforme o mercado local.</p>
         </div>
       </div>

@@ -57,7 +57,7 @@ export function BlueprintLayerViewer() {
       <div className="relative min-h-[620px]">
         <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-lg border border-white/10 bg-foreground/35 px-3 py-2 text-xs font-semibold text-primary-foreground backdrop-blur-md">
           <Layers3 className="h-4 w-4 text-accent" />
-          BIM 2D · AI Construct
+          BIM 2D · Obra Link
         </div>
 
         <LayerControlPanel layers={layers} onToggle={toggleLayer} />

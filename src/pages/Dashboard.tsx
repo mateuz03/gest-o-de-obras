@@ -112,7 +112,7 @@ export default function Dashboard() {
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold text-white">
             <Box className="h-6 w-6" />
-            AI Construct
+            Obra Link
           </Link>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm text-white/70 sm:block">{user?.email}</span>
