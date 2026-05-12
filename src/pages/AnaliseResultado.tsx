@@ -958,6 +958,17 @@ export default function AnaliseResultado() {
           onApplyProposal={handleApplyProposal}
         />
       )}
+
+      {id && (
+        <DeleteProjectDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          analysisId={id}
+          projectName={analysis.nome_projeto}
+          userId={user?.id}
+          onDeleted={() => navigate("/dashboard")}
+        />
+      )}
     </div>
   );
 }
