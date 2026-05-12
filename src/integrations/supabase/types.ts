@@ -127,6 +127,7 @@ export type Database = {
           regiao: string | null
           resultado_json: Json | null
           status: string
+          target_cost_per_m2: number | null
           tipo_construcao: string | null
           total_estimado: number | null
           user_id: string
@@ -142,6 +143,7 @@ export type Database = {
           regiao?: string | null
           resultado_json?: Json | null
           status?: string
+          target_cost_per_m2?: number | null
           tipo_construcao?: string | null
           total_estimado?: number | null
           user_id: string
@@ -157,6 +159,7 @@ export type Database = {
           regiao?: string | null
           resultado_json?: Json | null
           status?: string
+          target_cost_per_m2?: number | null
           tipo_construcao?: string | null
           total_estimado?: number | null
           user_id?: string
