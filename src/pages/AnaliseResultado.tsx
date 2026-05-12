@@ -301,6 +301,9 @@ function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommenda
 
 export default function AnaliseResultado() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [matchingPrices, setMatchingPrices] = useState(false);
@@ -735,6 +738,15 @@ export default function AnaliseResultado() {
             >
               {downloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
               Baixar PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
+              onClick={() => setDeleteOpen(true)}
+              title="Excluir projeto"
+            >
+              <Trash2 className="mr-1 h-4 w-4" /> Excluir
             </Button>
           </div>
         </div>
