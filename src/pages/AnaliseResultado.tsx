@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen } from "lucide-react";
+import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen, Trash2 } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { exportOrcaLinkPDF } from "@/lib/exportOrcaLink";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
@@ -22,6 +22,8 @@ import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
 import { EditableBudgetTable } from "@/components/EditableBudgetTable";
+import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
