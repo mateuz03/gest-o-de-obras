@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Image as ImageIcon, Pencil } from "lucide-react";
+import { ArrowRight, Image as ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { getProjectRoute, isAnalysisIncomplete } from "@/lib/projectStatus";
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
@@ -29,9 +29,10 @@ const formatCurrency = (v: number) =>
 interface ProjectsTableProps {
   analyses: Analysis[];
   onPickCover?: (a: Analysis) => void;
+  onDelete?: (a: Analysis) => void;
 }
 
-export function ProjectsTable({ analyses, onPickCover }: ProjectsTableProps) {
+export function ProjectsTable({ analyses, onPickCover, onDelete }: ProjectsTableProps) {
   const navigate = useNavigate();
 
   return (
@@ -115,25 +116,41 @@ export function ProjectsTable({ analyses, onPickCover }: ProjectsTableProps) {
                     {format(new Date(a.created_at), "dd MMM yyyy", { locale: ptBR })}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(route);
-                      }}
-                      className={
-                        incomplete
-                          ? "text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-                          : "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                      }
-                    >
-                      {incomplete ? (
-                        <>Continuar <Pencil className="ml-1 h-3.5 w-3.5" /></>
-                      ) : (
-                        <>Abrir <ArrowRight className="ml-1 h-3.5 w-3.5" /></>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(route);
+                        }}
+                        className={
+                          incomplete
+                            ? "text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                            : "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                        }
+                      >
+                        {incomplete ? (
+                          <>Continuar <Pencil className="ml-1 h-3.5 w-3.5" /></>
+                        ) : (
+                          <>Abrir <ArrowRight className="ml-1 h-3.5 w-3.5" /></>
+                        )}
+                      </Button>
+                      {onDelete && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(a);
+                          }}
+                          className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600"
+                          title="Excluir projeto"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
-                    </Button>
+                    </div>
                   </td>
                 </tr>
               );

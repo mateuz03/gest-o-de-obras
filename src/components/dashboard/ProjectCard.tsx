@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, MapPin, Users, FileText, ImagePlus, Pencil } from "lucide-react";
+import { Calendar, MapPin, Users, FileText, ImagePlus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Analysis } from "@/lib/types";
 import { format } from "date-fns";
@@ -49,9 +49,10 @@ interface ProjectCardProps {
   analysis: Analysis;
   imageUrl?: string;
   onPickCover?: (a: Analysis) => void;
+  onDelete?: (a: Analysis) => void;
 }
 
-export function ProjectCard({ analysis: a, imageUrl, onPickCover }: ProjectCardProps) {
+export function ProjectCard({ analysis: a, imageUrl, onPickCover, onDelete }: ProjectCardProps) {
   const customCover = (a as any).cover_image_url as string | undefined;
   const cover = imageUrl || customCover || a.imagem_url || COVER_IMAGES[hashIndex(a.id, COVER_IMAGES.length)];
   const status = STATUS_BADGE[a.status] || STATUS_BADGE.pending;
@@ -190,6 +191,21 @@ export function ProjectCard({ analysis: a, imageUrl, onPickCover }: ProjectCardP
                 <Link to={`/analise/${a.id}`}>Ver Detalhes</Link>
               </Button>
             </>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(a);
+              }}
+              className="text-red-500 hover:bg-red-50 hover:text-red-600"
+              title="Excluir projeto"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
       </div>

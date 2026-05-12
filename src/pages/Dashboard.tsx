@@ -18,6 +18,7 @@ import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { ProjectsTable } from "@/components/dashboard/ProjectsTable";
 import { CoverPickerDialog } from "@/components/dashboard/CoverPickerDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
 
 const formatCurrencyShort = (v: number) => {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")} mi`;
@@ -39,6 +40,7 @@ export default function Dashboard() {
     return (localStorage.getItem("dashboard-view") as ViewMode) || "grid";
   });
   const [coverDialogFor, setCoverDialogFor] = useState<Analysis | null>(null);
+  const [deleteDialogFor, setDeleteDialogFor] = useState<Analysis | null>(null);
 
   const handleViewChange = (v: string) => {
     if (v === "grid" || v === "list") {
@@ -288,11 +290,11 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : viewMode === "list" ? (
-          <ProjectsTable analyses={filteredAnalyses} onPickCover={setCoverDialogFor} />
+          <ProjectsTable analyses={filteredAnalyses} onPickCover={setCoverDialogFor} onDelete={setDeleteDialogFor} />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredAnalyses.map((a) => (
-              <ProjectCard key={a.id} analysis={a} onPickCover={setCoverDialogFor} />
+              <ProjectCard key={a.id} analysis={a} onPickCover={setCoverDialogFor} onDelete={setDeleteDialogFor} />
             ))}
           </div>
         )}
@@ -305,6 +307,19 @@ export default function Dashboard() {
           analysisId={coverDialogFor.id}
           currentCover={(coverDialogFor as any).cover_image_url}
           onSaved={handleCoverSaved}
+        />
+      )}
+      {deleteDialogFor && (
+        <DeleteProjectDialog
+          open={!!deleteDialogFor}
+          onOpenChange={(o) => !o && setDeleteDialogFor(null)}
+          analysisId={deleteDialogFor.id}
+          projectName={deleteDialogFor.nome_projeto}
+          userId={user?.id}
+          onDeleted={() => {
+            setAnalyses((prev) => prev.filter((x) => x.id !== deleteDialogFor.id));
+            setDeleteDialogFor(null);
+          }}
         />
       )}
     </div>

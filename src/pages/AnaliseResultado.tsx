@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen } from "lucide-react";
+import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen, Trash2 } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { exportOrcaLinkPDF } from "@/lib/exportOrcaLink";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
@@ -22,6 +22,8 @@ import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
 import { SourceFilesPanel } from "@/components/SourceFilesPanel";
 import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
 import { EditableBudgetTable } from "@/components/EditableBudgetTable";
+import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 function formatCurrency(value: number | string) {
@@ -299,6 +301,9 @@ function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommenda
 
 export default function AnaliseResultado() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [matchingPrices, setMatchingPrices] = useState(false);
@@ -734,6 +739,15 @@ export default function AnaliseResultado() {
               {downloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
               Baixar PDF
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
+              onClick={() => setDeleteOpen(true)}
+              title="Excluir projeto"
+            >
+              <Trash2 className="mr-1 h-4 w-4" /> Excluir
+            </Button>
           </div>
         </div>
       </div>
@@ -942,6 +956,17 @@ export default function AnaliseResultado() {
           projectId={id}
           budgetItems={copilotBudgetItems}
           onApplyProposal={handleApplyProposal}
+        />
+      )}
+
+      {id && (
+        <DeleteProjectDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          analysisId={id}
+          projectName={analysis.nome_projeto}
+          userId={user?.id}
+          onDeleted={() => navigate("/dashboard")}
         />
       )}
     </div>
