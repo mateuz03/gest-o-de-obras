@@ -610,6 +610,54 @@ export type Database = {
           },
         ]
       }
+      fornecedores: {
+        Row: {
+          cidade: string | null
+          cnpj: string
+          created_at: string
+          email: string | null
+          endereco: string
+          estado: string | null
+          id: string
+          nome_loja: string
+          plano: string
+          responsavel: string
+          status: string
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          cidade?: string | null
+          cnpj: string
+          created_at?: string
+          email?: string | null
+          endereco: string
+          estado?: string | null
+          id?: string
+          nome_loja: string
+          plano?: string
+          responsavel: string
+          status?: string
+          updated_at?: string
+          whatsapp: string
+        }
+        Update: {
+          cidade?: string | null
+          cnpj?: string
+          created_at?: string
+          email?: string | null
+          endereco?: string
+          estado?: string | null
+          id?: string
+          nome_loja?: string
+          plano?: string
+          responsavel?: string
+          status?: string
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           ano_criacao_negocio: number | null
