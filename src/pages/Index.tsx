@@ -124,6 +124,7 @@ export default function Index() {
             <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900 transition-colors">Gestão de Projetos</Link>
             <Link to="/marketplace" className="hover:text-slate-900 transition-colors">Marketplace</Link>
             <Link to="/profissionais" className="hover:text-slate-900 transition-colors">Prestar Serviços</Link>
+            <Link to="/seja-parceiro" className="hover:text-slate-900 transition-colors">Seja Parceiro</Link>
           </div>
           <div className="flex items-center gap-3">
             {user ? (
@@ -659,7 +660,7 @@ export default function Index() {
       {/* ─── FOOTER ─── */}
       <footer className="border-t border-slate-200 py-14 bg-white">
         <div className="container">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
             {/* Col 1: Brand */}
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-3">
@@ -688,6 +689,15 @@ export default function Index() {
                 <li><a href="#" className="hover:text-slate-900 transition-colors">Blog</a></li>
                 <li><a href="#" className="hover:text-slate-900 transition-colors">Guias</a></li>
                 <li><a href="#" className="hover:text-slate-900 transition-colors">Eventos</a></li>
+              </ul>
+            </div>
+
+            {/* Col Empresas */}
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-3 text-sm">Empresas</h4>
+              <ul className="space-y-2 text-sm text-slate-500">
+                <li><Link to="/seja-parceiro" className="hover:text-slate-900 transition-colors">Anunciar Materiais</Link></li>
+                <li><Link to="/profissionais" className="hover:text-slate-900 transition-colors">Prestar Serviços</Link></li>
               </ul>
             </div>
 

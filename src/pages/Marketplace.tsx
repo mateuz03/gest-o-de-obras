@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Box, Search, ShoppingCart, ArrowRight, Filter } from "lucide-react";
+import { Box, Search, ShoppingCart, ArrowRight, Filter, Store, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -69,6 +69,7 @@ export default function Marketplace() {
             <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900">Gestão de Projetos</Link>
             <Link to="/marketplace" className="text-slate-900 font-semibold">Marketplace</Link>
             <Link to="/profissionais" className="hover:text-slate-900">Prestar Serviços</Link>
+            <Link to="/seja-parceiro" className="hover:text-slate-900">Seja Parceiro</Link>
           </div>
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Link to={user ? "/dashboard" : "/auth"}>
@@ -111,70 +112,118 @@ export default function Marketplace() {
         </div>
       </section>
 
-      {/* Filtros + Grid */}
-      <section className="container py-10">
-        <div className="flex items-center gap-2 mb-6 flex-wrap">
-          <Filter className="h-4 w-4 text-slate-500" />
-          <span className="text-sm font-semibold text-slate-700 mr-2">Categorias:</span>
-          {categorias.map((c) => (
-            <Button
-              key={c}
-              size="sm"
-              variant={categoria === c ? "default" : "outline"}
-              onClick={() => setCategoria(c)}
-              className={
-                categoria === c
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-100"
-              }
-            >
-              {c}
-            </Button>
-          ))}
-        </div>
-
-        {filtrados.length === 0 ? (
-          <div className="text-center py-20 text-slate-500">
-            Nenhum produto encontrado.
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filtrados.map((p) => (
-              <Card key={p.id} className="overflow-hidden border-slate-200 hover:shadow-lg transition-shadow bg-white">
-                <div className="aspect-[4/3] bg-slate-100 overflow-hidden">
-                  <img
-                    src={p.imagem}
-                    alt={p.nome}
-                    loading="lazy"
-                    className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
-                    onError={(e) => ((e.target as HTMLImageElement).src = "/placeholder.svg")}
-                  />
-                </div>
-                <CardContent className="p-4 flex flex-col gap-2">
-                  <Badge variant="outline" className="w-fit text-xs border-slate-200 text-slate-600">
-                    {p.categoria}
-                  </Badge>
-                  <h3 className="font-semibold text-slate-900 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
-                    {p.nome}
-                  </h3>
-                  <p className="text-xs text-slate-500">Marca: <span className="font-medium text-slate-700">{p.marca}</span></p>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-lg font-bold text-slate-900 tabular-nums">{formatCurrency(p.preco)}</span>
-                    <span className="text-xs text-slate-500">/ {p.unidade}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => toast.success(`${p.nome} adicionado ao projeto`)}
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    Adicionar ao Projeto
-                  </Button>
-                </CardContent>
-              </Card>
+      {/* Filtros + Grid + Sidebar */}
+      <section className="container py-10 grid lg:grid-cols-[1fr_300px] gap-8">
+        <div>
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <Filter className="h-4 w-4 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-700 mr-2">Categorias:</span>
+            {categorias.map((c) => (
+              <Button
+                key={c}
+                size="sm"
+                variant={categoria === c ? "default" : "outline"}
+                onClick={() => setCategoria(c)}
+                className={
+                  categoria === c
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                }
+              >
+                {c}
+              </Button>
             ))}
           </div>
-        )}
+
+          {filtrados.length === 0 ? (
+            <div className="text-center py-20 text-slate-500">Nenhum produto encontrado.</div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filtrados.map((p) => (
+                <Card key={p.id} className="overflow-hidden border-slate-200 hover:shadow-lg transition-shadow bg-white">
+                  <div className="aspect-[4/3] bg-slate-100 overflow-hidden">
+                    <img
+                      src={p.imagem}
+                      alt={p.nome}
+                      loading="lazy"
+                      className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => ((e.target as HTMLImageElement).src = "/placeholder.svg")}
+                    />
+                  </div>
+                  <CardContent className="p-4 flex flex-col gap-2">
+                    <Badge variant="outline" className="w-fit text-xs border-slate-200 text-slate-600">
+                      {p.categoria}
+                    </Badge>
+                    <h3 className="font-semibold text-slate-900 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
+                      {p.nome}
+                    </h3>
+                    <p className="text-xs text-slate-500">Marca: <span className="font-medium text-slate-700">{p.marca}</span></p>
+                    <div className="mt-1 flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-slate-900 tabular-nums">{formatCurrency(p.preco)}</span>
+                      <span className="text-xs text-slate-500">/ {p.unidade}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => toast.success(`${p.nome} adicionado ao projeto`)}
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      Adicionar ao Projeto
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar Direita */}
+        <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
+          {/* Banner Seja Parceiro */}
+          <Card className="border-0 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-md">
+            <CardContent className="p-5">
+              <Sparkles className="h-6 w-6 mb-2 text-emerald-100" />
+              <h3 className="font-bold text-base leading-snug mb-1">Tem uma loja de construção?</h3>
+              <p className="text-xs text-emerald-50 mb-3">
+                Clique aqui para vender seus produtos no Obra Link.
+              </p>
+              <Button asChild size="sm" className="w-full bg-white text-emerald-700 hover:bg-emerald-50">
+                <Link to="/seja-parceiro">Quero ser parceiro <ArrowRight className="h-3 w-3 ml-1" /></Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Lojas em Destaque */}
+          <Card className="border-slate-200 bg-white">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Store className="h-4 w-4 text-emerald-600" />
+                <h3 className="font-semibold text-sm text-slate-900">Lojas em Destaque na Região</h3>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { nome: "Construfácil", cidade: "São Paulo · SP", cor: "bg-amber-100 text-amber-700" },
+                  { nome: "Mega Materiais", cidade: "Campinas · SP", cor: "bg-blue-100 text-blue-700" },
+                  { nome: "Casa & Obra", cidade: "Guarulhos · SP", cor: "bg-rose-100 text-rose-700" },
+                  { nome: "Depósito União", cidade: "Osasco · SP", cor: "bg-violet-100 text-violet-700" },
+                ].map((l) => (
+                  <div key={l.nome} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
+                    <div className={`h-10 w-10 rounded-md flex items-center justify-center font-bold text-sm ${l.cor}`}>
+                      {l.nome.split(" ").map(w => w[0]).slice(0, 2).join("")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{l.nome}</p>
+                      <p className="text-xs text-slate-500 truncate">{l.cidade}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-700 bg-emerald-50">
+                      ✓ Verificada
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
       </section>
     </div>
   );
