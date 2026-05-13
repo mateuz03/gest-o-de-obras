@@ -21,6 +21,7 @@ import Marketplace from "./pages/Marketplace";
 import Profissionais from "./pages/Profissionais";
 import SolicitarAcesso from "./pages/SolicitarAcesso";
 import CadastrarProfissional from "./pages/CadastrarProfissional";
+import SejaParceiro from "./pages/SejaParceiro";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/profissionais" element={<Profissionais />} />
+            <Route path="/seja-parceiro" element={<SejaParceiro />} />
             <Route path="/servicos" element={<Profissionais />} />
             <Route path="/cadastrar-profissional" element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
