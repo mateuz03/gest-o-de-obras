@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Box, Search, ShoppingCart, ArrowRight, Filter } from "lucide-react";
+import { Box, Search, ShoppingCart, ArrowRight, Filter, Store, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -69,6 +69,7 @@ export default function Marketplace() {
             <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900">Gestão de Projetos</Link>
             <Link to="/marketplace" className="text-slate-900 font-semibold">Marketplace</Link>
             <Link to="/profissionais" className="hover:text-slate-900">Prestar Serviços</Link>
+            <Link to="/seja-parceiro" className="hover:text-slate-900">Seja Parceiro</Link>
           </div>
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Link to={user ? "/dashboard" : "/auth"}>
