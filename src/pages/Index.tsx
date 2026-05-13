@@ -660,7 +660,7 @@ export default function Index() {
       {/* ─── FOOTER ─── */}
       <footer className="border-t border-slate-200 py-14 bg-white">
         <div className="container">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
             {/* Col 1: Brand */}
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-3">
