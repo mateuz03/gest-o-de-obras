@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -116,28 +117,69 @@ export default function Index() {
       {/* ─── HEADER ─── */}
       <nav className="fixed top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-lg">
         <div className="container flex h-16 items-center justify-between">
+          
+          {/* LOGO */}
           <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
             <Box className="h-6 w-6 text-emerald-600" />
             <span>Obra Link</span>
           </Link>
+
+          {/* MENUS DROPDOWN (Centro) */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <Link to={user ? "/dashboard" : "/auth"} className="hover:text-slate-900 transition-colors">Gestão de Projetos</Link>
-            <Link to="/marketplace" className="hover:text-slate-900 transition-colors">Marketplace</Link>
-            <Link to="/profissionais" className="hover:text-slate-900 transition-colors">Prestar Serviços</Link>
-            <Link to="/seja-parceiro" className="hover:text-slate-900 transition-colors">Seja Parceiro</Link>
+            
+            {/* 1. Soluções */}
+            <div className="relative group">
+              <button className="flex items-center gap-1 hover:text-emerald-600 transition-colors py-4">
+                Soluções <ChevronDown className="w-4 h-4" />
+              </button>
+              {/* Menu Invisível que aparece no Hover */}
+              <div className="absolute top-full left-0 hidden group-hover:block w-56 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
+                <Link to={user ? "/dashboard" : "/auth"} className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Gestão de Projetos</Link>
+                <Link to="/marketplace" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Marketplace</Link>
+                <Link to="/profissionais" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Prestar Serviços</Link>
+                <Link to="/seja-parceiro" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Seja Parceiro</Link>
+              </div>
+            </div>
+
+            {/* 2. Conteúdo */}
+            <div className="relative group">
+              <button className="flex items-center gap-1 hover:text-emerald-600 transition-colors py-4">
+                Conteúdo <ChevronDown className="w-4 h-4" />
+              </button>
+              <div className="absolute top-full left-0 hidden group-hover:block w-48 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
+                <Link to="/blog" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Blog</Link>
+                <Link to="/documentos" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Documentos e Dicas</Link>
+              </div>
+            </div>
+
+            {/* 3. Obra Link */}
+            <div className="relative group">
+              <button className="flex items-center gap-1 hover:text-emerald-600 transition-colors py-4">
+                Obra Link <ChevronDown className="w-4 h-4" />
+              </button>
+              <div className="absolute top-full left-0 hidden group-hover:block w-48 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
+                <Link to="/sobre-nos" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Quem Somos</Link>
+                <Link to="/suporte" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Precisa de Suporte?</Link>
+              </div>
+            </div>
+
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* BOTÕES DIREITA (Login) */}
+          <div className="flex items-center gap-4">
             {user ? (
-              <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                <Link to="/dashboard">Dashboard <ArrowRight className="ml-1 h-4 w-4" /></Link>
-              </Button>
+              // Se o usuário já estiver logado, não precisa do botão de Dashboard gigante
+              <Link to="/dashboard" className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
+                Ir para o Painel
+              </Link>
             ) : (
+              // Se não estiver logado, mostramos os botões padrão de B2B
               <>
-                <Button variant="ghost" asChild className="text-slate-600 hover:text-slate-900">
-                  <Link to="/auth">Entrar</Link>
-                </Button>
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Link to="/solicitar-acesso">Começar Grátis</Link>
+                <Link to="/auth" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">
+                  Login
+                </Link>
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                  <Link to="/auth">Criar Conta</Link>
                 </Button>
               </>
             )}

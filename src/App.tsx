@@ -22,6 +22,10 @@ import Profissionais from "./pages/Profissionais";
 import SolicitarAcesso from "./pages/SolicitarAcesso";
 import CadastrarProfissional from "./pages/CadastrarProfissional";
 import SejaParceiro from "./pages/SejaParceiro";
+import Blog from "./pages/Blog";
+import DocumentosDicas from "./pages/DocumentosDicas";
+import QuemSomos from "./pages/QuemSomos";
+import Suporte from "./pages/Suporte";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +37,10 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+          <Route path="/blog" element={<Blog />} />
+<Route path="/documentos" element={<DocumentosDicas />} />
+<Route path="/sobre-nos" element={<QuemSomos />} />
+<Route path="/suporte" element={<Suporte />} />
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/share/:analysisId" element={<ShareAnalise />} />
