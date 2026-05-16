@@ -67,14 +67,15 @@ export default function CadastrarProfissional() {
     }
     (async () => {
       const { data } = await supabase
-        .from("profissionais" as any)
+        .from("profissionais")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
+        
       if (data) {
         const d = data as any;
         setEspecialidade(d.especialidade ?? "");
-        setRegiao(d.regiao ?? "");
+        setRegiao(d.regiao ?? ""); // Ajustado para o nome correto no banco
         setValorDiaria(String(d.valor_diaria ?? ""));
         setTelefone(d.telefone ?? "");
         setResumo(d.resumo ?? "");
@@ -96,6 +97,7 @@ export default function CadastrarProfissional() {
       telefone,
       resumo,
     });
+    
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => {
@@ -106,38 +108,49 @@ export default function CadastrarProfissional() {
     }
 
     setSaving(true);
-    const { error } = await supabase
-      .from("profissionais" as any)
+    
+    // Mapeamento correto das colunas para o banco de dados
+   const { error } = await supabase
+      .from("profissionais")
       .upsert(
-        { user_id: user.id, ...parsed.data } as any,
+        { 
+          user_id: user.id, 
+          especialidade: parsed.data.especialidade,
+          regiao: parsed.data.regiao, 
+          valor_diaria: parsed.data.valor_diaria,
+          telefone: parsed.data.telefone,
+          resumo: parsed.data.resumo
+          // Apagamos a linha do status aqui!
+        },
         { onConflict: "user_id" },
       );
+      
     setSaving(false);
 
     if (error) {
       toast.error("Erro ao salvar perfil", { description: error.message });
       return;
     }
-    toast.success("Perfil profissional criado com sucesso!");
+    toast.success("Perfil profissional salvo com sucesso!");
     navigate("/profissionais");
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header */}
-      <nav className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/90 backdrop-blur-lg">
+      <nav className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-lg">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-white">
-            <Box className="h-6 w-6 text-emerald-500" />
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
+            <Box className="h-6 w-6 text-emerald-600" />
             <span>Obra Link</span>
           </Link>
           <Button
             variant="ghost"
             size="sm"
-            className="text-slate-300 hover:text-white hover:bg-slate-800"
+            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             onClick={() => navigate("/profissionais")}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao Hub
           </Button>
         </div>
@@ -145,67 +158,67 @@ export default function CadastrarProfissional() {
 
       <div className="container max-w-2xl py-10 lg:py-16">
         <div className="mb-8 text-center">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/30 mb-4">
-            <HardHat className="h-7 w-7 text-emerald-400" />
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 ring-1 ring-emerald-200 mb-4">
+            <HardHat className="h-7 w-7 text-emerald-600" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Cadastre seu <span className="text-emerald-400">perfil profissional</span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            Cadastre seu <span className="text-emerald-600">perfil profissional</span>
           </h1>
-          <p className="mt-2 text-slate-400">
+          <p className="mt-3 text-lg text-slate-600">
             Apareça no diretório do Obra Link e receba propostas de obras na sua região.
           </p>
         </div>
 
-        <Card className="border-slate-800 bg-slate-900/60 backdrop-blur">
+        <Card className="border-slate-200 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-white">Dados profissionais</CardTitle>
-            <CardDescription className="text-slate-400">
-              Os campos marcados com <span className="text-emerald-400">*</span> são obrigatórios.
+            <CardTitle className="text-slate-900 text-xl">Dados profissionais</CardTitle>
+            <CardDescription className="text-slate-500">
+              Os campos marcados com <span className="text-emerald-600 font-bold">*</span> são obrigatórios.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loadingExisting ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-slate-200">
-                    Especialidade <span className="text-emerald-400">*</span>
+                  <Label className="text-slate-700 font-medium">
+                    Especialidade <span className="text-emerald-600">*</span>
                   </Label>
                   <Select value={especialidade} onValueChange={setEspecialidade}>
-                    <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-100">
+                    <SelectTrigger className="bg-white border-slate-300 text-slate-900 focus:ring-emerald-500">
                       <SelectValue placeholder="Selecione sua área de atuação" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700 text-slate-100">
+                    <SelectContent className="bg-white border-slate-200 text-slate-900 shadow-md">
                       {ESPECIALIDADES.map((e) => (
-                        <SelectItem key={e} value={e} className="focus:bg-slate-800 focus:text-white">
+                        <SelectItem key={e} value={e} className="focus:bg-slate-100">
                           {e}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.especialidade && <p className="text-sm text-red-400">{errors.especialidade}</p>}
+                  {errors.especialidade && <p className="text-sm text-red-500">{errors.especialidade}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">
-                    Região de Atuação <span className="text-emerald-400">*</span>
+                  <Label className="text-slate-700 font-medium">
+                    Região de Atuação <span className="text-emerald-600">*</span>
                   </Label>
                   <Input
                     value={regiao}
                     onChange={(e) => setRegiao(e.target.value)}
-                    placeholder="Ex: São Paulo / SP"
-                    className="bg-slate-950 border-slate-700 text-slate-100 placeholder:text-slate-500"
+                    placeholder="Ex: Sorocaba / SP"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  {errors.regiao && <p className="text-sm text-red-400">{errors.regiao}</p>}
+                  {errors.regiao && <p className="text-sm text-red-500">{errors.regiao}</p>}
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label className="text-slate-200">
-                      Valor da Diária (R$) <span className="text-emerald-400">*</span>
+                    <Label className="text-slate-700 font-medium">
+                      Valor da Diária (R$) <span className="text-emerald-600">*</span>
                     </Label>
                     <Input
                       type="number"
@@ -214,50 +227,50 @@ export default function CadastrarProfissional() {
                       value={valorDiaria}
                       onChange={(e) => setValorDiaria(e.target.value)}
                       placeholder="250"
-                      className="bg-slate-950 border-slate-700 text-slate-100 placeholder:text-slate-500 tabular-nums"
+                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    {errors.valor_diaria && <p className="text-sm text-red-400">{errors.valor_diaria}</p>}
+                    {errors.valor_diaria && <p className="text-sm text-red-500">{errors.valor_diaria}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-slate-200">
-                      Telefone / WhatsApp <span className="text-emerald-400">*</span>
+                    <Label className="text-slate-700 font-medium">
+                      Telefone / WhatsApp <span className="text-emerald-600">*</span>
                     </Label>
                     <Input
                       value={telefone}
                       onChange={(e) => setTelefone(maskPhone(e.target.value))}
-                      placeholder="(11) 99999-9999"
-                      className="bg-slate-950 border-slate-700 text-slate-100 placeholder:text-slate-500"
+                      placeholder="(15) 99999-9999"
+                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    {errors.telefone && <p className="text-sm text-red-400">{errors.telefone}</p>}
+                    {errors.telefone && <p className="text-sm text-red-500">{errors.telefone}</p>}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">
-                    Resumo Profissional <span className="text-emerald-400">*</span>
+                  <Label className="text-slate-700 font-medium">
+                    Resumo Profissional <span className="text-emerald-600">*</span>
                   </Label>
                   <Textarea
                     value={resumo}
                     onChange={(e) => setResumo(e.target.value.slice(0, 500))}
                     placeholder="Conte sua experiência, especialidades técnicas e diferenciais. Esta é a sua vitrine!"
                     rows={5}
-                    className="bg-slate-950 border-slate-700 text-slate-100 placeholder:text-slate-500 resize-none"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <div className="flex justify-between text-xs">
                     {errors.resumo ? (
-                      <span className="text-red-400">{errors.resumo}</span>
+                      <span className="text-red-500 font-medium">{errors.resumo}</span>
                     ) : (
                       <span className="text-slate-500">Venda seu peixe em até 500 caracteres.</span>
                     )}
-                    <span className="text-slate-500 tabular-nums">{resumo.length}/500</span>
+                    <span className="text-slate-500 tabular-nums font-medium">{resumo.length}/500</span>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-100">
                   <Button
                     type="button"
                     variant="outline"
-                    className="bg-transparent border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
+                    className="bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
                     onClick={() => navigate("/profissionais")}
                     disabled={saving}
                   >
@@ -266,11 +279,11 @@ export default function CadastrarProfissional() {
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-11"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm h-11"
                   >
                     {saving ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
                         Salvando...
                       </>
                     ) : (

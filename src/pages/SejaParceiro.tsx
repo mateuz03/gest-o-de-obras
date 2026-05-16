@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { z } from "zod";
 import { Box, ArrowRight, Users, PackageCheck, BarChart3, Check, Star, ShieldCheck, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import Navbar from "@/components/Navbar";
 
 const schema = z.object({
   nome_loja: z.string().trim().min(2, "Informe o nome da loja").max(120),
@@ -78,6 +77,25 @@ export default function SejaParceiro() {
     email: "",
   });
 
+  // --- FUNÇÕES AJUDANTES (Agora no escopo correto!) ---
+  const formatarApenasLetras = (texto: string) => {
+    const apenasLetras = texto.replace(/[0-9]/g, ""); // Bloqueia números
+    if (!apenasLetras) return "";
+    return apenasLetras
+      .split(" ")
+      .map(p => ["de", "da", "do", "das", "dos", "e"].includes(p.toLowerCase()) ? p.toLowerCase() : p.charAt(0).toUpperCase() + p.slice(1))
+      .join(" ");
+  };
+
+  const formatarComNumeros = (texto: string) => {
+    if (!texto) return "";
+    return texto
+      .split(" ")
+      .map(p => ["de", "da", "do", "das", "dos", "e"].includes(p.toLowerCase()) ? p.toLowerCase() : p.charAt(0).toUpperCase() + p.slice(1))
+      .join(" ");
+  };
+  // ----------------------------------------------------
+
   const openForm = (plano: "basico" | "profissional" | "enterprise") => {
     setPlanoSelecionado(plano);
     setOpen(true);
@@ -90,37 +108,34 @@ export default function SejaParceiro() {
       toast.error(parsed.error.issues[0]?.message ?? "Verifique os campos");
       return;
     }
+    
     setLoading(true);
-    const { error } = await supabase.from("fornecedores" as any).insert(parsed.data as any);
+    
+    const { error } = await supabase.from("fornecedores_leads").insert([{
+      nome_loja: parsed.data.nome_loja,
+      cnpj: parsed.data.cnpj,
+      whatsapp: parsed.data.whatsapp,
+      cidade: parsed.data.cidade,
+      plano_escolhido: parsed.data.plano,
+      status: 'novo'
+    }]);
+    
     setLoading(false);
+    
     if (error) {
+      console.error("Erro no Supabase:", error);
       toast.error("Erro ao enviar cadastro. Tente novamente.");
       return;
     }
+    
     toast.success("Cadastro enviado! Nossa equipe entrará em contato em breve.");
     setOpen(false);
     setForm({ nome_loja: "", cnpj: "", endereco: "", cidade: "", estado: "", responsavel: "", whatsapp: "", email: "" });
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Header */}
-      <nav className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-lg">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
-            <Box className="h-6 w-6 text-emerald-600" />
-            <span>Obra Link</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <Link to="/marketplace" className="hover:text-slate-900">Marketplace</Link>
-            <Link to="/profissionais" className="hover:text-slate-900">Prestar Serviços</Link>
-            <Link to="/seja-parceiro" className="text-slate-900 font-semibold">Seja Parceiro</Link>
-          </div>
-          <Button onClick={() => openForm("profissional")} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-            Cadastrar minha Loja <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
+      <Navbar />
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white">
@@ -255,44 +270,93 @@ export default function SejaParceiro() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-4 mt-2">
-            <div>
-              <Label>Nome da Loja *</Label>
-              <Input value={form.nome_loja} onChange={(e) => setForm({ ...form, nome_loja: e.target.value })} placeholder="Ex.: Materiais XYZ" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            
+            {/* INÍCIO DOS CAMPOS DO FORMULÁRIO */}
+            <div className="space-y-4">
+              
               <div>
-                <Label>CNPJ *</Label>
-                <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: maskCNPJ(e.target.value) })} placeholder="00.000.000/0000-00" />
+                <Label>Nome da Loja *</Label>
+                <Input 
+                  required
+                  value={form.nome_loja} 
+                  onChange={(e) => setForm({...form, nome_loja: formatarApenasLetras(e.target.value)})} 
+                />
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>CNPJ *</Label>
+                  <Input 
+                    required
+                    placeholder="00.000.000/0000-00"
+                    value={form.cnpj} 
+                    onChange={(e) => setForm({...form, cnpj: maskCNPJ(e.target.value)})} 
+                  />
+                </div>
+                <div>
+                  <Label>WhatsApp *</Label>
+                  <Input
+                    required
+                    placeholder="(00) 00000-0000"
+                    value={form.whatsapp}
+                    onChange={(e) => setForm({...form, whatsapp: maskPhone(e.target.value)})}
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label>WhatsApp *</Label>
-                <Input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: maskPhone(e.target.value) })} placeholder="(11) 99999-9999" />
+                <Label>Endereço completo *</Label>
+                <Input 
+                  required
+                  value={form.endereco} 
+                  onChange={(e) => setForm({...form, endereco: formatarComNumeros(e.target.value)})} 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Cidade *</Label>
+                  <Input 
+                    required
+                    value={form.cidade} 
+                    onChange={(e) => setForm({...form, cidade: formatarApenasLetras(e.target.value)})} 
+                  />
+                </div>
+                <div>
+                  <Label>UF *</Label>
+                  <Input 
+                    required
+                    maxLength={2}
+                    placeholder="SP"
+                    value={form.estado} 
+                    onChange={(e) => setForm({...form, estado: e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase()})} 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Responsável *</Label>
+                  <Input 
+                    required
+                    value={form.responsavel} 
+                    onChange={(e) => setForm({...form, responsavel: formatarApenasLetras(e.target.value)})} 
+                  />
+                </div>
+                <div>
+                  <Label>E-mail *</Label>
+                  <Input 
+                    required
+                    type="email"
+                    placeholder="contato@loja.com"
+                    value={form.email} 
+                    onChange={(e) => setForm({...form, email: e.target.value.toLowerCase().trim()})} 
+                  />
+                </div>
               </div>
             </div>
-            <div>
-              <Label>Endereço completo *</Label>
-              <Textarea value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} placeholder="Rua, número, bairro" rows={2} />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <Label>Cidade</Label>
-                <Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} placeholder="São Paulo" />
-              </div>
-              <div>
-                <Label>UF</Label>
-                <Input value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value.toUpperCase().slice(0, 2) })} placeholder="SP" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Responsável *</Label>
-                <Input value={form.responsavel} onChange={(e) => setForm({ ...form, responsavel: e.target.value })} placeholder="Nome completo" />
-              </div>
-              <div>
-                <Label>E-mail</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contato@loja.com" />
-              </div>
-            </div>
+            {/* FIM DOS CAMPOS DO FORMULÁRIO */}
+
             <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Cadastro"}
             </Button>

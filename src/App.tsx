@@ -1,35 +1,56 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+// Páginas Públicas
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import NovaAnalise from "./pages/NovaAnalise";
-import AnaliseResultado from "./pages/AnaliseResultado";
-import SinapiUpload from "./pages/SinapiUpload";
-import NotFound from "./pages/NotFound";
-import ShareAnalise from "./pages/ShareAnalise";
-import NotasFiscais from "./pages/NotasFiscais";
-import Perfil from "./pages/Perfil";
-import Admin from "./pages/Admin";
-import AdminSinapiImport from "./pages/AdminSinapiImport";
-import Marketplace from "./pages/Marketplace";
-import Profissionais from "./pages/Profissionais";
-import SolicitarAcesso from "./pages/SolicitarAcesso";
-import CadastrarProfissional from "./pages/CadastrarProfissional";
-import SejaParceiro from "./pages/SejaParceiro";
 import Blog from "./pages/Blog";
 import DocumentosDicas from "./pages/DocumentosDicas";
 import QuemSomos from "./pages/QuemSomos";
 import Suporte from "./pages/Suporte";
+import ShareAnalise from "./pages/ShareAnalise";
+import SolicitarAcesso from "./pages/SolicitarAcesso";
+import Marketplace from "./pages/Marketplace";
+import LojaPublica from "./pages/LojaPublica";
+import Profissionais from "./pages/Profissionais";
+import SejaParceiro from "./pages/SejaParceiro";
+import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Páginas Protegidas (usuário autenticado)
+import Dashboard from "./pages/Dashboard";
+import NovaAnalise from "./pages/NovaAnalise";
+import AnaliseResultado from "./pages/AnaliseResultado";
+import SinapiUpload from "./pages/SinapiUpload";
+import NotasFiscais from "./pages/NotasFiscais";
+import Perfil from "./pages/Perfil";
+import CadastrarProfissional from "./pages/CadastrarProfissional";
+import PainelLojista from "./pages/PainelLojista";
+
+// Páginas Admin
+import AdminLayout from "./pages/Admin/AdminLayout";
+import VisaoGeral from "./pages/Admin/VisaoGeral";
+import UsuariosList from "./pages/Admin/UsuariosList";
+import SinapiPage from "./pages/Admin/SinapiPage";
+import LogsIA from "./pages/Admin/LogsIA";
+import Configuracoes from "./pages/Admin/Configuracoes";
+
+// ✅ QueryClient instanciado fora do componente (evita recriação a cada render)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos de cache padrão
+      retry: 1, // Tenta 1 vez antes de falhar
+    },
+  },
+});
 
 const App = () => (
+  // ✅ client={queryClient} — expressão JS, não string
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -37,28 +58,63 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-          <Route path="/blog" element={<Blog />} />
-<Route path="/documentos" element={<DocumentosDicas />} />
-<Route path="/sobre-nos" element={<QuemSomos />} />
-<Route path="/suporte" element={<Suporte />} />
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/share/:analysisId" element={<ShareAnalise />} />
+
+            {/* ── Rotas Públicas ───────────────────────────────────── */}
+            <Route path="/"               element={<Index />} />
+            <Route path="/auth"           element={<Auth />} />
+            <Route path="/blog"           element={<Blog />} />
+            <Route path="/documentos"     element={<DocumentosDicas />} />
+            <Route path="/sobre-nos"      element={<QuemSomos />} />
+            <Route path="/suporte"        element={<Suporte />} />
+            <Route path="/marketplace"    element={<Marketplace />} />
+            <Route path="/loja/:id"       element={<LojaPublica />} />
+            <Route path="/profissionais"  element={<Profissionais />} />
+            <Route path="/seja-parceiro"  element={<SejaParceiro />} />
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/profissionais" element={<Profissionais />} />
-            <Route path="/seja-parceiro" element={<SejaParceiro />} />
-            <Route path="/servicos" element={<Profissionais />} />
-            <Route path="/cadastrar-profissional" element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
-            <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
-            <Route path="/sinapi" element={<ProtectedRoute><SinapiUpload /></ProtectedRoute>} />
-            <Route path="/notas-fiscais" element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
-            <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-            <Route path="/admin/sinapi-import" element={<ProtectedRoute><AdminSinapiImport /></ProtectedRoute>} />
+            <Route path="/share/:analysisId" element={<ShareAnalise />} />
+
+            {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
+            <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
+
+            {/* ── Rotas Protegidas ─────────────────────────────────── */}
+            <Route path="/dashboard"
+              element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+
+            <Route path="/nova-analise"
+              element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
+
+            <Route path="/analise/:id"
+              element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
+              
+
+            <Route path="/notas-fiscais"
+              element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
+
+            <Route path="/perfil"
+              element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
+
+            <Route path="/cadastrar-profissional"
+              element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
+
+            {/* ✅ Painel do lojista agora protegido */}
+            <Route path="/painel-loja"
+              element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
+
+            {/* ── Rotas Admin ──────────────────────────────────────── */}
+            
+
+              <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+              <Route index element={<VisaoGeral />} /> 
+              <Route path="usuarios" element={<UsuariosList />} />
+              <Route path="sinapi" element={<SinapiPage />} /> {/* Nova tela filha */}
+              <Route path="logs-ia" element={<LogsIA />} /> {/* <-- ADICIONE AQUI */}
+              <Route path="config" element={<Configuracoes />} /> {/* <-- NOVA ROTA AQUI */}
+            </Route>
+
+
+            {/* ── Fallback 404 ─────────────────────────────────────── */}
             <Route path="*" element={<NotFound />} />
+
           </Routes>
         </AuthProvider>
       </BrowserRouter>

@@ -20,6 +20,7 @@ import { CoverPickerDialog } from "@/components/dashboard/CoverPickerDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
 
+
 const formatCurrencyShort = (v: number) => {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")} mi`;
   if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(0)} mil`;
