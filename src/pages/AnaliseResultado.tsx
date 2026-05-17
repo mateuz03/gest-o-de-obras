@@ -32,21 +32,23 @@ function formatCurrency(value: number | string) {
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// Recalculate totals with BDI
+// Recalculate totals with BDI - Blindado contra objetos nulos ou ausentes
 function recalculateTotals(result: AnalysisResult, bdiPercent: number): ResumoFinal {
   let totalMateriais = 0;
   let totalMaoDeObra = 0;
 
-  for (const etapa of result.macro_etapas || []) {
-    for (const item of etapa.itens || []) {
+  const etapas Seguras = result?.macro_etapas || [];
+  for (const etapa of etapasSeguras) {
+    const itensSeguros = etapa?.itens || [];
+    for (const item of itensSeguros) {
       const total = typeof item.preco_total === "string" ? parseFloat(item.preco_total) : item.preco_total;
       if (!isNaN(total)) totalMateriais += total;
     }
   }
 
-  totalMaoDeObra = typeof result.resumo_final?.total_mao_de_obra === "string"
+  totalMaoDeObra = typeof result?.resumo_final?.total_mao_de_obra === "string"
     ? parseFloat(result.resumo_final.total_mao_de_obra)
-    : (result.resumo_final?.total_mao_de_obra || 0);
+    : (result?.resumo_final?.total_mao_de_obra || 0);
 
   const subtotal = totalMateriais + totalMaoDeObra;
   const bdiValor = subtotal * (bdiPercent / 100);
@@ -58,7 +60,7 @@ function recalculateTotals(result: AnalysisResult, bdiPercent: number): ResumoFi
     total_geral: totalGeral,
     bdi_percentual: bdiPercent,
     bdi_valor: bdiValor,
-    premissas_bdi: result.resumo_final?.premissas_bdi || `BDI de ${bdiPercent}% aplicado`,
+    premissas_bdi: result?.resumo_final?.premissas_bdi || `BDI de ${bdiPercent}% aplicado`,
   };
 }
 
@@ -184,22 +186,22 @@ function SummaryCard({ resumo }: { resumo: ResumoFinal }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border bg-muted/20 p-4">
             <p className="text-xs text-muted-foreground">Total Materiais</p>
-            <p className="text-xl font-bold">{formatCurrency(resumo.total_materiais)}</p>
+            <p className="text-xl font-bold">{formatCurrency(resumo?.total_materiais ?? 0)}</p>
           </div>
           <div className="rounded-lg border bg-muted/20 p-4">
             <p className="text-xs text-muted-foreground">Total Mão de Obra</p>
-            <p className="text-xl font-bold">{formatCurrency(resumo.total_mao_de_obra)}</p>
+            <p className="text-xl font-bold">{formatCurrency(resumo?.total_mao_de_obra ?? 0)}</p>
           </div>
-          {resumo.bdi_valor && (
+          {resumo?.bdi_valor ? (
             <div className="rounded-lg border bg-muted/20 p-4">
               <p className="text-xs text-muted-foreground">BDI ({resumo.bdi_percentual}%)</p>
               <p className="text-xl font-bold">{formatCurrency(resumo.bdi_valor)}</p>
               {resumo.premissas_bdi && <p className="text-xs text-muted-foreground mt-1">{resumo.premissas_bdi}</p>}
             </div>
-          )}
+          ) : null}
           <div className="rounded-lg border bg-primary/10 p-4">
             <p className="text-xs text-muted-foreground">Total Geral</p>
-            <p className="text-2xl font-bold text-primary">{formatCurrency(resumo.total_geral)}</p>
+            <p className="text-2xl font-bold text-primary">{formatCurrency(resumo?.total_geral ?? 0)}</p>
           </div>
         </div>
       </CardContent>
@@ -207,13 +209,14 @@ function SummaryCard({ resumo }: { resumo: ResumoFinal }) {
   );
 }
 
-function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommendation[]; macroEtapas?: { nome: string; itens: BudgetItem[] }[] }) {
-  // Extract unique brands suggested per item, grouped by macroetapa
+function RecommendationsSection({ items, macroEtapas }: { items?: BrandRecommendation[]; macroEtapas?: MacroEtapa[] }) {
+  // ✅ useMemo com blindagem total contra itens vazios ou ausentes
   const sugeridasPorEtapa = useMemo(() => {
-    if (!macroEtapas?.length) return [] as { etapa: string; marcas: { nome: string; itens: string[] }[] }[];
+    if (!macroEtapas || !Array.isArray(macroEtapas) || macroEtapas.length === 0) return [];
     return macroEtapas.map((etapa) => {
       const map = new Map<string, Set<string>>();
-      for (const it of etapa.itens || []) {
+      const itensSeguros = etapa?.itens || [];
+      for (const it of itensSeguros) {
         const marca = (it.marca_sugerida || "").trim();
         if (!marca || marca === "—" || marca.toLowerCase() === "generico" || marca.toLowerCase() === "genérico") continue;
         if (!map.has(marca)) map.set(marca, new Set());
@@ -222,11 +225,11 @@ function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommenda
       const marcas = Array.from(map.entries())
         .map(([nome, itensSet]) => ({ nome, itens: Array.from(itensSet) }))
         .sort((a, b) => b.itens.length - a.itens.length);
-      return { etapa: etapa.nome, marcas };
+      return { etapa: etapa?.nome || "Etapa sem nome", marcas };
     }).filter((g) => g.marcas.length > 0);
   }, [macroEtapas]);
 
-  if (!sugeridasPorEtapa.length && !items?.length) {
+  if (!sugeridasPorEtapa.length && (!items || items.length === 0)) {
     return (
       <Card>
         <CardContent className="pt-6 text-sm text-muted-foreground text-center">
@@ -268,7 +271,7 @@ function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommenda
         </Card>
       )}
 
-      {items?.length > 0 && (
+      {items && items.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -280,7 +283,7 @@ function RecommendationsSection({ items, macroEtapas }: { items: BrandRecommenda
               <div key={i}>
                 <h4 className="mb-2 font-semibold">{rec.material}</h4>
                 <div className="grid gap-2 sm:grid-cols-3">
-                  {rec.marcas.map((m, j) => (
+                  {(rec.marcas || []).map((m, j) => (
                     <div key={j} className="rounded-lg border bg-muted/30 p-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-xs">#{j + 1}</Badge>
@@ -316,12 +319,13 @@ export default function AnaliseResultado() {
   const [diarioRefreshKey, setDiarioRefreshKey] = useState(0);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
-  // Build dynamic room grouping from all macro_etapas items
+  // ✅ useMemo estruturado defensivamente contra crash de strings/objetos indefinidos
   const roomGroups = useMemo(() => {
-    if (!localResult?.macro_etapas?.length) return [];
+    if (!localResult?.macro_etapas || !Array.isArray(localResult.macro_etapas)) return [];
     const groups: Record<string, BudgetItem[]> = {};
     for (const etapa of localResult.macro_etapas) {
-      for (const item of etapa.itens || []) {
+      const itensSeguros = etapa?.itens || [];
+      for (const item of itensSeguros) {
         const room = item.local_aplicacao || "Geral";
         if (!groups[room]) groups[room] = [];
         groups[room].push(item);
@@ -337,14 +341,14 @@ export default function AnaliseResultado() {
     }));
   }, [localResult]);
 
-  // Filter items by search term
   const filterItems = useCallback((items: BudgetItem[]) => {
+    if (!items || !Array.isArray(items)) return [];
     if (!searchFilter.trim()) return items;
     const term = searchFilter.toLowerCase();
     return items.filter(
       (it) =>
-        it.descricao.toLowerCase().includes(term) ||
-        it.item.toLowerCase().includes(term) ||
+        (it.descricao || "").toLowerCase().includes(term) ||
+        (it.item || "").toLowerCase().includes(term) ||
         (it.local_aplicacao || "").toLowerCase().includes(term) ||
         (it.marca || "").toLowerCase().includes(term)
     );
@@ -352,23 +356,29 @@ export default function AnaliseResultado() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from("analyses").select("*").eq("id", id).single();
-      setAnalysis(data as any);
-      if (data?.resultado_json) {
-        setLocalResult(data.resultado_json as any);
+      if (!id) return;
+      try {
+        const { data, error } = await supabase.from("analyses").select("*").eq("id", id).single();
+        if (error) throw error;
+        setAnalysis(data as any);
+        if (data?.resultado_json) {
+          setLocalResult(data.resultado_json as any);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar análise:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, [id]);
 
-  // Run SINAPI matching
   const runMatching = useCallback(async () => {
     if (!localResult?.macro_etapas?.length) return;
     setMatchingPrices(true);
 
     const allItems = localResult.macro_etapas.flatMap((e) =>
-      e.itens.filter((i) => !i.preco_conciliado).map((i) => ({ descricao: i.descricao, item: i.item }))
+      (e.itens || []).filter((i) => !i.preco_conciliated).map((i) => ({ descricao: i.descricao, item: i.item }))
     );
 
     if (!allItems.length) {
@@ -392,7 +402,6 @@ export default function AnaliseResultado() {
     setMatchingPrices(false);
   }, [localResult, analysis]);
 
-  // Handle linking a SINAPI price to an item
   const handleLinkPrice = useCallback((selectedMatch: SinapiMatch) => {
     if (!linkModal.item || !localResult) return;
 
@@ -400,9 +409,9 @@ export default function AnaliseResultado() {
     const precoUnit = (selectedMatch.preco_material || 0) + (selectedMatch.preco_mao_de_obra || 0);
 
     const updatedResult = { ...localResult };
-    updatedResult.macro_etapas = updatedResult.macro_etapas.map((etapa) => ({
+    updatedResult.macro_etapas = (updatedResult.macro_etapas || []).map((etapa) => ({
       ...etapa,
-      itens: etapa.itens.map((it) => {
+      itens: (etapa.itens || []).map((it) => {
         if (it.item !== itemCode) return it;
         const qty = typeof it.quantidade === "string" ? parseFloat(it.quantidade) : it.quantidade;
         const newTotal = precoUnit * (isNaN(qty) ? 1 : qty);
@@ -417,25 +426,22 @@ export default function AnaliseResultado() {
           sinapi_match: selectedMatch,
         };
       }),
-      subtotal: 0, // will be recalculated
+      subtotal: 0, 
     }));
 
-    // Recalculate subtotals
     updatedResult.macro_etapas = updatedResult.macro_etapas.map((etapa) => ({
       ...etapa,
-      subtotal: etapa.itens.reduce((sum, it) => {
+      subtotal: (etapa.itens || []).reduce((sum, it) => {
         const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
         return sum + (isNaN(t) ? 0 : t);
       }, 0),
     }));
 
-    // Recalculate financial summary with BDI
     const bdi = analysis?.bdi_percentual || 25;
     updatedResult.resumo_final = recalculateTotals(updatedResult, bdi);
 
     setLocalResult(updatedResult);
 
-    // Persist to DB
     const totalGeral = typeof updatedResult.resumo_final.total_geral === "string"
       ? parseFloat(updatedResult.resumo_final.total_geral)
       : updatedResult.resumo_final.total_geral;
@@ -445,7 +451,7 @@ export default function AnaliseResultado() {
       .update({
         resultado_json: updatedResult as any,
         total_estimado: isNaN(totalGeral) ? null : totalGeral,
-      })
+      } as any)
       .eq("id", id)
       .then(({ error }) => {
         if (error) console.error("Failed to persist:", error);
@@ -454,12 +460,12 @@ export default function AnaliseResultado() {
     toast.success(`Preço SINAPI vinculado ao item ${itemCode}`);
   }, [linkModal.item, localResult, analysis, id]);
 
-  // Build flat list of budget items for the AI Copilot context
   const copilotBudgetItems: CopilotBudgetItem[] = useMemo(() => {
     if (!localResult?.macro_etapas) return [];
     const out: CopilotBudgetItem[] = [];
     for (const etapa of localResult.macro_etapas) {
-      for (const it of etapa.itens || []) {
+      const itensSeguros = etapa?.itens || [];
+      for (const it of itensSeguros) {
         out.push({
           id: it.item,
           descricao: it.descricao,
@@ -473,7 +479,6 @@ export default function AnaliseResultado() {
     return out;
   }, [localResult]);
 
-  // Apply an approved proposal: update the matching item, recalc subtotals, persist to DB
   const handleApplyProposal = useCallback(
     async (p: ProposalPayload): Promise<boolean> => {
       if (!localResult || !id) return false;
@@ -481,9 +486,9 @@ export default function AnaliseResultado() {
       let found = false;
       const updated: AnalysisResult = {
         ...localResult,
-        macro_etapas: localResult.macro_etapas.map((etapa) => ({
+        macro_etapas: (localResult.macro_etapas || []).map((etapa) => ({
           ...etapa,
-          itens: etapa.itens.map((it) => {
+          itens: (etapa.itens || []).map((it) => {
             if (it.item !== p.id_do_item) return it;
             found = true;
             const qty = Number(p.nova_quantidade);
@@ -507,7 +512,7 @@ export default function AnaliseResultado() {
 
       updated.macro_etapas = updated.macro_etapas.map((etapa) => ({
         ...etapa,
-        subtotal: etapa.itens.reduce((sum, it) => {
+        subtotal: (etapa.itens || []).reduce((sum, it) => {
           const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
           return sum + (isNaN(t) ? 0 : t);
         }, 0),
@@ -528,7 +533,7 @@ export default function AnaliseResultado() {
         .update({
           resultado_json: updated as any,
           total_estimado: isNaN(totalGeral) ? null : totalGeral,
-        })
+        } as any)
         .eq("id", id);
 
       if (error) {
@@ -540,7 +545,6 @@ export default function AnaliseResultado() {
     [localResult, analysis, id],
   );
 
-  // Generic mutation helper: applies a transform on macro_etapas, recalculates subtotals/resumo and persists.
   const mutateAndPersist = useCallback(
     async (transform: (etapas: MacroEtapa[]) => MacroEtapa[]) => {
       if (!localResult || !id) return;
@@ -560,7 +564,7 @@ export default function AnaliseResultado() {
         : updated.resumo_final.total_geral;
       const { error } = await supabase
         .from("analyses")
-        .update({ resultado_json: updated as any, total_estimado: isNaN(totalGeral) ? null : totalGeral })
+        .update({ resultado_json: updated as any, total_estimado: isNaN(totalGeral) ? null : totalGeral } as any)
         .eq("id", id);
       if (error) {
         toast.error("Erro ao salvar: " + error.message);
@@ -609,6 +613,9 @@ export default function AnaliseResultado() {
     );
   }
 
+  // ✅ Correção de segurança na checagem estrutural da listagem raiz
+  const hasMacroEtapas = !!localResult?.macro_etapas && Array.isArray(localResult.macro_etapas) && localResult.macro_etapas.length > 0;
+
   if (!localResult || analysis.status === "pending" || analysis.status === "error") {
     const isError = analysis.status === "error";
     return (
@@ -654,7 +661,6 @@ export default function AnaliseResultado() {
   }
 
   const result = localResult;
-  const hasMacroEtapas = result.macro_etapas?.length > 0;
   const computedSummary = recalculateTotals(result, analysis.bdi_percentual || 25);
 
   return (
@@ -758,24 +764,24 @@ export default function AnaliseResultado() {
             <div className="grid gap-4 sm:grid-cols-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Área Total</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{result.area_total_m2} m²</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{result?.area_total_m2 || "—"} m²</p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Escala</p>
-                <p className="text-2xl font-bold text-slate-900">{result.escala_detectada}</p>
+                <p className="text-2xl font-bold text-slate-900">{result?.escala_detectada || "—"}</p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Tipo</p>
                 <p className="text-2xl font-bold text-slate-900">{analysis.tipo_construcao || "—"}</p>
               </div>
-              {result.referencia_sinapi && (
+              {result?.referencia_sinapi && (
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Ref. SINAPI</p>
                   <p className="text-lg font-bold text-slate-900">{result.referencia_sinapi}</p>
                 </div>
               )}
             </div>
-            {result.resumo && <p className="mt-4 text-sm text-slate-600">{result.resumo}</p>}
+            {result?.resumo && <p className="mt-4 text-sm text-slate-600">{result.resumo}</p>}
           </CardContent>
         </Card>
 
@@ -784,9 +790,9 @@ export default function AnaliseResultado() {
         <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
 
         <SummaryCard resumo={computedSummary} />
+        
         {hasMacroEtapas ? (
           <>
-            {/* Search filter */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -820,8 +826,8 @@ export default function AnaliseResultado() {
               </TabsList>
 
               <TabsContent value="orcamento" className="space-y-6">
-                {result.macro_etapas.map((etapa, i) => {
-                  const filtered = filterItems(etapa.itens);
+                {(result.macro_etapas || []).map((etapa, i) => {
+                  const filtered = filterItems(etapa?.itens || []);
                   if (!filtered.length && searchFilter) return null;
                   const subtotal = filtered.reduce((s, it) => {
                     const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
@@ -831,9 +837,9 @@ export default function AnaliseResultado() {
                     <Card key={i}>
                       <CardHeader className="pb-2">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">{etapa.nome}</CardTitle>
+                          <CardTitle className="text-base">{etapa?.nome || "Etapa"}</CardTitle>
                           <Badge variant="outline" className="font-mono">
-                            {formatCurrency(searchFilter ? subtotal : etapa.subtotal)}
+                            {formatCurrency(searchFilter ? subtotal : (etapa?.subtotal || 0))}
                           </Badge>
                         </div>
                       </CardHeader>
@@ -853,7 +859,7 @@ export default function AnaliseResultado() {
 
               <TabsContent value="comodos" className="space-y-6">
                 {roomGroups.map((group, i) => {
-                  const filtered = filterItems(group.itens);
+                  const filtered = filterItems(group?.itens || []);
                   if (!filtered.length && searchFilter) return null;
                   const subtotal = filtered.reduce((s, it) => {
                     const t = typeof it.preco_total === "string" ? parseFloat(it.preco_total) : it.preco_total;
@@ -896,7 +902,7 @@ export default function AnaliseResultado() {
               </TabsContent>
 
               <TabsContent value="recomendacoes">
-                <RecommendationsSection items={result.recomendacoes} macroEtapas={result.macro_etapas} />
+                <RecommendationsSection items={result?.recomendacoes || []} macroEtapas={result?.macro_etapas || []} />
               </TabsContent>
 
               <TabsContent value="cronograma">
