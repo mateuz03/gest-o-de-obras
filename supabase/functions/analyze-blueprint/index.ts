@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI, SchemaType } from "npm:@google/generative-ai@^0.21.0";
 import { jsonrepair } from "npm:jsonrepair@^3.13.0";
 
 const corsHeaders = {
@@ -20,96 +19,7 @@ const MACRO_ETAPA_SCHEMA_KEYS = [
   { key: "8_acabamentos", nome: "Acabamentos" },
 ] as const;
 
-const ORCAMENTO_ITEM_SCHEMA = {
-  type: SchemaType.OBJECT,
-  properties: {
-    item: { type: SchemaType.STRING },
-    descricao: { type: SchemaType.STRING },
-    local_aplicacao: { type: SchemaType.STRING },
-    fornecedor: { type: SchemaType.STRING },
-    marca: { type: SchemaType.STRING },
-    marca_sugerida: { type: SchemaType.STRING },
-    quantidade: { type: SchemaType.NUMBER },
-    unidade: { type: SchemaType.STRING },
-    preco_unitario: { type: SchemaType.NUMBER },
-    preco_total: { type: SchemaType.NUMBER },
-    codigo_sinapi: { type: SchemaType.STRING },
-    origem_preco: { type: SchemaType.STRING },
-    perda_aplicada: { type: SchemaType.STRING },
-  },
-  required: ["descricao", "quantidade", "unidade", "preco_unitario", "marca_sugerida"],
-} as const;
-
-const MACRO_ETAPA_OBJECT_SCHEMA = {
-  type: SchemaType.OBJECT,
-  properties: {
-    itens: { type: SchemaType.ARRAY, items: ORCAMENTO_ITEM_SCHEMA },
-    duracao_dias_estimada: { type: SchemaType.NUMBER },
-  },
-  required: ["itens", "duracao_dias_estimada"],
-} as const;
-
-const BLUEPRINT_RESPONSE_SCHEMA = {
-  type: SchemaType.OBJECT,
-  properties: {
-    resumo: { type: SchemaType.STRING },
-    area_total_m2: { type: SchemaType.NUMBER },
-    escala_detectada: { type: SchemaType.STRING },
-    referencia_sinapi: { type: SchemaType.STRING },
-    ...Object.fromEntries(
-      MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => [
-        key,
-        MACRO_ETAPA_OBJECT_SCHEMA,
-      ]),
-    ),
-    quantitativo_por_comodo: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          comodo: { type: SchemaType.STRING },
-          itens: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                item: { type: SchemaType.STRING },
-                descricao: { type: SchemaType.STRING },
-                quantidade: { type: SchemaType.NUMBER },
-                unidade: { type: SchemaType.STRING },
-                subtotal: { type: SchemaType.NUMBER },
-              },
-            },
-          },
-          subtotal: { type: SchemaType.NUMBER },
-        },
-      },
-    },
-    recomendacoes: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          material: { type: SchemaType.STRING },
-          marcas: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                nome: { type: SchemaType.STRING },
-                justificativa: { type: SchemaType.STRING },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-  required: MACRO_ETAPA_SCHEMA_KEYS.map(({ key }) => key),
-} as const;
-
 const STRICT_JSON_RULES = `
-
 REGRAS CRÍTICAS DE FORMATAÇÃO JSON:
 - Você deve retornar APENAS um JSON válido. NUNCA use aspas duplas (") dentro dos valores das strings. Se precisar indicar polegadas, escreva 'pol' ou use aspas simples (').
 - Verifique rigorosamente a estrutura do seu JSON. Garanta que TODOS os objetos dentro de um array estejam devidamente separados por vírgula (,).
@@ -261,68 +171,70 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
   return normalized;
 }
 
-async function generateWithGemini(opts: {
+// ==========================================
+// NOVO MOTOR DA OPENAI (GPT-4o)
+// ==========================================
+async function generateWithOpenAI(opts: {
   systemPrompt: string;
   userText: string;
   images: Array<{ mime_type?: string; base64: string }>;
-  maxOutputTokens: number;
-  responseSchema?: any;
 }): Promise<string> {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-  const parts: any[] = [{ text: opts.userText }];
+  // Monta o array de conteúdo misturando texto e imagens de alta resolução
+  const content: any[] = [{ type: "text", text: opts.userText }];
   for (const img of opts.images) {
-    parts.push({
-      inlineData: { mimeType: img.mime_type || "image/jpeg", data: img.base64 },
+    content.push({
+      type: "image_url",
+      image_url: {
+        url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}`,
+        detail: "high" // Fundamental para plantas baixas
+      }
     });
   }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
-  const tryModel = async (modelName: string) => {
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction: opts.systemPrompt,
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 8192,
-        responseMimeType: "application/json",
-        ...(opts.responseSchema ? { responseSchema: opts.responseSchema } : {}),
-      },
-    });
-    const t0 = Date.now();
-    const result = await model.generateContent(
-      { contents: [{ role: "user", parts }] },
-      { signal: controller.signal } as any,
-    );
-    const text = result.response.text();
-    console.log(`✅ [SUCESSO] Análise concluída. Modelo utilizado: ${modelName} | Tempo de processamento: ${Date.now() - t0}ms`);
-    return text;
-  };
-
   try {
-    try {
-      return await tryModel("gemini-2.5-flash");
-    } catch (error: any) {
-      if (error instanceof DOMException && error.name === "AbortError") throw error;
-      const msg = error?.message || String(error);
-      if (/\b(503|500)\b|service unavailable|overloaded|high demand/i.test(msg)) {
-        console.warn("Primary model failed, trying fallback gemini-1.5-flash:", msg);
-        return await tryModel("gemini-1.5-flash");
-      }
-      throw error;
+    const t0 = Date.now();
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "gpt-4o",
+        response_format: { type: "json_object" }, // Obriga a retornar JSON perfeito
+        temperature: 0.1,
+        max_tokens: 8192,
+        messages: [
+          { role: "system", content: opts.systemPrompt },
+          { role: "user", content: content }
+        ]
+      })
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`OpenAI Erro: ${response.status} - ${errorData.error?.message || response.statusText}`);
     }
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+
+    const data = await response.json();
+    console.log(`✅ [SUCESSO] Análise concluída. Modelo: gpt-4o | Tempo: ${Date.now() - t0}ms`);
+    return data.choices[0].message.content;
+
+  } catch (error: any) {
+    clearTimeout(timeout);
+    if (error.name === "AbortError") {
       throw new Error("A análise excedeu o tempo seguro de processamento. Envie menos imagens ou imagens mais leves e tente novamente.");
     }
     throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -381,195 +293,45 @@ Para CADA item do orçamento, preencha:
 - Taxa de perda aplicada (ex: '5% cerâmica', '10% argamassa', '15% tubo')
 
 ==============================
-DETALHAMENTO OBRIGATÓRIO — INSTALAÇÕES ELÉTRICAS
+DETALHAMENTO OBRIGATÓRIO — INSTALAÇÕES ELÉTRICAS E HIDRÁULICAS
 ==============================
-- Cabos discriminados por bitola (1,5 / 2,5 / 4 / 6 / 10 mm²) e cor (azul/neutro, verde/terra, vermelho ou preto/fase)
-- Disjuntores por amperagem (10A, 16A, 20A, 25A, 32A, 40A, 50A)
-- Eletrodutos (corrugado 3/4', PVC rígido), caixas 4x2 e 4x4
-- Tomadas 2P+T 10A e 20A, interruptores simples/paralelo/intermediário, pontos de luz
-- Quadro de distribuição, DR, DPS
-(use 'pol' ou aspas simples para indicar polegadas — NUNCA aspas duplas)
-
-==============================
-DETALHAMENTO OBRIGATÓRIO — INSTALAÇÕES HIDRÁULICAS
-==============================
-- Tubos PVC água fria por diâmetro (20, 25, 32, 50 mm)
-- CPVC/PPR para água quente
-- Tubos esgoto (40, 50, 75, 100 mm) e ventilação
-- Conexões (joelhos, tês, luvas), registros (gaveta, pressão, esfera)
-- Caixas sifonadas, ralos, válvulas, caixa d'água
-
-==============================
-PREÇOS DE REFERÊNCIA SINAPI
-==============================
-- Use UF/cidade do projeto quando informada
-- Informe mês/ano da referência SINAPI no campo 'referencia_sinapi'
-
-==============================
-QUANTITATIVO POR CÔMODO
-==============================
-Gere também um quantitativo separado por cômodo, cada um com seus itens e subtotal.
-
-==============================
-RESUMO FINAL
-==============================
-Total materiais, total mão de obra (se aplicável), total geral, BDI (padrão 25% se não informado).
-
-==============================
-RECOMENDAÇÕES DE MARCAS
-==============================
-Sugira 3 marcas brasileiras com bom custo-benefício para cada categoria principal (cimento, tinta, louças, metais, cerâmica, fios, tubos).
+Elétrica: Cabos discriminados por bitola e cor, disjuntores por amperagem, eletrodutos, caixas, tomadas, interruptores, quadro, DR, DPS. (use 'pol' ou aspas simples para indicar polegadas — NUNCA aspas duplas).
+Hidráulica: Tubos PVC água fria por diâmetro, CPVC/PPR para água quente, esgoto e ventilação, conexões, registros, caixas sifonadas, ralos, caixa d'água.
 
 ==============================
 TRAVAS DE ENGENHARIA (GUARDRAILS) — INEGOCIÁVEIS
 ==============================
-
-1. PROIBIÇÃO DE INSUMOS SOLTOS E MAQUINÁRIO PESADO:
-Você está orçando uma obra RESIDENCIAL. É EXPRESSAMENTE PROIBIDO listar maquinário pesado (retroescavadeiras, escavadeiras, guindastes, betoneiras, caminhões, bombas de concreto, gruas, compactadores) como itens individuais ou em unidades (un, h, dia). Você DEVE utilizar EXCLUSIVAMENTE 'Serviços Compostos' da SINAPI que já embutem o custo de máquina + mão de obra + insumo. Exemplos OBRIGATÓRIOS:
-  • 'Escavação mecanizada de vala' — unidade m³ (NUNCA 'retroescavadeira un')
-  • 'Concreto usinado bombeado fck 25 MPa' — unidade m³ (NUNCA 'bomba de concreto un' + 'betoneira un')
-  • 'Aterro/reaterro compactado mecanicamente' — unidade m³ (NUNCA 'compactador un')
-  • 'Transporte de material' — unidade m³ x km (NUNCA 'caminhão un')
-
-2. CONSOLIDAÇÃO OBRIGATÓRIA (DEDUPLICAÇÃO):
-NUNCA repita o mesmo serviço/insumo dentro da mesma macroetapa. Se houver escavação no subsolo, na piscina e nas sapatas, SOME todos os volumes e gere UMA ÚNICA linha de 'Escavação' com a quantidade total consolidada. O mesmo vale para concreto, aço, alvenaria, pintura, piso etc. Cada item deve aparecer UMA ÚNICA VEZ por macroetapa, com a quantidade TOTAL somada.
-
-3. GUARDRAIL PARAMÉTRICO — SANITY CHECK MATEMÁTICO (PROVA REAL):
-Antes de finalizar, faça um 'Sanity Check' rigoroso. O custo médio realista de construção no Brasil é:
-  • Padrão popular: R$ 1.800 a R$ 2.500 por m²
-  • Padrão médio: R$ 2.500 a R$ 3.500 por m²
-  • Padrão alto: R$ 3.500 a R$ 5.500 por m²
-  • Padrão luxo: R$ 5.500 a R$ 8.000 por m²
-Se o custo total dividido pela área (R$/m²) ULTRAPASSAR R$ 8.000/m², HÁ ERRO grave de quantitativo ou unidade — REVISE TUDO antes de retornar.
-
-Limites paramétricos rígidos (para uma residência típica):
-  • Piso/revestimento: a quantidade total de m² de piso NÃO pode ser superior a 1,5x a área construída.
-  • Concreto estrutural: tipicamente 0,20 a 0,40 m³ por m² de área construída (ex.: casa de 370m² → entre 75m³ e 150m³, NUNCA milhares).
-  • Aço CA-50: tipicamente 8 a 12 kg por m² de área construída (em kg, NUNCA toneladas para residência típica).
-  • Cimento: ~1 saco (50 kg) por m² (NUNCA milhares de toneladas).
-  • Tijolos: ~25 un/m² de parede (NUNCA milhões).
-
-Revise RIGIDAMENTE as Unidades de Medida em CADA item:
-  • NÃO confunda 'kg' com 'ton' (1 ton = 1.000 kg).
-  • NÃO confunda 'un' (peça) com 'h' (hora) nem com 'dia'.
-  • NÃO confunda 'm' com 'm²' nem com 'm³'.
-  • Concreto SEMPRE em m³, aço SEMPRE em kg, tinta SEMPRE em L ou galão, cabo SEMPRE em m, tijolo/bloco SEMPRE em un ou milheiro.
-
-4. COMPORTAMENTO PROFISSIONAL:
-Seja CONSERVADOR e REALISTA. Extraia as áreas reais do projeto e aplique índices paramétricos consagrados da engenharia civil brasileira (TCPO, SINAPI, NBR 12721) para deduzir as quantidades. Prefira subestimar levemente do que inflar absurdamente. Se na dúvida sobre uma quantidade, use o índice paramétrico de referência — NUNCA chute valores altos.
-
-==============================
-LEMBRETE FINAL
-==============================
-Orçamentos com menos de 30 itens OU que pulem qualquer das 8 macroetapas OU que VIOLEM as Travas de Engenharia (maquinário solto, itens duplicados, custo > R$ 8.000/m², unidades trocadas) serão considerados FALHA grave. Trabalhe como um orçamentista profissional entregando uma planilha real e auditável para um cliente pagante.`;
+1. PROIBIÇÃO DE INSUMOS SOLTOS E MAQUINÁRIO PESADO: Você está orçando obra RESIDENCIAL. PROIBIDO listar maquinário pesado como item individual (retroescavadeira un). Use Serviços Compostos (Escavação mecanizada m³).
+2. CONSOLIDAÇÃO OBRIGATÓRIA: Não repita serviços na mesma macroetapa. Some tudo e crie uma única linha de "Escavação", "Aço", "Pintura" etc.
+3. SANITY CHECK MATEMÁTICO: Custo total por m² não deve passar de R$ 8.000/m². 
+4. COMPORTAMENTO PROFISSIONAL: Seja conservador e realista. Extraia áreas reais e aplique paramétricos consagrados.
+`;
 
 const PHOTO_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de ambientes reais a partir de fotos e orçamentos de obras/reformas no padrão brasileiro.
 
-Ao receber fotos de um ambiente real (banheiro, cozinha, sala, quarto, etc.), você deve:
-
-1. IDENTIFICAR O AMBIENTE:
-   - Determine o tipo de cômodo/ambiente fotografado
-   - Liste todos os elementos visíveis (piso, revestimento, louças, metais, iluminação, esquadrias, etc.)
-
-2. ESTIMAR DIMENSÕES:
-   - Use objetos de referência visíveis para estimar dimensões (portas padrão ~2,10m x 0,80m, tomadas a ~30cm do chão, azulejos padrão 30x60cm, etc.)
-   - Se houver trena ou objeto de referência na foto, use como base principal
-   - Informe SEMPRE a margem de erro estimada (ex: "±15%")
-   - Calcule área estimada do piso, paredes, e perímetro
-
-3. ANALISAR MATERIAIS EXISTENTES:
-   - Identifique tipo de piso (cerâmica, porcelanato, vinílico, etc.) e formato estimado
-   - Identifique revestimentos de parede (azulejo, pintura, pastilha, etc.)
-   - Identifique louças e metais (marca se visível, tipo, estado de conservação)
-   - Identifique iluminação (spots, plafons, luminárias)
-   - Identifique esquadrias (portas, janelas, box)
-   - Identifique instalações visíveis (torneiras, registros, ralos, tomadas, interruptores)
-
-4. GERAR ORÇAMENTO DE REFORMA/SUBSTITUIÇÃO organizado por MACROETAPAS:
-   - Demolição e remoção (se necessário)
-   - Revestimentos e pisos
-   - Instalações hidráulicas
-   - Instalações elétricas
-   - Louças e metais
-   - Esquadrias
-   - Pintura
-   - Complementares / limpeza
-
-5. PARA CADA ITEM do orçamento:
-   - Código do item (estruturado por grupo)
-   - Descrição detalhada
-   - Local de aplicação (nome do ambiente)
-   - Fornecedor (se souber; caso contrário "—")
-   - Marca (se souber; caso contrário "—")
-   - Quantidade com perdas incluídas
-   - Unidade
-   - Preço unitário R$
-   - Preço total R$
-   - Código SINAPI (quando aplicável; caso contrário "")
-   - Origem do preço: "SINAPI" ou "Sem correspondência SINAPI — estimativa de mercado"
-   - Taxa de perda aplicada
-
-6. QUANTITATIVO POR CÔMODO:
-   - Agrupar todos os materiais pelo ambiente identificado
-
-7. RESUMO FINAL:
-   - Total materiais, Total mão de obra, Total geral, BDI
-
-8. RECOMENDAÇÕES DE MARCAS:
-   - Sugira 3 marcas brasileiras por custo-benefício
-
+Ao receber fotos de um ambiente real, você deve:
+1. IDENTIFICAR O AMBIENTE
+2. ESTIMAR DIMENSÕES (use referências como portas, azulejos e informe margem de erro)
+3. ANALISAR MATERIAIS EXISTENTES
+4. GERAR ORÇAMENTO DE REFORMA/SUBSTITUIÇÃO organizado por MACROETAPAS
+5. DETALHAR CADA ITEM (descrição, quant, unid, preço, perdas, marcas)
 IMPORTANTE: Sempre informe no resumo que as medidas são ESTIMATIVAS baseadas em análise visual e que uma medição in loco é recomendada para precisão.`;
 
-// HYBRID MODE: only raw measurements, NO prices, NO SINAPI lookup.
-// Pricing is computed downstream by match-sinapi against the local DB.
 const HYBRID_SYSTEM_PROMPT = `Você é um Engenheiro Civil Sênior especializado em ORÇAMENTAÇÃO RESIDENCIAL no Brasil.
 
 Sua ÚNICA missão é IDENTIFICAR e MEDIR os itens construtivos visíveis nas imagens. Você NÃO deve estimar preços, NÃO consultar SINAPI, NÃO calcular orçamentos. Os preços serão buscados depois em uma base de dados local pelo sistema.
 
-REGRAS ESTRITAS (NÃO VIOLE EM HIPÓTESE ALGUMA):
+REGRAS ESTRITAS:
+1. NUNCA inclua AQUISIÇÃO de maquinário pesado.
+2. UNIDADES DE MEDIDA corretas (m³, kg, m, m², un, sc).
+3. CATEGORIZAÇÃO ESTRITA por macro_etapa (Fundação, Estrutura, etc).
+4. QUANTIDADES REALISTAS para escala residencial.
 
-1. NUNCA inclua AQUISIÇÃO de maquinário pesado (tratores, perfuratrizes, guindastes, betoneiras industriais, retroescavadeiras, gruas, caminhões). Obras residenciais ALUGAM equipamentos ou contratam o SERVIÇO de execução. Se for indispensável, descreva como SERVIÇO (ex: "Serviço de perfuração de estaca", unidade "m") — nunca como compra de equipamento.
-
-2. UNIDADES DE MEDIDA — preste muita atenção e use a unidade fisicamente correta:
-   - Concreto: m³
-   - Aço/ferragem: kg
-   - Tubos, cabos, rodapés, perfis: m (metro linear)
-   - Alvenaria, revestimentos, pisos, pintura, forma: m²
-   - Tijolos, blocos, telhas, louças, metais, luminárias: un
-   - Cimento, argamassa, cal: sc (saco) ou kg
-   NUNCA use "un" para itens contínuos como concreto, aço, tubos ou cabos.
-
-3. CATEGORIZAÇÃO ESTRITA por macro_etapa — não misture categorias:
-   - Fundação: estacas, sapatas, blocos, baldrame, lastro
-   - Estrutura: pilares, vigas, lajes, escadas de concreto
-   - Alvenaria: blocos, tijolos, vergas, contravergas
-   - Cobertura: telhas, estrutura de telhado, calhas, rufos
-   - Esquadrias: portas, janelas, ferragens
-   - Hidráulica: tubos, conexões, registros, caixas
-   - Elétrica: cabos, eletrodutos, disjuntores, tomadas, interruptores
-   - Revestimentos: cerâmica, porcelanato, reboco, gesso
-   - Pintura: tintas, massas, seladores
-   - Louças e Metais: vasos, pias, torneiras, chuveiros, acessórios de banheiro
-   ATENÇÃO: Fundação NÃO pode ir para Louças/Metais ou Acabamentos. Estacas de concreto pertencem à Fundação.
-
-4. QUANTIDADES REALISTAS para escala residencial. Desconfie de números absurdos (ex: 100 estacas para uma casa pequena). Inclua perdas razoáveis (5–10%).
-
-DETALHE INSTALAÇÕES ELÉTRICAS (cabos por bitola, disjuntores por amperagem, eletrodutos, caixas, módulos).
-DETALHE INSTALAÇÕES HIDRÁULICAS (tubos por diâmetro, conexões, registros).
-
-Retorne APENAS um JSON válido (sem markdown):
-{
-  "resumo": "Descrição breve do projeto medido",
-  "area_total_m2": 0,
-  "escala_detectada": "1:50" | "estimativa visual",
-  "measurements": [
-    { "macro_etapa": "Alvenaria", "item": "...", "descricao": "...", "quantidade": 0, "unidade": "m²", "local_aplicacao": "Sala" }
-  ]
-}
+Retorne APENAS um JSON válido.
 ${STRICT_JSON_RULES}`;
 
 const JSON_STRUCTURE = `
-Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
+Retorne APENAS um JSON válido (sem markdown) com esta estrutura:
 {
   "resumo": "Descrição do ambiente/planta analisada",
   "area_total_m2": 0,
@@ -581,7 +343,7 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
       "itens": [
         {
           "item": "1.1",
-          "descricao": "Descrição completa do item",
+          "descricao": "Descrição",
           "local_aplicacao": "Sala",
           "fornecedor": "—",
           "marca": "—",
@@ -597,15 +359,7 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
       "subtotal": 0.00
     }
   ],
-  "quantitativo_por_comodo": [
-    {
-      "comodo": "Banheiro",
-      "itens": [
-        { "item": "1.1", "descricao": "Descrição do item", "quantidade": 0, "unidade": "un", "subtotal": 0.00 }
-      ],
-      "subtotal": 0.00
-    }
-  ],
+  "quantitativo_por_comodo": [],
   "resumo_final": {
     "total_materiais": 0.00,
     "total_mao_de_obra": 0.00,
@@ -614,39 +368,18 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
     "bdi_valor": 0.00,
     "premissas_bdi": "BDI padrão de 25% aplicado"
   },
-  "recomendacoes": [
-    {
-      "material": "Categoria",
-      "marcas": [
-        {"nome": "Marca", "justificativa": "Por que recomendada"}
-      ]
-    }
-  ]
+  "recomendacoes": []
 }
 ${STRICT_JSON_RULES}`;
 
 const STRUCTURED_BLUEPRINT_JSON_STRUCTURE = `
-Retorne APENAS um JSON válido (sem markdown, sem backticks) obedecendo ao Response Schema configurado.
-
+Retorne APENAS um JSON válido (sem markdown).
 A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
-- "1_servicos_preliminares"
-- "2_infraestrutura"
-- "3_superestrutura"
-- "4_cobertura"
-- "5_esquadrias"
-- "6_eletrica"
-- "7_hidraulica"
-- "8_acabamentos"
-
-Cada chave deve conter um OBJETO com:
-- "itens": array com no mínimo 3 itens detalhados (idealmente 5+);
-- "duracao_dias_estimada": número inteiro de dias úteis estimados para executar a etapa em uma obra residencial padrão (ex: 7, 25, 30...).
-
-Cada ITEM deve OBRIGATORIAMENTE conter o campo "marca_sugerida" — uma marca brasileira reconhecida e adequada ao padrão informado (ex: 'Votorantim', 'Tigre', 'Suvinil', 'Deca', 'Portobello'). Se o item não tiver marca aplicável (ex: areia, brita, mão de obra), use 'Genérico'.
-
+"1_servicos_preliminares", "2_infraestrutura", "3_superestrutura", "4_cobertura", "5_esquadrias", "6_eletrica", "7_hidraulica", "8_acabamentos".
+Cada chave deve conter um OBJETO com: "itens" e "duracao_dias_estimada".
 NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
-Inclua também, quando possível: resumo, area_total_m2, escala_detectada, referencia_sinapi, quantitativo_por_comodo e recomendacoes.
 ${STRICT_JSON_RULES}`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -679,51 +412,41 @@ serve(async (req) => {
       : isPhotoMode
         ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
         : "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato JSON solicitado.";
+    
     if (!isPhotoMode && escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
     if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
     if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}% (em vez do padrão de 25%).`;
-
-    // New detailed parameters
     if (area_m2) userPrompt += ` IMPORTANTE: A área total construída é ${area_m2} m². Use este valor como referência principal — NÃO tente estimar a metragem pela planta.`;
     if (pe_direito) userPrompt += ` Pé-direito: ${pe_direito}m.`;
     if (num_pavimentos) userPrompt += ` Número de pavimentos: ${num_pavimentos}.`;
-    if (padrao_acabamento) {
-      const padraoMap: Record<string, string> = { popular: "Popular (materiais econômicos)", medio: "Médio (custo-benefício)", alto: "Alto (marcas premium)", luxo: "Luxo (materiais importados/top de linha)" };
-      userPrompt += ` Padrão de acabamento: ${padraoMap[padrao_acabamento] || padrao_acabamento}. Ajuste os preços e marcas de acordo com este padrão.`;
-    }
+    if (padrao_acabamento) userPrompt += ` Padrão de acabamento: ${padrao_acabamento}.`;
     if (num_quartos) userPrompt += ` Quartos: ${num_quartos}.`;
     if (num_banheiros) userPrompt += ` Banheiros: ${num_banheiros}.`;
     if (num_vagas) userPrompt += ` Vagas de garagem: ${num_vagas}.`;
     if (tipo_fundacao && tipo_fundacao !== "nao_sei") userPrompt += ` Tipo de fundação definida: ${tipo_fundacao}.`;
     if (tipo_cobertura && tipo_cobertura !== "nao_sei") userPrompt += ` Tipo de cobertura/telhado: ${tipo_cobertura}.`;
-
     if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais: ${instrucoes_adicionais}`;
 
     let content: string;
     try {
-      content = await generateWithGemini({
+      // ✅ Chamada com o Novo Motor
+      content = await generateWithOpenAI({
         systemPrompt,
         userText: userPrompt,
         images: analysisImages,
-        maxOutputTokens: isHybrid ? 6000 : 12000,
-        responseSchema: !isHybrid && !isPhotoMode ? BLUEPRINT_RESPONSE_SCHEMA : undefined,
       });
     } catch (err: any) {
-      const msg = err?.message || String(err);
-      console.error("Gemini error:", msg);
-      if (/quota|rate/i.test(msg)) {
-        return new Response(JSON.stringify({ error: "Limite de requisições da API Gemini excedido. Tente novamente em alguns minutos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      console.error("OpenAI error:", err.message);
       throw err;
     }
-    if (!content) throw new Error("No content in AI response");
+
+    if (!content) throw new Error("Sem resposta da IA");
 
     let parsed;
     const rawText = content;
     const cleanText = stripMarkdownAndExtractJson(rawText);
+    
     try {
       try {
         parsed = JSON.parse(cleanText);
@@ -731,12 +454,12 @@ serve(async (req) => {
         console.warn("JSON.parse inicial falhou; tentando reparar resposta da IA:", initialParseErr);
         const repairedText = repairAiJson(cleanText);
         parsed = JSON.parse(repairedText);
-        console.log("✅ [JSON REPAIR] Resposta da IA reparada e parseada com sucesso.");
+        console.log("✅ [JSON REPAIR] Resposta da IA reparada com sucesso.");
       }
       parsed = normalizeStructuredBlueprintResponse(parsed);
     } catch (parseErr: any) {
       console.error("Raw AI Response que falhou no parse:", rawText);
-      throw new Error(`Failed to parse AI response as JSON. Error: ${parseErr?.message || parseErr}`);
+      throw new Error(`Falha ao converter resposta da IA em JSON. Erro: ${parseErr?.message || parseErr}`);
     }
 
     return new Response(JSON.stringify(parsed), {
