@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText, Home, Layers } from "lucide-react";
+import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText, Home } from "lucide-react";
 import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
 
 const TIPO_LABELS: Record<string, string> = {
@@ -57,7 +57,7 @@ export default function NovaAnalise() {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("id");
   const [mode, setMode] = useState<AnalysisMode | null>(null);
-  const [step, setStep] = useState(0); // 0 = mode selection
+  const [step, setStep] = useState(0); 
   const [files, setFiles] = useState<File[]>([]);
   const [dwgFile, setDwgFile] = useState<File | null>(null);
   const [previews, setPreviews] = useState<(string | null)[]>([]);
@@ -84,13 +84,12 @@ export default function NovaAnalise() {
     num_quartos: "",
     num_banheiros: "",
     num_vagas: "",
-    modo_precisao: "ia_completa", // "ia_completa" | "hibrido_sinapi"
+    modo_precisao: "ia_completa", 
     sinapi_uf: "SP",
     sinapi_mes_ano: "2026-05",
-    sinapi_desonerado: "true", // "true" | "false"
+    sinapi_desonerado: "true", 
   });
 
-  // Hydrate from draft (URL ?id=) — load saved analysis row + linked source files
   useEffect(() => {
     if (!draftId || !user) return;
     let cancelled = false;
@@ -117,9 +116,9 @@ export default function NovaAnalise() {
           tipo_construcao: data.tipo_construcao || prev.tipo_construcao,
           regiao: data.regiao || "",
           bdi_percentual: data.bdi_percentual != null ? String(data.bdi_percentual) : prev.bdi_percentual,
+          sinapi_uf: data.sinapi_uf || prev.sinapi_uf,
         }));
 
-        // List previously uploaded files for this draft
         const prefix = `${user.id}/${draftId}`;
         const { data: listed } = await supabase.storage.from("blueprints").list(prefix, { limit: 100 });
         if (listed && !cancelled) {
@@ -133,7 +132,6 @@ export default function NovaAnalise() {
           setExistingFiles(items);
         }
 
-        // Skip mode + upload steps; jump straight to details
         setMode("planta");
         setStep(2);
       } catch (err: any) {
@@ -165,7 +163,6 @@ export default function NovaAnalise() {
     setFiles(prev => {
       if (prev.length >= MAX_FILES) { toast.error(`Máximo de ${MAX_FILES} arquivos`); return prev; }
       const next = [...prev, f];
-      // Generate preview
       if (f.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onload = (e) => setPreviews(p => { const n = [...p]; n[next.length - 1] = e.target?.result as string; return n; });
@@ -195,17 +192,29 @@ export default function NovaAnalise() {
     e.target.value = "";
   };
 
+  // ✅ Função de validação corrigida para o Autocomplete e erros visuais
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.nome_projeto.trim() || formData.nome_projeto.trim().length < 3)
+    if (!formData.nome_projeto.trim() || formData.nome_projeto.trim().length < 3) {
       newErrors.nome_projeto = "Nome do projeto deve ter pelo menos 3 caracteres";
-    if (formData.nome_projeto.trim().length > 100)
+    }
+    if (formData.nome_projeto.trim().length > 100) {
       newErrors.nome_projeto = "Nome do projeto deve ter no máximo 100 caracteres";
+    }
+    if (!formData.regiao || formData.regiao.trim().length < 2) {
+      newErrors.regiao = "Selecione uma localidade válida usando o campo de busca";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => { if (validate()) setShowSummary(true); };
+  const handleNext = () => { 
+    if (validate()) {
+      setShowSummary(true); 
+    } else {
+      toast.error("Por favor, preencha todos os campos obrigatórios corretamente.");
+    }
+  };
 
   const sanitizeFileName = (name: string) =>
     name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -235,8 +244,8 @@ export default function NovaAnalise() {
     setSavingDraft(true);
     try {
       const allFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
-
       let analysisId = draftId;
+
       if (analysisId) {
         const { error: updErr } = await supabase
           .from("analyses")
@@ -245,6 +254,7 @@ export default function NovaAnalise() {
             escala: formData.escala || null,
             tipo_construcao: formData.tipo_construcao,
             regiao: formData.regiao || null,
+            sinapi_uf: formData.sinapi_uf,
             status: "pending",
           } as any)
           .eq("id", analysisId);
@@ -256,8 +266,9 @@ export default function NovaAnalise() {
           escala: formData.escala || null,
           tipo_construcao: formData.tipo_construcao,
           regiao: formData.regiao || null,
+          sinapi_uf: formData.sinapi_uf,
           status: "pending",
-        }).select().single();
+        } as any).select().single();
         if (insertErr) throw insertErr;
         analysisId = (draft as any).id;
       }
@@ -265,10 +276,10 @@ export default function NovaAnalise() {
       if (allFiles.length) {
         const uploaded = await uploadAllFiles(analysisId!, allFiles);
         if (uploaded[0]) {
-          await supabase.from("analyses").update({ imagem_url: uploaded[0].url }).eq("id", analysisId!);
+          await supabase.from("analyses").update({ imagem_url: uploaded[0].url } as any).eq("id", analysisId!);
         }
       }
-      toast.success("Rascunho salvo!");
+      toast.success("Rascunho saved!");
       navigate("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar rascunho");
@@ -325,7 +336,7 @@ export default function NovaAnalise() {
       const res = await fetch(url);
       const blob = await res.blob();
       const file = new File([blob], name, { type: blob.type || "image/jpeg" });
-      if (!file.type.startsWith("image/")) return null; // skip PDFs/DWG when re-running
+      if (!file.type.startsWith("image/")) return null; 
       return await imageToOptimizedBase64(file);
     } catch (e) {
       console.error("Failed to fetch existing file", name, e);
@@ -344,11 +355,9 @@ export default function NovaAnalise() {
     setShowSummary(false);
 
     try {
-      // Convert files to compact base64 for AI to avoid Cloud idle timeouts
       const imageFiles = files.filter(f => !isDwg(f));
       let images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
 
-      // If reprocessing a draft without new uploads, hydrate images from storage
       if (!images.length && existingFiles.length) {
         const fetched = await Promise.all(existingFiles.map((f) => urlToOptimizedBase64(f.url, f.name)));
         images = fetched.filter((x): x is { base64: string; mime_type: string } => !!x);
@@ -358,9 +367,8 @@ export default function NovaAnalise() {
       }
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
-
-      // 1) Reuse existing draft row when available, otherwise insert
       let analysisId = draftId;
+
       if (analysisId) {
         const { error: updErr } = await supabase
           .from("analyses")
@@ -369,6 +377,7 @@ export default function NovaAnalise() {
             escala: formData.escala || null,
             tipo_construcao: formData.tipo_construcao,
             regiao: formData.regiao || null,
+            sinapi_uf: formData.sinapi_uf,
             bdi_percentual: bdiValue,
             status: "processing",
           } as any)
@@ -383,6 +392,7 @@ export default function NovaAnalise() {
             escala: formData.escala || null,
             tipo_construcao: formData.tipo_construcao,
             regiao: formData.regiao || null,
+            sinapi_uf: formData.sinapi_uf,
             bdi_percentual: bdiValue,
             status: "processing",
           } as any)
@@ -392,7 +402,6 @@ export default function NovaAnalise() {
         analysisId = (analysis as any).id;
       }
 
-      // 2) Upload any newly-attached files under prefix {userId}/{analysisId}/
       const newFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
       if (newFiles.length) {
         const uploaded = await uploadAllFiles(analysisId!, newFiles);
@@ -403,7 +412,6 @@ export default function NovaAnalise() {
             .eq("id", analysisId!);
         }
       }
-
 
       const isHybrid = formData.modo_precisao === "hibrido_sinapi";
 
@@ -470,9 +478,8 @@ export default function NovaAnalise() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro ao processar análise");
-      // Mark draft as error so dashboard reflects it
-      if (draftId) {
-        await supabase.from("analyses").update({ status: "error" } as any).eq("id", draftId);
+      if (analysisId) {
+        await supabase.from("analyses").update({ status: "error" } as any).eq("id", analysisId);
       }
       setLoading(false);
     }
@@ -557,7 +564,6 @@ export default function NovaAnalise() {
               <CardDescription>{MODE_CONFIG[mode].description}</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* File grid */}
               {files.length > 0 && (
                 <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {files.map((f, i) => (
@@ -681,34 +687,43 @@ export default function NovaAnalise() {
                   </p>
                 </div>
               )}
-              {/* Section: Dados do Projeto */}
+              
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Box className="h-4 w-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Dados do Projeto</h3>
                 </div>
-                <div className="space-y-2">
-  <Label>Região / Cidade / UF <span className="text-destructive">*</span></Label>
-  
-  {/* 👇 NOSSO NOVO AUTOCOMPLETE INSTALADO AQUI 👇 */}
-  <LocalidadeAutocomplete 
-    value={formData.regiao}
-    onChange={(textoFormatado, uf) => {
-      // 1. Atualiza o campo de exibição ("Sorocaba - SP")
-      setFormData(prev => ({ 
-        ...prev, 
-        regiao: textoFormatado,
-        // 2. Se a API retornar a UF, já seleciona o Select do "UF SINAPI" sozinho! (Ganho absurdo de UX)
-        sinapi_uf: uf || prev.sinapi_uf 
-      }));
-      
-      if (errors.regiao) setErrors(prev => ({ ...prev, regiao: "" }));
-    }}
-    placeholder="Ex: São Paulo - SP, Sorocaba - SP..."
-  />
-  
-  <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
-</div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome do Projeto <span className="text-destructive">*</span></Label>
+                    <Input 
+                      placeholder="Ex: Casa do João, Projeto Lote 45..." 
+                      value={formData.nome_projeto} 
+                      onChange={(e) => updateField("nome_projeto", e.target.value)} 
+                      className={errors.nome_projeto ? "border-destructive" : ""} 
+                      maxLength={100} 
+                    />
+                    {errors.nome_projeto && <p className="text-xs text-destructive">{errors.nome_projeto}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Região / Cidade / UF <span className="text-destructive">*</span></Label>
+                    <LocalidadeAutocomplete 
+                      value={formData.regiao}
+                      onChange={(textoFormatado, uf) => {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          regiao: textoFormatado,
+                          sinapi_uf: uf || prev.sinapi_uf 
+                        }));
+                        if (errors.regiao) setErrors(prev => { const n = {...prev}; delete n.regiao; return n; });
+                      }}
+                      placeholder="Ex: São Paulo - SP, Sorocaba - SP..."
+                    />
+                    {errors.regiao && <p className="text-xs text-destructive">{errors.regiao}</p>}
+                    <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label>UF SINAPI <span className="text-destructive">*</span></Label>
@@ -744,11 +759,10 @@ export default function NovaAnalise() {
                   </div>
                   <p className="text-xs text-muted-foreground">Filtros aplicados na base oficial SINAPI para precificação automática.</p>
                 </div>
-              
+              </div>
 
               <Separator />
 
-              {/* Section: Dados da Planta / Ambiente */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Ruler className="h-4 w-4 text-primary" />
@@ -822,7 +836,6 @@ export default function NovaAnalise() {
 
               <Separator />
 
-              {/* Section: Características do Projeto */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Home className="h-4 w-4 text-primary" />
@@ -888,7 +901,6 @@ export default function NovaAnalise() {
 
               <Separator />
 
-              {/* Section: Financeiro */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <DollarSign className="h-4 w-4 text-primary" />
@@ -908,8 +920,6 @@ export default function NovaAnalise() {
                     />
                     <p className="text-xs text-muted-foreground">Padrão: 25%. Define o percentual aplicado sobre o custo direto para compor o preço final.</p>
                   </div>
-                </div>
-                  </div>
                   <div className="space-y-2">
                     <Label>Modo de Precisão do Orçamento</Label>
                     <Select value={formData.modo_precisao} onValueChange={(v) => updateField("modo_precisao", v)}>
@@ -923,10 +933,11 @@ export default function NovaAnalise() {
                       No modo Híbrido a IA apenas identifica e mede os itens. Os preços são calculados matematicamente a partir da sua base SINAPI local — sem invenção de valores.
                     </p>
                   </div>
+                </div>
+              </div>
 
               <Separator />
 
-              {/* Section: Preferências */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Settings2 className="h-4 w-4 text-primary" />
@@ -962,7 +973,6 @@ export default function NovaAnalise() {
                 </div>
               </div>
 
-              {/* Desktop buttons */}
               <div className="hidden sm:flex justify-between pt-4">
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Button>
@@ -984,7 +994,7 @@ export default function NovaAnalise() {
               <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-primary" /> Confirme os dados da análise</CardTitle>
               <CardDescription>Revise as informações antes de iniciar</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
                 <div className="flex justify-between"><span className="text-sm text-muted-foreground">Modo</span><span className="text-sm font-medium">{mode === "foto_ambiente" ? "📷 Foto do Ambiente" : "📐 Planta Baixa"}</span></div>
                 <Separator />
@@ -1041,9 +1051,11 @@ export default function NovaAnalise() {
 
       {/* Mobile sticky CTA */}
       {step === 2 && !showSummary && !loading && (
-        <div className="fixed bottom-0 left-0 right-0 border-t bg-card p-4 sm:hidden">
+        <div className="fixed bottom-0 left-0 right-0 border-t bg-card p-4 sm:hidden z-50">
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={handleSaveDraft} disabled={savingDraft} className="flex-shrink-0"><Save className="h-4 w-4" /></Button>
+            <Button variant="outline" onClick={handleSaveDraft} disabled={savingDraft} className="flex-shrink-0">
+              {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            </Button>
             <Button className="flex-1" onClick={handleNext} disabled={loading}>Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" /></Button>
           </div>
         </div>
