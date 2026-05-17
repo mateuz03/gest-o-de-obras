@@ -354,6 +354,7 @@ export default function NovaAnalise() {
     setLoading(true);
     setShowSummary(false);
 
+    let analysisId: string | undefined = draftId;
     try {
       const imageFiles = files.filter(f => !isDwg(f));
       let images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
@@ -367,7 +368,6 @@ export default function NovaAnalise() {
       }
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
-      let analysisId = draftId;
 
       if (analysisId) {
         const { error: updErr } = await supabase
