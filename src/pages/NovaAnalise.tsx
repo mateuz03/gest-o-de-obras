@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText, Home, Layers } from "lucide-react";
+import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -686,20 +687,28 @@ export default function NovaAnalise() {
                   <Box className="h-4 w-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Dados do Projeto</h3>
                 </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Nome do Projeto <span className="text-destructive">*</span></Label>
-                    <Input placeholder="Ex: Casa do João, Projeto Lote 45..." value={formData.nome_projeto} onChange={(e) => updateField("nome_projeto", e.target.value)} className={errors.nome_projeto ? "border-destructive" : ""} maxLength={100} />
-                    {errors.nome_projeto && <p className="text-xs text-destructive">{errors.nome_projeto}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Região / Cidade / UF <span className="text-destructive">*</span></Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="Ex: São Paulo - SP, Curitiba - PR..." value={formData.regiao} onChange={(e) => updateField("regiao", e.target.value)} className="pl-9" maxLength={100} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
-                  </div>
+                <div className="space-y-2">
+  <Label>Região / Cidade / UF <span className="text-destructive">*</span></Label>
+  
+  {/* 👇 NOSSO NOVO AUTOCOMPLETE INSTALADO AQUI 👇 */}
+  <LocalidadeAutocomplete 
+    value={formData.regiao}
+    onChange={(textoFormatado, uf) => {
+      // 1. Atualiza o campo de exibição ("Sorocaba - SP")
+      setFormData(prev => ({ 
+        ...prev, 
+        regiao: textoFormatado,
+        // 2. Se a API retornar a UF, já seleciona o Select do "UF SINAPI" sozinho! (Ganho absurdo de UX)
+        sinapi_uf: uf || prev.sinapi_uf 
+      }));
+      
+      if (errors.regiao) setErrors(prev => ({ ...prev, regiao: "" }));
+    }}
+    placeholder="Ex: São Paulo - SP, Sorocaba - SP..."
+  />
+  
+  <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
+</div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label>UF SINAPI <span className="text-destructive">*</span></Label>
@@ -735,7 +744,7 @@ export default function NovaAnalise() {
                   </div>
                   <p className="text-xs text-muted-foreground">Filtros aplicados na base oficial SINAPI para precificação automática.</p>
                 </div>
-              </div>
+              
 
               <Separator />
 

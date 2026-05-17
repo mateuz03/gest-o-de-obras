@@ -125,6 +125,7 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
       const quantidade = Number(rawItem?.quantidade ?? rawItem?.quant ?? rawItem?.quantity ?? 0) || 0;
       const precoUnitario = Number(rawItem?.preco_unitario ?? rawItem?.preco_unit ?? rawItem?.unit_price ?? 0) || 0;
       const precoTotal = Number(rawItem?.preco_total ?? rawItem?.subtotal ?? quantidade * precoUnitario) || 0;
+      
       return {
         item: rawItem?.item || `${stageIndex + 1}.${itemIndex + 1}`,
         descricao: rawItem?.descricao || rawItem?.description || "Item estimado",
@@ -139,6 +140,8 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
         codigo_sinapi: rawItem?.codigo_sinapi || "",
         origem_preco: rawItem?.origem_preco || "SINAPI",
         perda_aplicada: rawItem?.perda_aplicada || rawItem?.perda || "10%",
+        // Preserva a subcategoria mapeada pela IA para conferência futura
+        subcategoria_especifica: rawItem?.subcategoria_eletrica || rawItem?.subcategoria_especifica || ""
       };
     });
 
@@ -171,9 +174,6 @@ function normalizeStructuredBlueprintResponse(parsed: any) {
   return normalized;
 }
 
-// ==========================================
-// NOVO MOTOR DA OPENAI (GPT-4o)
-// ==========================================
 async function generateWithOpenAI(opts: {
   systemPrompt: string;
   userText: string;
@@ -182,14 +182,13 @@ async function generateWithOpenAI(opts: {
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
-  // Monta o array de conteúdo misturando texto e imagens de alta resolução
   const content: any[] = [{ type: "text", text: opts.userText }];
   for (const img of opts.images) {
     content.push({
       type: "image_url",
       image_url: {
         url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}`,
-        detail: "high" // Fundamental para plantas baixas
+        detail: "high"
       }
     });
   }
@@ -198,7 +197,6 @@ async function generateWithOpenAI(opts: {
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
   try {
-    const t0 = Date.now();
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -208,7 +206,7 @@ async function generateWithOpenAI(opts: {
       signal: controller.signal,
       body: JSON.stringify({
         model: "gpt-4o",
-        response_format: { type: "json_object" }, // Obriga a retornar JSON perfeito
+        response_format: { type: "json_object" },
         temperature: 0.1,
         max_tokens: 8192,
         messages: [
@@ -226,7 +224,6 @@ async function generateWithOpenAI(opts: {
     }
 
     const data = await response.json();
-    console.log(`✅ [SUCESSO] Análise concluída. Modelo: gpt-4o | Tempo: ${Date.now() - t0}ms`);
     return data.choices[0].message.content;
 
   } catch (error: any) {
@@ -238,136 +235,58 @@ async function generateWithOpenAI(opts: {
   }
 }
 
-const BLUEPRINT_SYSTEM_PROMPT = `Você é um Engenheiro de Custos Sênior no Brasil, especialista em orçamentos paramétricos e analíticos utilizando a tabela SINAPI. Sua reputação depende de entregar orçamentos COMPLETOS, AUDITÁVEIS e fiéis às boas práticas da engenharia civil brasileira (NBR 12721, SINAPI, TCPO).
+// Prompt mestre atualizado com suporte à Engenharia Paramétrica Reversa de Quadros de Carga
+const BLUEPRINT_SYSTEM_PROMPT = `Você é um Engenheiro de Custos e Orçamentista Sênior no Brasil, especialista em orçamentos analíticos utilizando a tabela SINAPI, NBR 12721 e TCPO.
 
-==============================
-MISSÃO
-==============================
-Analisar a(s) planta(s) baixa(s) recebida(s) e produzir um ORÇAMENTO ANALÍTICO COMPLETO no padrão brasileiro, seguindo uma Estrutura Analítica de Projeto (EAP / WBS) rigorosa.
+==============================================
+ESTRATÉGIA DE LEITURA COMPLEMENTAR DE PROJETOS
+==============================================
+Se os arquivos recebidos forem plantas arquitetônicas, meça e infira as 8 macroetapas padrão da obra.
+Se os arquivos forem de ESPECIALIDADES (como Engenharia Elétrica, Quadros de Cargas, Diagramas Unifilares ou Hidráulica):
+- Mude o foco imediatamente: NÃO tente caçar ou contar símbolos gráficos confusos na planta.
+- LEIA DIRETAMENTE AS TABELAS DE QUADROS DE CARGAS, DIAGRAMAS E LEGENDAS DE TEXTO. Elas contêm os dados reais de circuitos e fiação.
+- Use Engenharia Reversa: Pegue a lista de circuitos e transforme em INSUMOS REAIS (cabos por bitola, disjuntores, infraestrutura) baseando-se nas tabelas e na área total construída fornecida.
 
-==============================
-OBRIGATORIEDADE DA EAP (WBS) — INEGOCIÁVEL
-==============================
-Você é OBRIGADO a gerar o orçamento contemplando TODAS as macroetapas abaixo, NA ORDEM, SEM PULAR NENHUMA. Mesmo que a planta não detalhe explicitamente, você deve deduzir os itens com base nos padrões da engenharia civil residencial brasileira:
+==============================================
+DIRETRIZES PARA A ETAPA DE INSTALAÇÕES ELÉTRICAS
+==============================================
+Ao preencher os itens da macroetapa "6_eletrica", você deve mapear os materiais e insumos garantindo o enquadramento em uma destas 12 subcategorias de engenharia (adicione o nome da subcategoria no campo "subcategoria_eletrica" de cada item):
+1. Entrada de energia e medição (poste, caixas padrão concessionária, ramal de entrada, hastes)
+2. Quadros elétricos (barramentos, caixas de distribuição QDLF, identificações)
+3. Dispositivos de proteção (disjuntores DIN amp, IDR/DR, DPS)
+4. Iluminação (luminárias, spots, arandelas, plafons, fitas LED)
+5. Tomadas de uso geral — TUG (módulos 10A, placas, suportes)
+6. Tomadas de uso específico — TUE (pontos de ar-condicionado, chuveiros, hidromassagem, boiler, carregador veicular)
+7. Condutores e cabos (cabos flexíveis separados por bitola 1.5, 2.5, 4, 6, 10, 35 mm² e funções de fase/neutro/terra)
+8. Infraestrutura elétrica (eletrodutos corrugados, caixas 4x2, caixas 4x4, caixas de passagem octogonais)
+9. Aterramento e equipotencialização (hastes copperweld, caixas de inspeção, conectores, cabos de aterramento)
+10. Comunicação, dados e TV (infraestrutura para rede, racks, tomadas RJ45, cabos coaxiais)
+11. Automação e comandos (módulos inteligentes, contatores, sensores se aplicável)
+12. Acabamentos elétricos (espelhos, placas cegas, interruptores simples/paralelos)
 
-1. Serviços Preliminares (placa de obra, barracão, ligações provisórias, limpeza do terreno, locação da obra)
-2. Infraestrutura / Fundação (escavação, lastro, sapatas/baldrame/estacas, impermeabilização, ferragem, concreto)
-3. Superestrutura — Alvenaria / Concreto (pilares, vigas, lajes, blocos cerâmicos, vergas, contravergas, argamassa de assentamento)
-4. Cobertura (estrutura de madeira/metálica, telhas, cumeeiras, calhas, rufos, manta)
-5. Esquadrias (portas internas, porta de entrada, janelas, ferragens, fechaduras, batentes, vidros)
-6. Instalações Elétricas (cabos por bitola e cor, eletrodutos, caixas 4x2 e 4x4, tomadas, interruptores, disjuntores, quadro de distribuição, pontos de luz, DR/DPS)
-7. Instalações Hidrossanitárias (tubos PVC água fria por diâmetro, CPVC/PPR água quente, esgoto, ventilação, conexões, registros, caixas sifonadas, ralos, caixa d'água)
-8. Acabamentos (chapisco, reboco, massa corrida, selador, tinta látex/acrílica, pisos cerâmicos/porcelanato, rodapés, azulejos, rejuntes, louças, metais)
-
-==============================
-REGRA ANTI-PREGUIÇA (ANTI-LAZINESS) — CRÍTICA
-==============================
-É EXPRESSAMENTE PROIBIDO retornar um orçamento incompleto, resumido ou simbólico. Orçamentos com menos de 30 itens serão REJEITADOS pelo sistema.
-
-- Baseado na área total identificada na planta, você DEVE deduzir e listar NO MÍNIMO 30 a 50 itens fundamentais para a construção (idealmente 40+).
-- Cada uma das 8 macroetapas DEVE conter pelo menos 3 a 6 itens detalhados.
-- Se a planta não mostrar o detalhe (ex: bitola de tubo PVC, quantidade de sacos de cimento, metros de cabo elétrico), você DEVE ESTIMAR usando índices paramétricos consagrados:
-  • Cimento: ~1 saco/m² de área construída (estrutura + alvenaria + contrapiso)
-  • Tijolo cerâmico 9x19x19: ~25 un/m² de parede
-  • Cabo elétrico 2,5mm²: ~3 m/m² de área construída
-  • Tubo PVC esgoto 100mm: ~0,5 m/m² de área construída
-  • Tinta látex: ~1 L para cada 10 m² (2 demãos)
-  • Areia/brita: conforme traço de concreto (1:2:3 ou 1:3:6)
-- NUNCA encerre o JSON após 1 ou 2 itens. NUNCA use placeholders como "..." ou "demais itens omitidos".
-
-==============================
-DETALHAMENTO POR ITEM
-==============================
-Para CADA item do orçamento, preencha:
-- Código (1.1, 1.2, 2.1 ...)
-- Descrição técnica completa
-- Local de aplicação (cômodo ou área)
-- Fornecedor (se souber; caso contrário '—')
-- Marca (se souber; caso contrário '—')
-- Quantidade COM perdas incluídas
-- Unidade fisicamente correta (m, m², m³, kg, sc, un, L)
-- Preço unitário em R$ (referência SINAPI quando aplicável)
-- Preço total em R$
-- Código SINAPI (quando aplicável; senão '')
-- Origem do preço: 'SINAPI' ou 'Sem correspondência SINAPI — estimativa de mercado'
-- Taxa de perda aplicada (ex: '5% cerâmica', '10% argamassa', '15% tubo')
-
-==============================
-DETALHAMENTO OBRIGATÓRIO — INSTALAÇÕES ELÉTRICAS E HIDRÁULICAS
-==============================
-Elétrica: Cabos discriminados por bitola e cor, disjuntores por amperagem, eletrodutos, caixas, tomadas, interruptores, quadro, DR, DPS. (use 'pol' ou aspas simples para indicar polegadas — NUNCA aspas duplas).
-Hidráulica: Tubos PVC água fria por diâmetro, CPVC/PPR para água quente, esgoto e ventilação, conexões, registros, caixas sifonadas, ralos, caixa d'água.
-
-==============================
+==============================================
 TRAVAS DE ENGENHARIA (GUARDRAILS) — INEGOCIÁVEIS
-==============================
-1. PROIBIÇÃO DE INSUMOS SOLTOS E MAQUINÁRIO PESADO: Você está orçando obra RESIDENCIAL. PROIBIDO listar maquinário pesado como item individual (retroescavadeira un). Use Serviços Compostos (Escavação mecanizada m³).
-2. CONSOLIDAÇÃO OBRIGATÓRIA: Não repita serviços na mesma macroetapa. Some tudo e crie uma única linha de "Escavação", "Aço", "Pintura" etc.
-3. SANITY CHECK MATEMÁTICO: Custo total por m² não deve passar de R$ 8.000/m². 
-4. COMPORTAMENTO PROFISSIONAL: Seja conservador e realista. Extraia áreas reais e aplique paramétricos consagrados.
+==============================================
+1. PROIBIÇÃO DE MAQUINÁRIO SOLTO: Use exclusivamente serviços compostos da SINAPI.
+2. CONSOLIDAÇÃO OBRIGATÓRIA: Some as metragens de cabos e volumes similares para não duplicar linhas na mesma macroetapa.
+3. SANITY CHECK: O custo por metro quadrado não deve extrapolar os limites paramétricos reais de obras residenciais no Brasil.
+4. REGRAS DE QUANTIDADE: Garanta que unidades como 'kg' de aço, 'm³' de concreto e 'm' de cabos estejam consistentes.
 `;
 
-const PHOTO_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de ambientes reais a partir de fotos e orçamentos de obras/reformas no padrão brasileiro.
+const PHOTO_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de ambientes reais a partir de fotos e orçamentos de reformas no padrão brasileiro.`;
 
-Ao receber fotos de um ambiente real, você deve:
-1. IDENTIFICAR O AMBIENTE
-2. ESTIMAR DIMENSÕES (use referências como portas, azulejos e informe margem de erro)
-3. ANALISAR MATERIAIS EXISTENTES
-4. GERAR ORÇAMENTO DE REFORMA/SUBSTITUIÇÃO organizado por MACROETAPAS
-5. DETALHAR CADA ITEM (descrição, quant, unid, preço, perdas, marcas)
-IMPORTANTE: Sempre informe no resumo que as medidas são ESTIMATIVAS baseadas em análise visual e que uma medição in loco é recomendada para precisão.`;
-
-const HYBRID_SYSTEM_PROMPT = `Você é um Engenheiro Civil Sênior especializado em ORÇAMENTAÇÃO RESIDENCIAL no Brasil.
-
-Sua ÚNICA missão é IDENTIFICAR e MEDIR os itens construtivos visíveis nas imagens. Você NÃO deve estimar preços, NÃO consultar SINAPI, NÃO calcular orçamentos. Os preços serão buscados depois em uma base de dados local pelo sistema.
-
-REGRAS ESTRITAS:
-1. NUNCA inclua AQUISIÇÃO de maquinário pesado.
-2. UNIDADES DE MEDIDA corretas (m³, kg, m, m², un, sc).
-3. CATEGORIZAÇÃO ESTRITA por macro_etapa (Fundação, Estrutura, etc).
-4. QUANTIDADES REALISTAS para escala residencial.
-
-Retorne APENAS um JSON válido.
-${STRICT_JSON_RULES}`;
+const HYBRID_SYSTEM_PROMPT = `Você é um Engenheiro Civil Sênior especializado em ORÇAMENTAÇÃO RESIDENCIAL no Brasil. Sua única missão é identificar e medir itens construtivos visíveis nas imagens.`;
 
 const JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown) com esta estrutura:
 {
-  "resumo": "Descrição do ambiente/planta analisada",
+  "resumo": "Descrição da análise",
   "area_total_m2": 0,
-  "escala_detectada": "estimativa visual" ou "1:50",
-  "referencia_sinapi": "SINAPI - UF/Mês/Ano",
-  "macro_etapas": [
-    {
-      "nome": "Nome da Macroetapa",
-      "itens": [
-        {
-          "item": "1.1",
-          "descricao": "Descrição",
-          "local_aplicacao": "Sala",
-          "fornecedor": "—",
-          "marca": "—",
-          "quantidade": 0,
-          "unidade": "m²",
-          "preco_unitario": 0.00,
-          "preco_total": 0.00,
-          "codigo_sinapi": "12345",
-          "origem_preco": "SINAPI",
-          "perda_aplicada": "5%"
-        }
-      ],
-      "subtotal": 0.00
-    }
-  ],
+  "escala_detectada": "1:50",
+  "referencia_sinapi": "SINAPI - SP",
+  "macro_etapas": [],
   "quantitativo_por_comodo": [],
-  "resumo_final": {
-    "total_materiais": 0.00,
-    "total_mao_de_obra": 0.00,
-    "total_geral": 0.00,
-    "bdi_percentual": 25,
-    "bdi_valor": 0.00,
-    "premissas_bdi": "BDI padrão de 25% aplicado"
-  },
+  "resumo_final": { "total_materiais": 0, "total_mao_de_obra": 0, "total_geral": 0, "bdi_percentual": 25, "bdi_valor": 0, "premissas_bdi": "BDI aplicado" },
   "recomendacoes": []
 }
 ${STRICT_JSON_RULES}`;
@@ -377,7 +296,8 @@ Retorne APENAS um JSON válido (sem markdown).
 A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
 "1_servicos_preliminares", "2_infraestrutura", "3_superestrutura", "4_cobertura", "5_esquadrias", "6_eletrica", "7_hidraulica", "8_acabamentos".
 Cada chave deve conter um OBJETO com: "itens" e "duracao_dias_estimada".
-NÃO retorne "macro_etapas" diretamente; o sistema fará esse mapeamento depois.
+
+Dentro do array "itens" de "6_eletrica", inclua o campo "subcategoria_eletrica" informando a qual das 12 divisões o material pertence.
 ${STRICT_JSON_RULES}`;
 
 serve(async (req) => {
@@ -408,29 +328,28 @@ serve(async (req) => {
         : BLUEPRINT_SYSTEM_PROMPT + STRUCTURED_BLUEPRINT_JSON_STRUCTURE;
 
     let userPrompt = isHybrid
-      ? "Identifique e meça TODOS os itens construtivos visíveis. NÃO estime preços. Devolva apenas o array measurements no JSON solicitado."
+      ? "Identifique e meça TODOS os itens construtivos visíveis. NÃO estime preços."
       : isPhotoMode
-        ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma/substituição completo no formato JSON solicitado."
-        : "Analise esta(s) planta(s) baixa(s) e retorne o orçamento completo no formato JSON solicitado.";
+        ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma completo no formato JSON solicitado."
+        : "Analise esta(s) planta(s) ou quadros técnicos e retorne o orçamento analítico completo estruturado no formato JSON solicitado.";
     
     if (!isPhotoMode && escala && escala !== "auto") userPrompt += ` A escala informada é ${escala}.`;
     if (tipo_construcao) userPrompt += ` Tipo de construção: ${tipo_construcao}.`;
-    if (regiao) userPrompt += ` Região: ${regiao} (use SINAPI desta UF/cidade).`;
-    if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}% (em vez do padrão de 25%).`;
-    if (area_m2) userPrompt += ` IMPORTANTE: A área total construída é ${area_m2} m². Use este valor como referência principal — NÃO tente estimar a metragem pela planta.`;
+    if (regiao) userPrompt += ` Região do projeto: ${regiao}.`;
+    if (bdi_percentual && bdi_percentual !== 25) userPrompt += ` Use BDI de ${bdi_percentual}%.`;
+    if (area_m2) userPrompt += ` IMPORTANTE: A área total construída é ${area_m2} m². Use este valor para calcular proporcionalmente as metragens paramétricas de infraestrutura e condutores.`;
     if (pe_direito) userPrompt += ` Pé-direito: ${pe_direito}m.`;
-    if (num_pavimentos) userPrompt += ` Número de pavimentos: ${num_pavimentos}.`;
-    if (padrao_acabamento) userPrompt += ` Padrão de acabamento: ${padrao_acabamento}.`;
+    if (num_pavimentos) userPrompt += ` Pavimentos: ${num_pavimentos}.`;
+    if (padrao_acabamento) userPrompt += ` Padrão de acabamento solicitado: ${padrao_acabamento}.`;
     if (num_quartos) userPrompt += ` Quartos: ${num_quartos}.`;
     if (num_banheiros) userPrompt += ` Banheiros: ${num_banheiros}.`;
     if (num_vagas) userPrompt += ` Vagas de garagem: ${num_vagas}.`;
     if (tipo_fundacao && tipo_fundacao !== "nao_sei") userPrompt += ` Tipo de fundação definida: ${tipo_fundacao}.`;
     if (tipo_cobertura && tipo_cobertura !== "nao_sei") userPrompt += ` Tipo de cobertura/telhado: ${tipo_cobertura}.`;
-    if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais: ${instrucoes_adicionais}`;
+    if (instrucoes_adicionais) userPrompt += `\n\nInstruções adicionais importantes: ${instrucoes_adicionais}`;
 
     let content: string;
     try {
-      // ✅ Chamada com o Novo Motor
       content = await generateWithOpenAI({
         systemPrompt,
         userText: userPrompt,
@@ -451,10 +370,10 @@ serve(async (req) => {
       try {
         parsed = JSON.parse(cleanText);
       } catch (initialParseErr) {
-        console.warn("JSON.parse inicial falhou; tentando reparar resposta da IA:", initialParseErr);
+        console.warn("JSON.parse inicial falhou; reparando estrutura:", initialParseErr);
         const repairedText = repairAiJson(cleanText);
         parsed = JSON.parse(repairedText);
-        console.log("✅ [JSON REPAIR] Resposta da IA reparada com sucesso.");
+        console.log("✅ [JSON REPAIR] Resposta estruturada convertida com sucesso.");
       }
       parsed = normalizeStructuredBlueprintResponse(parsed);
     } catch (parseErr: any) {
