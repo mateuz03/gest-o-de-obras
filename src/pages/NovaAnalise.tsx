@@ -354,6 +354,7 @@ export default function NovaAnalise() {
     setLoading(true);
     setShowSummary(false);
 
+    let analysisId: string | undefined = draftId;
     try {
       const imageFiles = files.filter(f => !isDwg(f));
       let images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
