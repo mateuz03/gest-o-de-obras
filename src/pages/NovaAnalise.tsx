@@ -368,7 +368,6 @@ export default function NovaAnalise() {
       }
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
-      let analysisId = draftId;
 
       if (analysisId) {
         const { error: updErr } = await supabase
