@@ -8,9 +8,10 @@ const corsHeaders = {
 };
 
 const AI_TIMEOUT_MS = 115_000;
-const MAX_IMAGES_STANDARD = 4;
-const MAX_IMAGES_HYBRID = 3;
-const MAX_BASE64_LENGTH = 12_000_000; // proteção básica contra payload exagerado
+const MAX_IMAGES_STANDARD = 3;
+const MAX_IMAGES_HYBRID = 2;
+const MAX_IMAGE_BASE64_LENGTH = 180_000;
+const MAX_TOTAL_BASE64_LENGTH = 450_000;
 
 const MACRO_ETAPA_SCHEMA_KEYS = [
   { key: "1_servicos_preliminares", nome: "Serviços Preliminares" },
@@ -97,6 +98,7 @@ function normalizeMimeType(mime?: string): string {
 
 function validateImages(images: unknown, maxAllowed: number): ValidationResult {
   const errors: string[] = [];
+  let totalLen = 0;
 
   if (!Array.isArray(images) || images.length === 0) {
     errors.push("Pelo menos uma imagem é obrigatória.");
@@ -119,10 +121,21 @@ function validateImages(images: unknown, maxAllowed: number): ValidationResult {
       return;
     }
 
-    if (base64.length > MAX_BASE64_LENGTH) {
-      errors.push(`Imagem ${index + 1} excede o tamanho máximo permitido.`);
+    const len = base64.length;
+    totalLen += len;
+
+    if (len > MAX_IMAGE_BASE64_LENGTH) {
+      errors.push(
+        `Imagem ${index + 1} está muito grande. Reduza a resolução/qualidade antes de enviar.`
+      );
     }
   });
+
+  if (totalLen > MAX_TOTAL_BASE64_LENGTH) {
+    errors.push(
+      "O conjunto de imagens está muito pesado para análise. Envie menos imagens ou imagens mais leves."
+    );
+  }
 
   if (images.length > maxAllowed) {
     errors.push(
@@ -452,12 +465,22 @@ function normalizeStructuredBlueprintResponse(parsed: any, context?: { area_m2?:
   return normalized;
 }
 
-function validateFinalStructuredResponse(parsed: any): ValidationResult {
+function validateFinalStructuredResponse(parsed: any, mode: { isPhotoMode: boolean; isHybrid: boolean }): ValidationResult {
   const errors: string[] = [];
 
   if (!isPlainObject(parsed)) {
     errors.push("A resposta final não é um objeto JSON válido.");
     return { ok: false, errors };
+  }
+
+  if (mode.isPhotoMode || mode.isHybrid) {
+    if (!Array.isArray(parsed.macro_etapas)) {
+      errors.push("A resposta final não possui macro_etapas em formato de array.");
+    }
+    if (!isPlainObject(parsed.resumo_final)) {
+      errors.push("A resposta final não possui resumo_final válido.");
+    }
+    return { ok: errors.length === 0, errors };
   }
 
   if (!Array.isArray(parsed.macro_etapas)) {
@@ -505,7 +528,7 @@ async function generateWithOpenAI(opts: {
       type: "image_url",
       image_url: {
         url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}`,
-        detail: "high",
+        detail: "low",
       },
     });
   }
@@ -536,7 +559,15 @@ async function generateWithOpenAI(opts: {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      console.error("OpenAI error raw body:", errorText);
+
+      let errorData: any = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { raw: errorText };
+      }
 
       if (response.status === 401) {
         throw new Error("Falha de autenticação com o provedor de IA.");
@@ -544,13 +575,16 @@ async function generateWithOpenAI(opts: {
       if (response.status === 429) {
         throw new Error("Limite de uso temporariamente atingido no provedor de IA. Tente novamente.");
       }
+      if (response.status === 413) {
+        throw new Error("As imagens enviadas estão grandes demais para processamento. Reduza a resolução/qualidade e tente novamente.");
+      }
       if (response.status >= 500) {
         throw new Error("O provedor de IA está indisponível no momento. Tente novamente em instantes.");
       }
 
       throw new Error(
         `OpenAI Erro: ${response.status} - ${
-          errorData.error?.message || response.statusText
+          errorData?.error?.message || errorData?.raw || response.statusText
         }`
       );
     }
@@ -571,18 +605,65 @@ async function generateWithOpenAI(opts: {
 const BLUEPRINT_SYSTEM_PROMPT = `Você é um Engenheiro de Custos e Orçamentista Sênior no Brasil, especialista em orçamentos analíticos utilizando a tabela SINAPI, NBR 12721 e TCPO.
 
 ==============================================
+OBJETIVO PRINCIPAL
+==============================================
+Sua missão é analisar plantas, quadros técnicos, diagramas, fotos e documentos de engenharia e retornar um orçamento analítico estruturado, com quantitativos tecnicamente coerentes e itens desmembrados de forma compatível com bases de preço como SINAPI.
+
+O orçamento deve priorizar itens precificáveis e conciliáveis com bases referenciais brasileiras.
+Evite agrupamentos genéricos que impeçam a vinculação com preço unitário.
+
+==============================================
 ESTRATÉGIA DE LEITURA COMPLEMENTAR DE PROJETOS
 ==============================================
 Se os arquivos recebidos forem plantas arquitetônicas, meça e infira as 8 macroetapas padrão da obra.
-Se os arquivos forem de ESPECIALIDADES (como Engenharia Elétrica, Quadros de Cargas, Diagramas Unifilares ou Hidráulica):
-- Mude o foco imediatamente: NÃO tente caçar ou contar símbolos gráficos confusos na planta.
-- LEIA DIRETAMENTE AS TABELAS DE QUADROS DE CARGAS, DIAGRAMAS E LEGENDAS DE TEXTO. Elas contêm os dados reais de circuitos e fiação.
-- Use Engenharia Reversa: Pegue a lista de circuitos e transforme em INSUMOS REAIS (cabos por bitola, disjuntores, infraestrutura) baseando-se nas tabelas e na área total construída fornecida.
+
+Se os arquivos forem de ESPECIALIDADES, como:
+- Engenharia Elétrica
+- Quadros de Cargas
+- Diagramas Unifilares
+- Hidráulica
+- Diagramas Hidrossanitários
+- Memorial técnico
+- Planilhas auxiliares
+
+então:
+- mude o foco imediatamente;
+- NÃO dependa apenas da leitura visual de símbolos;
+- LEIA DIRETAMENTE tabelas, quadros, diagramas, legendas, observações e anotações técnicas;
+- trate quadros e tabelas como a principal fonte de verdade para extração de circuitos, cargas, proteção, condutores e infraestrutura.
 
 ==============================================
-DIRETRIZES PARA A ETAPA DE INSTALAÇÕES ELÉTRICAS
+REGRAS DE OURO PARA PRECIFICAÇÃO
 ==============================================
-Ao preencher os itens da macroetapa "6_eletrica", você deve mapear os materiais e insumos garantindo o enquadramento em uma destas 12 subcategorias de engenharia (adicione exatamente o nome da subcategoria no campo "subcategoria_eletrica" de cada item):
+- Nunca use descrições genéricas como:
+  "diversos",
+  "materiais diversos",
+  "disjuntores diversos",
+  "cabos diversos",
+  "infraestrutura elétrica",
+  "pontos elétricos gerais",
+  "itens gerais"
+- Sempre desmembre os itens em unidades técnicas mínimas compatíveis com orçamento e SINAPI.
+- Se não houver dado suficiente para especificação exata, produza uma descrição técnica estimada, mas ainda específica.
+- Não deixe item com preço zerado sem justificar.
+- Quando não for possível obter preço confiável, preencha:
+  - "preco_unitario": 0
+  - "preco_total": 0
+  - "sem_preco_sinapi": true
+  - "alerta_revisao": true
+  - "origem_preco": "sem_preco_encontrado"
+- Quando houver inferência paramétrica, preencha:
+  - "criterio_extracao": "inferido_parametricamente"
+- Quando o item vier de quadro, legenda ou tabela técnica, preencha:
+  - "criterio_extracao": "lido_em_tabela"
+- Quando o item for medido diretamente em planta, preencha:
+  - "criterio_extracao": "medido_em_documento"
+
+==============================================
+DIRETRIZES ESPECÍFICAS PARA A ETAPA 6 — INSTALAÇÕES ELÉTRICAS
+==============================================
+Ao preencher os itens da macroetapa "6_eletrica", você deve mapear os materiais e insumos garantindo o enquadramento em uma destas 12 subcategorias de engenharia, preenchendo o campo "subcategoria_eletrica" com exatamente um dos nomes abaixo:
+
 1. Entrada de energia e medição
 2. Quadros elétricos
 3. Dispositivos de proteção
@@ -597,15 +678,178 @@ Ao preencher os itens da macroetapa "6_eletrica", você deve mapear os materiais
 12. Acabamentos elétricos
 
 ==============================================
+REGRAS OBRIGATÓRIAS DE DETALHAMENTO PARA ELÉTRICA
+==============================================
+NUNCA agrupe elétrica em itens genéricos.
+
+Você deve sempre detalhar minimamente:
+
+1. DISJUNTORES
+- Separar por tipo e amperagem quando houver evidência.
+- Exemplos:
+  - disjuntor monopolar 10A
+  - disjuntor bipolar 32A
+  - disjuntor tripolar 63A
+- Nunca escrever "disjuntores diversos".
+
+2. CONDUTORES E CABOS
+- Separar por bitola:
+  - 1,5 mm²
+  - 2,5 mm²
+  - 4 mm²
+  - 6 mm²
+  - 10 mm²
+  - 16 mm²
+  - 25 mm²
+  - 35 mm²
+- Sempre que possível, separar por função:
+  - fase
+  - neutro
+  - terra
+  - retorno
+- Nunca escrever "cabos diversos" ou "condutores diversos".
+
+3. TOMADAS
+- Separar TUG e TUE.
+- Quando possível, separar:
+  - TUG 10A
+  - TUG 20A
+- Separar tomadas específicas para:
+  - ar-condicionado
+  - chuveiro
+  - forno
+  - micro-ondas
+  - boiler
+  - bomba
+  - carregador veicular
+- Nunca consolidar todas como "tomadas".
+
+4. ILUMINAÇÃO
+- Separar:
+  - pontos de iluminação
+  - luminárias
+  - plafons
+  - spots
+  - arandelas
+  - fitas LED
+  - refletores
+- Se só existir a quantidade de pontos, use descrição específica como "ponto de iluminação".
+
+5. INFRAESTRUTURA
+- Separar eletrodutos por tipo e diâmetro quando houver indício:
+  - corrugado 20 mm
+  - corrugado 25 mm
+  - corrugado 32 mm
+- Separar:
+  - caixas 4x2
+  - caixas 4x4
+  - caixas octogonais
+  - caixas de passagem
+- Nunca usar apenas "infraestrutura elétrica".
+
+6. QUADROS E ENTRADA
+- Separar, quando houver evidência:
+  - quadro de distribuição
+  - barramento
+  - identificação
+  - disjuntor geral
+  - DPS
+  - DR
+  - medição
+  - padrão de entrada
+  - ramal
+  - aterramento
+
+==============================================
+ENGENHARIA REVERSA DE QUADROS DE CARGA
+==============================================
+Se houver quadro de cargas, diagrama unifilar ou legenda elétrica:
+- use essas informações como base principal;
+- a partir da lista de circuitos, derive os insumos de:
+  - disjuntores
+  - cabos por bitola
+  - quadros
+  - proteção DR/DPS
+  - infraestrutura associada
+- se houver área total construída, use esse valor para complementar proporcionalmente os quantitativos paramétricos não explícitos.
+
+==============================================
+FORMATO TÉCNICO OBRIGATÓRIO PARA ITENS ELÉTRICOS
+==============================================
+Sempre que possível, descreva os itens elétricos no seguinte padrão:
+
+- Disjuntor + tipo + amperagem
+- Cabo + material + bitola + função
+- Eletroduto + tipo + diâmetro
+- Tomada + amperagem + tipo de uso
+- Quadro + identificação + capacidade
+- Luminária/ponto + tipo
+
+Exemplos de boas descrições:
+- "Disjuntor termomagnético monopolar 10A"
+- "Disjuntor bipolar 32A"
+- "Cabo de cobre flexível 2,5 mm² para tomadas TUG"
+- "Cabo de cobre flexível 6 mm² para chuveiro elétrico"
+- "Eletroduto corrugado 25 mm"
+- "Caixa 4x2 em PVC"
+- "Tomada 2P+T 10A"
+- "Tomada 2P+T 20A para uso específico"
+- "Quadro de distribuição embutir 24 disjuntores"
+
+Exemplos proibidos:
+- "Disjuntores diversos"
+- "Cabos diversos"
+- "Infraestrutura elétrica"
+- "Tomadas em geral"
+- "Materiais elétricos"
+
+==============================================
+MEMÓRIA DE CÁLCULO E RASTREABILIDADE
+==============================================
+Sempre que possível, inclua:
+- "memoria_calculo": explicação curta de como a quantidade foi obtida
+- "criterio_extracao": "medido_em_documento", "lido_em_tabela" ou "inferido_parametricamente"
+
+Exemplos:
+- "memoria_calculo": "12 circuitos identificados no quadro elétrico"
+- "memoria_calculo": "estimado por 1 tomada a cada 6 m² de área molhada"
+- "memoria_calculo": "bitola inferida com base em circuito de chuveiro 5500W"
+
+==============================================
 TRAVAS DE ENGENHARIA (GUARDRAILS) — INEGOCIÁVEIS
 ==============================================
-1. PROIBIÇÃO DE MAQUINÁRIO SOLTO: Use exclusivamente serviços compostos da SINAPI.
-2. CONSOLIDAÇÃO OBRIGATÓRIA: Some as metragens de cabos e volumes similares para não duplicar linhas na mesma macroetapa.
-3. SANITY CHECK: O custo por metro quadrado não deve extrapolar os limites paramétricos reais de obras residenciais no Brasil.
-4. REGRAS DE QUANTIDADE: Garanta que unidades como kg de aço, m³ de concreto e m de cabos estejam consistentes.
-5. NÃO INVENTE MARCAS COMERCIAIS sem evidência documental.
-6. Para cada item relevante, informe se o critério de extração foi: "medido_em_documento", "lido_em_tabela" ou "inferido_parametricamente".
-7. Quando possível, inclua uma memória de cálculo curta no campo "memoria_calculo".
+1. PROIBIÇÃO DE MAQUINÁRIO SOLTO
+Use exclusivamente serviços compostos da SINAPI quando aplicável.
+
+2. CONSOLIDAÇÃO OBRIGATÓRIA
+Consolidar apenas itens tecnicamente equivalentes.
+Exemplos:
+- somar todos os cabos 2,5 mm² em uma linha única
+- somar todos os eletrodutos corrugados 20 mm em uma linha única
+Mas nunca agrupar:
+- bitolas diferentes
+- tipos diferentes
+- funções diferentes
+
+3. SANITY CHECK
+O custo por metro quadrado e os quantitativos devem permanecer dentro de faixas plausíveis para obras residenciais no Brasil.
+
+4. REGRAS DE QUANTIDADE
+Garanta coerência de unidade:
+- aço em kg
+- concreto em m³
+- cabos em m
+- eletrodutos em m
+- caixas, tomadas, luminárias e disjuntores em un
+
+5. NÃO INVENTAR MARCAS
+Não invente marcas comerciais sem evidência documental. Se não houver marca, use "—".
+
+6. NÃO DUPLICAR INSUMOS
+Não repetir o mesmo insumo em duas linhas com a mesma especificação dentro da mesma macroetapa.
+
+7. PRIORIZAR PRECIFICABILIDADE
+Se houver dúvida entre uma descrição bonita e uma descrição orçamentável, escolha a descrição orçamentável.
 `;
 
 const PHOTO_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de ambientes reais a partir de fotos e orçamentos de reformas no padrão brasileiro.`;
@@ -642,14 +886,64 @@ ${STRICT_JSON_RULES}`;
 
 const STRUCTURED_BLUEPRINT_JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown).
-A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
-"1_servicos_preliminares", "2_infraestrutura", "3_superestrutura", "4_cobertura", "5_esquadrias", "6_eletrica", "7_hidraulica", "8_acabamentos".
-Cada chave deve conter um OBJETO com: "itens" e "duracao_dias_estimada".
 
-Dentro do array "itens" de "6_eletrica", inclua o campo "subcategoria_eletrica" com exatamente um dos 12 nomes permitidos.
-Sempre que possível, inclua também:
-- "criterio_extracao": "medido_em_documento", "lido_em_tabela" ou "inferido_parametricamente"
-- "memoria_calculo": "texto curto"
+A resposta DEVE usar as 8 chaves obrigatórias de macroetapas no nível raiz:
+"1_servicos_preliminares",
+"2_infraestrutura",
+"3_superestrutura",
+"4_cobertura",
+"5_esquadrias",
+"6_eletrica",
+"7_hidraulica",
+"8_acabamentos".
+
+Cada chave deve conter um OBJETO com:
+- "itens"
+- "duracao_dias_estimada"
+
+Cada item dentro de "itens" deve conter, sempre que possível:
+- "item"
+- "descricao"
+- "local_aplicacao"
+- "fornecedor"
+- "marca"
+- "marca_sugerida"
+- "quantidade"
+- "unidade"
+- "preco_unitario"
+- "preco_total"
+- "codigo_sinapi"
+- "origem_preco"
+- "perda_aplicada"
+- "criterio_extracao"
+- "memoria_calculo"
+- "alerta_revisao"
+- "sem_preco_sinapi"
+
+Regras obrigatórias:
+- "descricao" deve ser técnica e precificável.
+- Nunca usar a palavra "diversos" na descrição.
+- "preco_unitario" e "preco_total" não devem ficar zerados sem justificativa.
+- Se não houver preço confiável, preencher:
+  - "preco_unitario": 0
+  - "preco_total": 0
+  - "sem_preco_sinapi": true
+  - "alerta_revisao": true
+  - "origem_preco": "sem_preco_encontrado"
+
+Dentro do array "itens" de "6_eletrica", inclua o campo "subcategoria_eletrica" com exatamente um dos 12 nomes permitidos:
+1. Entrada de energia e medição
+2. Quadros elétricos
+3. Dispositivos de proteção
+4. Iluminação
+5. Tomadas de uso geral — TUG
+6. Tomadas de uso específico — TUE
+7. Condutores e cabos
+8. Infraestrutura elétrica
+9. Aterramento e equipotencialização
+10. Comunicação, dados e TV
+11. Automação e comandos
+12. Acabamentos elétricos
 
 Inclua também no nível raiz:
 - "resumo"
@@ -659,6 +953,22 @@ Inclua também no nível raiz:
 - "confiabilidade"
 - "resumo_final"
 - "recomendacoes"
+
+Em "confiabilidade", use:
+{
+  "nivel_geral": "alto" | "medio" | "baixo",
+  "observacoes": []
+}
+
+Em "resumo_final", use:
+{
+  "total_materiais": 0,
+  "total_mao_de_obra": 0,
+  "total_geral": 0,
+  "bdi_percentual": 25,
+  "bdi_valor": 0,
+  "premissas_bdi": "texto"
+}
 
 ${STRICT_JSON_RULES}`;
 
@@ -691,10 +1001,8 @@ serve(async (req) => {
       tipo_documento,
     } = body ?? {};
 
-    const { isPhotoMode, isHybrid, modeLabel } = classifyAnalysisMode(
-      modo_analise,
-      modo_precisao
-    );
+    const mode = classifyAnalysisMode(modo_analise, modo_precisao);
+    const { isPhotoMode, isHybrid, modeLabel } = mode;
 
     const maxImages = isHybrid ? MAX_IMAGES_HYBRID : MAX_IMAGES_STANDARD;
     const imageValidation = validateImages(images, maxImages);
@@ -706,9 +1014,7 @@ serve(async (req) => {
       });
     }
 
-    const hardErrors = imageValidation.errors.filter(
-      (e) => !e.includes("apenas")
-    );
+    const hardErrors = imageValidation.errors.filter((e) => !e.includes("apenas"));
     if (hardErrors.length > 0) {
       return new Response(JSON.stringify({ error: hardErrors.join(" ") }), {
         status: 400,
@@ -722,6 +1028,14 @@ serve(async (req) => {
         mime_type: normalizeMimeType(img?.mime_type),
         base64: String(img?.base64 || ""),
       }));
+
+    const totalBase64Length = analysisImages.reduce((sum, img) => sum + img.base64.length, 0);
+    console.log("analyze-blueprint payload stats:", {
+      imagens_recebidas: Array.isArray(images) ? images.length : 0,
+      imagens_processadas: analysisImages.length,
+      totalBase64Length,
+      modo: modeLabel,
+    });
 
     const safeEscala = sanitizeString(escala, 50);
     const safeTipoConstrucao = sanitizeString(tipo_construcao, 120);
@@ -815,7 +1129,7 @@ serve(async (req) => {
         images: analysisImages,
       });
     } catch (err: any) {
-      console.error("OpenAI error:", err.message);
+      console.error("OpenAI error:", err?.message || err);
       throw err;
     }
 
@@ -836,7 +1150,7 @@ serve(async (req) => {
         repairedText = repairAiJson(cleanText);
         parsed = JSON.parse(repairedText);
         repaired = true;
-        console.log("✅ [JSON REPAIR] Resposta estruturada convertida com sucesso.");
+        console.log("JSON REPAIR aplicado com sucesso.");
       }
 
       parsed = normalizeStructuredBlueprintResponse(parsed, {
@@ -844,8 +1158,8 @@ serve(async (req) => {
         bdi_percentual: safeBdi,
       });
 
-      const finalValidation = validateFinalStructuredResponse(parsed);
-      if (!finalValidation.ok && !isPhotoMode && !isHybrid) {
+      const finalValidation = validateFinalStructuredResponse(parsed, mode);
+      if (!finalValidation.ok) {
         throw new Error(
           `A resposta estruturada da IA ficou incompleta após normalização: ${finalValidation.errors.join(
             " "
