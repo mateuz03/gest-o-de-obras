@@ -17,6 +17,12 @@ interface RunAnalysisPipelineRequest {
   persist_result?: boolean;
 }
 
+type StageStatus =
+  | "pending"
+  | "completed"
+  | "failed"
+  | "skipped";
+
 async function invokeStage(
   supabase: any,
   authHeader: string,
@@ -37,8 +43,47 @@ async function invokeStage(
   return data;
 }
 
+async function logRun(
+  supabase: any,
+  payload: {
+    analysis_id?: string;
+    document_id?: string;
+    stage: string;
+    status: string;
+    payload_json?: Record<string, unknown>;
+  }
+) {
+  const { error } = await supabase.from("analysis_extraction_runs").insert({
+    analysis_id: payload.analysis_id ?? null,
+    document_id: payload.document_id ?? null,
+    stage: payload.stage,
+    status: payload.status,
+    payload_json: payload.payload_json ?? {},
+  });
+
+  if (error) {
+    console.warn("Falha ao registrar analysis_extraction_runs:", error);
+  }
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  let supabase: any = null;
+  let analysis_id = "";
+  let document_id: string | null = null;
+
+  const stages: Record<string, StageStatus> = {
+    ingestion: "pending",
+    page_rendering: "pending",
+    ocr: "pending",
+    classification: "pending",
+    architectural_extraction: "pending",
+    electrical_extraction: "pending",
+    quantity_generation: "pending",
+  };
 
   try {
     const authHeader = req.headers.get("authorization");
@@ -49,15 +94,25 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: "Supabase environment variables are not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const body: RunAnalysisPipelineRequest = await req.json();
 
     const {
-      analysis_id,
+      analysis_id: incomingAnalysisId,
       user_id,
       file_name,
       mime_type,
@@ -66,6 +121,8 @@ serve(async (req) => {
       persist_result = true,
     } = body;
 
+    analysis_id = incomingAnalysisId;
+
     if (!analysis_id || !file_name || !mime_type || !storage_path) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
@@ -73,14 +130,18 @@ serve(async (req) => {
       });
     }
 
-    const stages: Record<string, string> = {
-      ingestion: "pending",
-      page_rendering: "pending",
-      classification: "pending",
-      architectural_extraction: "pending",
-      electrical_extraction: "pending",
-      quantity_generation: "pending",
-    };
+    await logRun(supabase, {
+      analysis_id,
+      stage: "pipeline_orchestration_started",
+      status: "started",
+      payload_json: {
+        file_name,
+        mime_type,
+        storage_path,
+        storage_bucket,
+        persist_result,
+      },
+    });
 
     // 1. Ingestion
     const ingestData = await invokeStage(supabase, authHeader, "ingest-document", {
@@ -94,80 +155,221 @@ serve(async (req) => {
     });
 
     stages.ingestion = "completed";
+    document_id = ingestData?.document_id ?? null;
 
-    const document_id = ingestData?.document_id;
     if (!document_id) {
       throw new Error("ingest-document did not return document_id");
     }
 
+    await logRun(supabase, {
+      analysis_id,
+      document_id,
+      stage: "ingestion",
+      status: "completed",
+      payload_json: {
+        ingestData,
+      },
+    });
+
     // 2. Render document pages
     try {
-      await invokeStage(supabase, authHeader, "render-document-pages", {
+      const renderData = await invokeStage(supabase, authHeader, "render-document-pages", {
         analysis_id,
         document_id,
         source_bucket: storage_bucket,
         target_bucket: "document-pages",
       });
+
       stages.page_rendering = "completed";
-    } catch (err) {
-      console.warn("page rendering skipped/failed:", err);
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "page_rendering",
+        status: "completed",
+        payload_json: {
+          renderData,
+        },
+      });
+    } catch (err: any) {
       stages.page_rendering = "failed";
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "page_rendering",
+        status: "failed",
+        payload_json: {
+          error: err?.message || String(err),
+        },
+      });
+
+      console.warn("page rendering skipped/failed:", err);
     }
 
-    // 3. Classification
-    await invokeStage(supabase, authHeader, "classify-document-pages", {
+    // 3. OCR
+    try {
+      const ocrData = await invokeStage(supabase, authHeader, "ocr-document-pages", {
+        analysis_id,
+        document_id,
+      });
+
+      stages.ocr = "completed";
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "ocr",
+        status: "completed",
+        payload_json: {
+          ocrData,
+        },
+      });
+    } catch (err: any) {
+      stages.ocr = "failed";
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "ocr",
+        status: "failed",
+        payload_json: {
+          error: err?.message || String(err),
+        },
+      });
+
+      console.warn("ocr skipped/failed:", err);
+    }
+
+    // 4. Classification
+    const classificationData = await invokeStage(supabase, authHeader, "classify-document-pages", {
       analysis_id,
       document_id,
     });
+
     stages.classification = "completed";
 
-    // 4. Architectural extraction
+    await logRun(supabase, {
+      analysis_id,
+      document_id,
+      stage: "classification",
+      status: "completed",
+      payload_json: {
+        classificationData,
+      },
+    });
+
+    // 5. Architectural extraction
     try {
-      await invokeStage(supabase, authHeader, "extract-architectural-signals", {
-        analysis_id,
-        document_id,
-      });
+      const architecturalData = await invokeStage(
+        supabase,
+        authHeader,
+        "extract-architectural-signals",
+        {
+          analysis_id,
+          document_id,
+        }
+      );
+
       stages.architectural_extraction = "completed";
-    } catch (err) {
-      console.warn("architectural extraction skipped/failed:", err);
-      stages.architectural_extraction = "failed";
-    }
 
-    // 5. Electrical extraction
-    try {
-      await invokeStage(supabase, authHeader, "extract-electrical-signals", {
+      await logRun(supabase, {
         analysis_id,
         document_id,
+        stage: "architectural_extraction",
+        status: "completed",
+        payload_json: {
+          architecturalData,
+        },
       });
-      stages.electrical_extraction = "completed";
-    } catch (err) {
-      console.warn("electrical extraction skipped/failed:", err);
-      stages.electrical_extraction = "failed";
+    } catch (err: any) {
+      stages.architectural_extraction = "failed";
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "architectural_extraction",
+        status: "failed",
+        payload_json: {
+          error: err?.message || String(err),
+        },
+      });
+
+      console.warn("architectural extraction skipped/failed:", err);
     }
 
-    // 6. Quantity generation
+    // 6. Electrical extraction
+    try {
+      const electricalData = await invokeStage(
+        supabase,
+        authHeader,
+        "extract-electrical-signals",
+        {
+          analysis_id,
+          document_id,
+        }
+      );
+
+      stages.electrical_extraction = "completed";
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "electrical_extraction",
+        status: "completed",
+        payload_json: {
+          electricalData,
+        },
+      });
+    } catch (err: any) {
+      stages.electrical_extraction = "failed";
+
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "electrical_extraction",
+        status: "failed",
+        payload_json: {
+          error: err?.message || String(err),
+        },
+      });
+
+      console.warn("electrical extraction skipped/failed:", err);
+    }
+
+    // 7. Quantity generation
     const quantityData = await invokeStage(supabase, authHeader, "generate-quantity-items", {
       analysis_id,
+      document_id,
     });
+
     stages.quantity_generation = "completed";
 
-    const resultado_json = quantityData?.quantitativo || null;
+    const resultado_json = quantityData?.quantitativo ?? null;
+
+    await logRun(supabase, {
+      analysis_id,
+      document_id,
+      stage: "quantity_generation",
+      status: "completed",
+      payload_json: {
+        quantityData,
+      },
+    });
 
     if (persist_result && resultado_json) {
-      const { error: updateError } = await supabase
-        .from("analyses")
-        .update({
+      await logRun(supabase, {
+        analysis_id,
+        document_id,
+        stage: "final_result",
+        status: "completed",
+        payload_json: {
           resultado_json,
-          status: "completed",
-        } as any)
-        .eq("id", analysis_id);
-
-      if (updateError) {
-        throw updateError;
-      }
+        },
+      });
     }
 
-    await supabase.from("analysis_extraction_runs").insert({
+    await logRun(supabase, {
       analysis_id,
       document_id,
       stage: "pipeline_orchestration",
@@ -184,6 +386,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        analysis_id,
         document_id,
         stages,
         resultado_json,
@@ -192,12 +395,28 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("run-analysis-pipeline error:", error);
+
+    if (supabase && analysis_id) {
+      await logRun(supabase, {
+        analysis_id,
+        document_id: document_id ?? undefined,
+        stage: "pipeline_orchestration",
+        status: "failed",
+        payload_json: {
+          error: error?.message || String(error),
+          stages,
+        },
+      });
+    }
 
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
+        analysis_id,
+        document_id,
+        stages,
       }),
       {
         status: 500,
@@ -205,4 +424,4 @@ serve(async (req) => {
       }
     );
   }
-});''
+});
