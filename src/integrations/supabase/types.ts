@@ -169,6 +169,164 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_document_pages: {
+        Row: {
+          analysis_id: string
+          classification_confidence: number | null
+          created_at: string
+          document_id: string
+          embedded_text: string | null
+          has_embedded_text: boolean | null
+          id: string
+          image_path: string | null
+          metadata_json: Json | null
+          ocr_text: string | null
+          page_class: string | null
+          page_number: number
+        }
+        Insert: {
+          analysis_id: string
+          classification_confidence?: number | null
+          created_at?: string
+          document_id: string
+          embedded_text?: string | null
+          has_embedded_text?: boolean | null
+          id?: string
+          image_path?: string | null
+          metadata_json?: Json | null
+          ocr_text?: string | null
+          page_class?: string | null
+          page_number: number
+        }
+        Update: {
+          analysis_id?: string
+          classification_confidence?: number | null
+          created_at?: string
+          document_id?: string
+          embedded_text?: string | null
+          has_embedded_text?: boolean | null
+          id?: string
+          image_path?: string | null
+          metadata_json?: Json | null
+          ocr_text?: string | null
+          page_class?: string | null
+          page_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_document_pages_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_document_pages_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analysis_documents: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          file_name: string
+          id: string
+          mime_type: string
+          page_count: number | null
+          status: string
+          storage_path: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          file_name: string
+          id?: string
+          mime_type: string
+          page_count?: number | null
+          status?: string
+          storage_path: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          mime_type?: string
+          page_count?: number | null
+          status?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_documents_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analysis_extraction_runs: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          document_id: string | null
+          error_message: string | null
+          id: string
+          payload_json: Json | null
+          stage: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          document_id?: string | null
+          error_message?: string | null
+          id?: string
+          payload_json?: Json | null
+          stage: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          document_id?: string | null
+          error_message?: string | null
+          id?: string
+          payload_json?: Json | null
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_extraction_runs_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_extraction_runs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_favorites: {
         Row: {
           created_at: string
