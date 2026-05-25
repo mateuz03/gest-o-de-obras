@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis, AnalysisResult, MacroEtapa, BudgetItem, BrandRecommendation, ResumoFinal, SinapiMatch } from "@/lib/types";
-import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2, Loader2, RefreshCw, Search, Home, Share2, CalendarDays, ScrollText, ClipboardList, ShieldCheck, FolderOpen, Trash2, AlertTriangle } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { exportOrcaLinkPDF } from "@/lib/exportOrcaLink";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
@@ -44,6 +44,14 @@ function formatCurrency(value: number | string) {
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function isUnpricedItem(item: BudgetItem): boolean {
+  return (
+    !!item?.sem_preco_sinapi ||
+    item?.origem_preco === "sem_preco_encontrado" ||
+    (toNumber(item?.preco_unitario, 0) <= 0 && toNumber(item?.preco_total, 0) <= 0)
+  );
+}
+
 function normalizeBudgetItem(raw: any, index = 0): BudgetItem {
   const quantidade = toNumber(raw?.quantidade, 0);
   const precoUnitario = toNumber(raw?.preco_unitario, 0);
@@ -75,6 +83,7 @@ function normalizeBudgetItem(raw: any, index = 0): BudgetItem {
     sem_preco_sinapi: !!raw?.sem_preco_sinapi,
     estimado_ia: !!raw?.estimado_ia,
     alerta_revisao: !!raw?.alerta_revisao,
+    modo_conciliacao: "manual",
     sinapi_match: raw?.sinapi_match ?? undefined,
   } as BudgetItem;
 }
@@ -186,6 +195,7 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
             const match = item?.item ? sinapiMatches[item.item] : undefined;
             const isConciliado = !!item?.preco_conciliado;
             const hasSinapiCode = !!item?.codigo_sinapi;
+            const unpriced = isUnpricedItem(item);
             const zebra = items.length > 5 && i % 2 === 1 ? "bg-slate-50/60" : "";
 
             return (
@@ -194,6 +204,8 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                 className={
                   item?.alerta_revisao
                     ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500"
+                    : unpriced
+                    ? "bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-400"
                     : isConciliado
                     ? "bg-green-50/50 dark:bg-green-950/20"
                     : zebra
@@ -227,27 +239,35 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                 <TableCell className="text-right tabular-nums">{toNumber(item?.quantidade, 0)}</TableCell>
                 <TableCell>{toText(item?.unidade, "un")}</TableCell>
                 <TableCell className={`text-right tabular-nums ${item?.alerta_revisao ? "text-red-600 font-semibold" : ""}`}>
-                  {formatCurrency(toNumber(item?.preco_unitario, 0))}
-                  {item?.preco_sinapi_unitario != null && (
+                  {unpriced ? (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  ) : (
+                    <span>{formatCurrency(item?.preco_unitario || 0)}</span>
+                  )}
+
+                  {item?.preco_sinapi_unitario != null && toNumber(item.preco_sinapi_unitario, 0) > 0 && (
                     <div className="text-xs text-green-600">
-                      SINAPI: {formatCurrency(toNumber(item.preco_sinapi_unitario, 0))}
+                      SINAPI: {formatCurrency(item.preco_sinapi_unitario)}
                     </div>
                   )}
                 </TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
-                  {item?.sem_preco_sinapi ? (
-                    <Badge variant="destructive" className="text-xs">
-                      Sem preço SINAPI
-                    </Badge>
+                  {unpriced ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm text-muted-foreground">Não precificado</span>
+                      <Badge variant="destructive" className="text-[10px]">
+                        Aguardando conciliação
+                      </Badge>
+                    </div>
                   ) : item?.estimado_ia ? (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <span>{formatCurrency(toNumber(item?.preco_total, 0))}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span>{formatCurrency(item?.preco_total || 0)}</span>
                       <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white">
                         ✨ Estimativa IA
                       </Badge>
                     </div>
                   ) : (
-                    formatCurrency(toNumber(item?.preco_total, 0))
+                    <span>{formatCurrency(item?.preco_total || 0)}</span>
                   )}
                 </TableCell>
                 <TableCell>
@@ -268,7 +288,7 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                       className="text-xs cursor-pointer"
                       onClick={() => onLinkClick(item, [])}
                     >
-                      <Link2 className="h-3 w-3 mr-1" /> Vincular
+                      <Link2 className="h-3 w-3 mr-1" /> Não encontrado
                     </Badge>
                   ) : match && match.matched ? (
                     <Badge
@@ -277,10 +297,12 @@ function BudgetTable({ items, title, sinapiMatches, onLinkClick }: BudgetTablePr
                     >
                       <Link2 className="h-3 w-3 mr-1" /> Vincular ({Array.isArray(match.matches) ? match.matches.length : 0})
                     </Badge>
+                  ) : unpriced ? (
+                    <Badge variant="outline" className="text-xs text-red-600 border-red-200">
+                      Sem preço
+                    </Badge>
                   ) : (
-                    <span className="text-xs text-muted-foreground">
-                      {item?.origem_preco?.includes?.("Sem") ? "Est." : "—"}
-                    </span>
+                    <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </TableCell>
               </TableRow>
@@ -314,9 +336,7 @@ function SummaryCard({ resumo }: { resumo: ResumoFinal }) {
             <div className="rounded-lg border bg-muted/20 p-4">
               <p className="text-xs text-muted-foreground">BDI ({resumo.bdi_percentual}%)</p>
               <p className="text-xl font-bold">{formatCurrency(resumo.bdi_valor)}</p>
-              {resumo.premissas_bdi && (
-                <p className="text-xs text-muted-foreground mt-1">{resumo.premissas_bdi}</p>
-              )}
+              {resumo.premissas_bdi && <p className="text-xs text-muted-foreground mt-1">{resumo.premissas_bdi}</p>}
             </div>
           ) : null}
           <div className="rounded-lg border bg-primary/10 p-4">
@@ -340,12 +360,7 @@ function RecommendationsSection({ items, macroEtapas }: { items?: BrandRecommend
 
         for (const it of itensSeguros) {
           const marca = (it?.marca_sugerida || "").trim();
-          if (
-            !marca ||
-            marca === "—" ||
-            marca.toLowerCase() === "generico" ||
-            marca.toLowerCase() === "genérico"
-          ) {
+          if (!marca || marca === "—" || marca.toLowerCase() === "generico" || marca.toLowerCase() === "genérico") {
             continue;
           }
 
@@ -384,16 +399,12 @@ function RecommendationsSection({ items, macroEtapas }: { items?: BrandRecommend
           <CardContent className="space-y-5">
             {sugeridasPorEtapa.map((grupo, gi) => (
               <div key={`${grupo.etapa}-${gi}`}>
-                <h4 className="mb-2 font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-                  {grupo.etapa}
-                </h4>
+                <h4 className="mb-2 font-semibold text-sm text-muted-foreground uppercase tracking-wide">{grupo.etapa}</h4>
                 <div className="flex flex-wrap gap-2">
                   {grupo.marcas.map((m, mi) => (
                     <div key={`${m.nome}-${mi}`} className="rounded-lg border bg-muted/30 px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {Array.isArray(m.itens) ? m.itens.length : 0} itens
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">{Array.isArray(m.itens) ? m.itens.length : 0} itens</Badge>
                         <span className="font-medium">{m.nome}</span>
                       </div>
                       <p
@@ -427,9 +438,7 @@ function RecommendationsSection({ items, macroEtapas }: { items?: BrandRecommend
                   {(Array.isArray(rec?.marcas) ? rec.marcas : []).map((m, j) => (
                     <div key={`${m?.nome || "marca"}-${j}`} className="rounded-lg border bg-muted/30 p-3">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          #{j + 1}
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">#{j + 1}</Badge>
                         <span className="font-medium">{m?.nome || "Marca"}</span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">{m?.justificativa || "—"}</p>
@@ -454,7 +463,7 @@ export default function AnaliseResultado() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [matchingPrices, setMatchingPrices] = useState(false);
-  const [sinapiMatches, setSinapiMatches] = useState<Record<string, { matched: boolean; matches: SinapiMatch[] }>>({});
+  const [sinapiMatches, setSinapiMatches] = useState<Record<string, { matched: boolean; matches: SinapiMatch[]; confidence?: string; best_score?: number }>>({});
   const [linkModal, setLinkModal] = useState<{ open: boolean; item: BudgetItem | null; suggestions: SinapiMatch[] }>({
     open: false,
     item: null,
@@ -531,6 +540,87 @@ export default function AnaliseResultado() {
     load();
   }, [id]);
 
+  const applyAutomaticSinapiMatches = useCallback(
+    async (results: Record<string, any>) => {
+      if (!localResult || !id) return 0;
+
+      let appliedCount = 0;
+
+      const updatedResult = normalizeAnalysisResult({
+        ...localResult,
+        macro_etapas: (localResult.macro_etapas || []).map((etapa) => ({
+          ...etapa,
+          itens: (Array.isArray(etapa?.itens) ? etapa.itens : []).map((it) => {
+            const result = results[it.item];
+
+            if (
+              !result ||
+              !result.matched ||
+              result.confidence !== "alta" ||
+              !Array.isArray(result.matches) ||
+              result.matches.length === 0
+            ) {
+              return it;
+            }
+
+            const best = result.matches[0];
+            const precoUnit =
+              toNumber(best?.preco_total, 0) ||
+              (toNumber(best?.preco_material, 0) + toNumber(best?.preco_mao_de_obra, 0));
+
+            if (precoUnit <= 0) return it;
+
+            const qty = toNumber(it?.quantidade, 1);
+            appliedCount++;
+
+            return {
+              ...it,
+              descricao: best?.descricao || it.descricao,
+              preco_unitario: precoUnit,
+              preco_total: precoUnit * qty,
+              codigo_sinapi: best?.codigo || "",
+              origem_preco: "SINAPI",
+              preco_sinapi_unitario: precoUnit,
+              preco_conciliado: true,
+              sem_preco_sinapi: false,
+              alerta_revisao: false,
+              sinapi_match: best,
+              modo_conciliacao: "automatica",
+              match_confidence: result.confidence || "alta",
+              match_score: toNumber(result.best_score, 0),
+            };
+          }),
+        })),
+      });
+
+      updatedResult.resumo_final = recalculateTotals(
+        updatedResult,
+        toNumber((analysis as any)?.bdi_percentual, 25)
+      );
+
+      setLocalResult(updatedResult);
+
+      const totalGeral = toNumber(updatedResult?.resumo_final?.total_geral, 0);
+
+      const { error } = await supabase
+        .from("analyses")
+        .update({
+          resultado_json: updatedResult as any,
+          total_estimado: Number.isFinite(totalGeral) ? totalGeral : null,
+        } as any)
+        .eq("id", id);
+
+      if (error) {
+        console.error("Erro ao aplicar matches automáticos:", error);
+        toast.error("Os matches foram encontrados, mas houve erro ao salvar.");
+        return 0;
+      }
+
+      return appliedCount;
+    },
+    [localResult, id, analysis]
+  );
+
   const runMatching = useCallback(async () => {
     if (!Array.isArray(localResult?.macro_etapas) || localResult.macro_etapas.length === 0) return;
 
@@ -556,17 +646,34 @@ export default function AnaliseResultado() {
 
       if (error) throw error;
 
-      setSinapiMatches(data?.results || {});
-      const foundCount = Object.values(data?.results || {}).filter((r: any) => r?.matched).length;
+      const results = data?.results || {};
+      setSinapiMatches(results);
 
-      toast.success(`Busca concluída: ${foundCount} itens encontrados na base SINAPI.`);
+      const matchedEntries = Object.values(results).filter((r: any) => r?.matched);
+      const autoApplicable = Object.values(results).filter(
+        (r: any) =>
+          r?.matched &&
+          r?.confidence === "alta" &&
+          Array.isArray(r?.matches) &&
+          r.matches.length > 0
+      );
+
+      const autoAppliedCount = await applyAutomaticSinapiMatches(results);
+
+      toast.success(
+        `Busca concluída: ${matchedEntries.length} item(ns) encontrado(s). ${autoAppliedCount} conciliado(s) automaticamente.`
+      );
+
+      if (autoApplicable.length === 0 && matchedEntries.length > 0) {
+        toast.info("Os itens encontrados precisam de validação manual antes da vinculação.");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Erro ao buscar preços SINAPI.");
     } finally {
       setMatchingPrices(false);
     }
-  }, [localResult, analysis]);
+  }, [localResult, analysis, applyAutomaticSinapiMatches]);
 
   const handleLinkPrice = useCallback(
     (selectedMatch: SinapiMatch) => {
@@ -587,13 +694,17 @@ export default function AnaliseResultado() {
 
             return {
               ...it,
+              descricao: selectedMatch?.descricao || it.descricao,
               preco_unitario: precoUnit,
               preco_total: newTotal,
               codigo_sinapi: selectedMatch?.codigo || "",
               origem_preco: "SINAPI",
               preco_sinapi_unitario: precoUnit,
               preco_conciliado: true,
+              sem_preco_sinapi: false,
+              alerta_revisao: false,
               sinapi_match: selectedMatch,
+              modo_conciliacao: "manual",
             };
           }),
         })),
@@ -801,8 +912,7 @@ export default function AnaliseResultado() {
     );
   }
 
-  const hasMacroEtapas =
-    Array.isArray(localResult?.macro_etapas) && localResult.macro_etapas.length > 0;
+  const hasMacroEtapas = Array.isArray(localResult?.macro_etapas) && localResult.macro_etapas.length > 0;
 
   if (!localResult || analysis.status === "pending" || analysis.status === "error") {
     const isError = analysis.status === "error";
@@ -811,12 +921,7 @@ export default function AnaliseResultado() {
       <div className="min-h-screen bg-background">
         <nav className="border-b bg-primary text-primary-foreground">
           <div className="container flex h-16 items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="text-primary-foreground hover:bg-primary-foreground/10"
-            >
+            <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
               <Link to="/dashboard">
                 <ArrowLeft className="mr-1 h-4 w-4" /> Dashboard
               </Link>
@@ -831,18 +936,12 @@ export default function AnaliseResultado() {
         <div className="container max-w-xl py-16">
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-              <div
-                className={`flex h-16 w-16 items-center justify-center rounded-full ${
-                  isError ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"
-                }`}
-              >
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full ${isError ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
                 <FolderOpen className="h-8 w-8" />
               </div>
 
               <h2 className="text-xl font-semibold text-foreground">
-                {isError
-                  ? "A análise anterior falhou"
-                  : "Este projeto ainda é um rascunho ou aguarda processamento."}
+                {isError ? "A análise anterior falhou" : "Este projeto ainda é um rascunho ou aguarda processamento."}
               </h2>
 
               <p className="max-w-md text-sm text-muted-foreground">
@@ -869,16 +968,15 @@ export default function AnaliseResultado() {
   const result = normalizeAnalysisResult(localResult);
   const computedSummary = recalculateTotals(result, toNumber((analysis as any)?.bdi_percentual, 25));
 
+  const hasAnyUnpricedItems = (Array.isArray(result?.macro_etapas) ? result.macro_etapas : []).some((etapa) =>
+    (Array.isArray(etapa?.itens) ? etapa.itens : []).some((it) => isUnpricedItem(it))
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-14 items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="text-primary-foreground hover:bg-primary-foreground/10"
-          >
+          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
             <Link to="/dashboard">
               <ArrowLeft className="mr-1 h-4 w-4" /> Dashboard
             </Link>
@@ -894,9 +992,7 @@ export default function AnaliseResultado() {
       <div className="container pt-8 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight truncate">
-              {analysis.nome_projeto}
-            </h1>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight truncate">{analysis.nome_projeto}</h1>
             <p className="mt-1 text-sm text-slate-500">
               Detalhes do Projeto · {analysis.tipo_construcao || "Obra"}
               {result.area_total_m2 ? ` · ${result.area_total_m2} m²` : ""}
@@ -924,11 +1020,7 @@ export default function AnaliseResultado() {
               onClick={runMatching}
               disabled={matchingPrices}
             >
-              {matchingPrices ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-1 h-4 w-4" />
-              )}
+              {matchingPrices ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
               Conciliar SINAPI
             </Button>
 
@@ -968,11 +1060,7 @@ export default function AnaliseResultado() {
               disabled={downloadingPdf}
               className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
-              {downloadingPdf ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-1 h-4 w-4" />
-              )}
+              {downloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
               Baixar PDF
             </Button>
 
@@ -995,21 +1083,16 @@ export default function AnaliseResultado() {
             <div className="grid gap-4 sm:grid-cols-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Área Total</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                  {result?.area_total_m2 || "—"} m²
-                </p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{result?.area_total_m2 || "—"} m²</p>
               </div>
-
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Escala</p>
                 <p className="text-2xl font-bold text-slate-900">{result?.escala_detectada || "—"}</p>
               </div>
-
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Tipo</p>
                 <p className="text-2xl font-bold text-slate-900">{analysis.tipo_construcao || "—"}</p>
               </div>
-
               {result?.referencia_sinapi && (
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-500 font-medium">Ref. SINAPI</p>
@@ -1017,10 +1100,27 @@ export default function AnaliseResultado() {
                 </div>
               )}
             </div>
-
             {result?.resumo && <p className="mt-4 text-sm text-slate-600">{result.resumo}</p>}
           </CardContent>
         </Card>
+
+        {hasAnyUnpricedItems && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">
+                    Este orçamento possui itens ainda não precificados.
+                  </p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    Os totais exibidos podem estar subestimados até a conciliação com a base SINAPI ou revisão manual dos itens pendentes.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <ExecutiveDashboard result={result} resumo={computedSummary} analysisId={id} />
         <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
@@ -1066,21 +1166,29 @@ export default function AnaliseResultado() {
                   if (!filtered.length && searchFilter) return null;
 
                   const subtotal = filtered.reduce((s, it) => s + toNumber(it?.preco_total, 0), 0);
+                  const unpricedCount = filtered.filter((it) => isUnpricedItem(it)).length;
 
                   return (
                     <Card key={`${etapa?.nome || "etapa"}-${i}`}>
                       <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-3">
                           <CardTitle className="text-base">{etapa?.nome || "Etapa"}</CardTitle>
-                          <Badge variant="outline" className="font-mono">
-                            {formatCurrency(searchFilter ? subtotal : toNumber(etapa?.subtotal, 0))}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono">
+                              {formatCurrency(searchFilter ? subtotal : toNumber(etapa?.subtotal, 0))}
+                            </Badge>
+                            {unpricedCount > 0 && (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {unpricedCount} item(ns) sem preço
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
                         <EditableBudgetTable
                           items={filtered}
-                          sinapiMatches={sinapiMatches}
+                          sinapiMatches={sinapiMatches as any}
                           onLinkClick={(item, suggestions) =>
                             setLinkModal({
                               open: true,
@@ -1103,11 +1211,12 @@ export default function AnaliseResultado() {
                   if (!filtered.length && searchFilter) return null;
 
                   const subtotal = filtered.reduce((s, it) => s + toNumber(it?.preco_total, 0), 0);
+                  const unpricedCount = filtered.filter((it) => isUnpricedItem(it)).length;
 
                   return (
                     <Card key={`${group.comodo}-${i}`}>
                       <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <Home className="h-4 w-4 text-primary" />
                             <CardTitle className="text-base">{group.comodo}</CardTitle>
@@ -1119,13 +1228,18 @@ export default function AnaliseResultado() {
                             <Badge variant="outline" className="font-mono">
                               {formatCurrency(searchFilter ? subtotal : toNumber(group.subtotal, 0))}
                             </Badge>
+                            {unpricedCount > 0 && (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {unpricedCount} sem preço
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent>
                         <EditableBudgetTable
                           items={filtered}
-                          sinapiMatches={sinapiMatches}
+                          sinapiMatches={sinapiMatches as any}
                           onLinkClick={(item, suggestions) =>
                             setLinkModal({
                               open: true,

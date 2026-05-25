@@ -8,7 +8,7 @@ import { BudgetItem, SinapiMatch } from "@/lib/types";
 import { Pencil, Check, X, Plus, Link2, Loader2 } from "lucide-react";
 
 function formatCurrency(value: number | string) {
-  const num = typeof value === "string" ? parseFloat(value) : value;
+  const num = typeof value === "string" ? parseFloat(value.replace(",", ".")) : value;
   if (isNaN(num)) return "—";
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -17,6 +17,14 @@ function toNum(v: number | string | undefined | null): number {
   if (v == null) return 0;
   const n = typeof v === "string" ? parseFloat(v.replace(",", ".")) : v;
   return isNaN(n) ? 0 : n;
+}
+
+function isItemUnpriced(item: BudgetItem): boolean {
+  return (
+    !!item.sem_preco_sinapi ||
+    item.origem_preco === "sem_preco_encontrado" ||
+    (toNum(item.preco_unitario) <= 0 && toNum(item.preco_total) <= 0)
+  );
 }
 
 interface SinapiSuggestion {
@@ -43,21 +51,26 @@ function DescricaoAutocomplete({ value, onChange, onPick }: DescricaoAutocomplet
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
+
     if (!value || value.trim().length < 3) {
       setResults([]);
       return;
     }
+
     timer.current = setTimeout(async () => {
       setLoading(true);
+
       const { data } = await supabase
         .from("sinapi_base_oficial")
         .select("codigo, descricao, unidade, preco_total, preco_material, preco_mao_de_obra")
         .ilike("descricao", `%${value}%`)
         .limit(8);
+
       setResults((data as SinapiSuggestion[]) || []);
       setLoading(false);
       setOpen(true);
     }, 300);
+
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
@@ -69,6 +82,7 @@ function DescricaoAutocomplete({ value, onChange, onPick }: DescricaoAutocomplet
         setOpen(false);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -82,6 +96,7 @@ function DescricaoAutocomplete({ value, onChange, onPick }: DescricaoAutocomplet
         placeholder="Descrição do item..."
         className="h-8 text-xs"
       />
+
       {open && (loading || results.length > 0) && (
         <div className="absolute z-50 mt-1 max-h-72 w-[420px] overflow-y-auto rounded-md border bg-popover shadow-lg">
           {loading && (
@@ -89,27 +104,33 @@ function DescricaoAutocomplete({ value, onChange, onPick }: DescricaoAutocomplet
               <Loader2 className="h-3 w-3 animate-spin" /> Buscando na SINAPI...
             </div>
           )}
-          {!loading && results.map((r) => {
-            const preco = r.preco_total ?? ((r.preco_material || 0) + (r.preco_mao_de_obra || 0));
-            return (
-              <button
-                key={r.codigo}
-                type="button"
-                onClick={() => {
-                  onPick(r);
-                  setOpen(false);
-                }}
-                className="block w-full border-b px-3 py-2 text-left text-xs hover:bg-accent last:border-b-0"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[10px] text-muted-foreground">{r.codigo}</span>
-                  <span className="font-medium tabular-nums">{formatCurrency(preco)}</span>
-                </div>
-                <div className="mt-0.5 line-clamp-2 text-foreground">{r.descricao}</div>
-                {r.unidade && <span className="text-[10px] text-muted-foreground">Unid: {r.unidade}</span>}
-              </button>
-            );
-          })}
+
+          {!loading &&
+            results.map((r) => {
+              const preco = r.preco_total ?? ((r.preco_material || 0) + (r.preco_mao_de_obra || 0));
+
+              return (
+                <button
+                  key={r.codigo}
+                  type="button"
+                  onClick={() => {
+                    onPick(r);
+                    setOpen(false);
+                  }}
+                  className="block w-full border-b px-3 py-2 text-left text-xs hover:bg-accent last:border-b-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[10px] text-muted-foreground">{r.codigo}</span>
+                    <span className="font-medium tabular-nums">{formatCurrency(preco)}</span>
+                  </div>
+                  <div className="mt-0.5 line-clamp-2 text-foreground">{r.descricao}</div>
+                  {r.unidade && (
+                    <span className="text-[10px] text-muted-foreground">Unid: {r.unidade}</span>
+                  )}
+                </button>
+              );
+            })}
+
           {!loading && results.length === 0 && (
             <div className="p-2 text-xs text-muted-foreground">Nenhum resultado</div>
           )}
@@ -180,6 +201,7 @@ export function EditableBudgetTable({
   function applySinapiPick(target: BudgetItem, s: SinapiSuggestion): BudgetItem {
     const preco = s.preco_total ?? ((s.preco_material || 0) + (s.preco_mao_de_obra || 0));
     const qty = toNum(target.quantidade);
+
     return {
       ...target,
       descricao: s.descricao,
@@ -188,26 +210,35 @@ export function EditableBudgetTable({
       preco_unitario: preco,
       preco_total: preco * qty,
       origem_preco: "SINAPI",
+      preco_conciliado: true,
+      sem_preco_sinapi: false,
+      alerta_revisao: false,
     };
   }
 
   function updateDraft(patch: Partial<BudgetItem>, isNew: boolean) {
     const base = isNew ? newDraft : draft;
     if (!base) return;
+
     const merged = { ...base, ...patch };
-    // Reactive total
+
     if ("quantidade" in patch || "preco_unitario" in patch) {
       merged.preco_total = toNum(merged.quantidade) * toNum(merged.preco_unitario);
     }
+
     if (isNew) setNewDraft(merged);
     else setDraft(merged);
   }
 
   async function saveEdit() {
     if (!draft || !editingId) return;
+
     setSaving(true);
     try {
-      const finalItem = { ...draft, preco_total: toNum(draft.quantidade) * toNum(draft.preco_unitario) };
+      const finalItem = {
+        ...draft,
+        preco_total: toNum(draft.quantidade) * toNum(draft.preco_unitario),
+      };
       await onUpdateItem(editingId, finalItem);
       cancelEdit();
     } finally {
@@ -217,9 +248,13 @@ export function EditableBudgetTable({
 
   async function saveAdd() {
     if (!newDraft || !onAddItem) return;
+
     setSaving(true);
     try {
-      const finalItem = { ...newDraft, preco_total: toNum(newDraft.quantidade) * toNum(newDraft.preco_unitario) };
+      const finalItem = {
+        ...newDraft,
+        preco_total: toNum(newDraft.quantidade) * toNum(newDraft.preco_unitario),
+      };
       await onAddItem(finalItem);
       cancelAdd();
     } finally {
@@ -237,6 +272,7 @@ export function EditableBudgetTable({
             className="h-8 w-14 text-xs font-mono"
           />
         </TableCell>
+
         <TableCell className="min-w-[260px]">
           <DescricaoAutocomplete
             value={d.descricao}
@@ -248,6 +284,7 @@ export function EditableBudgetTable({
             }}
           />
         </TableCell>
+
         <TableCell>
           <Input
             value={d.local_aplicacao || ""}
@@ -255,6 +292,7 @@ export function EditableBudgetTable({
             className="h-8 text-xs"
           />
         </TableCell>
+
         <TableCell>
           <Input
             value={d.fornecedor || ""}
@@ -262,6 +300,7 @@ export function EditableBudgetTable({
             className="h-8 text-xs"
           />
         </TableCell>
+
         <TableCell>
           <Input
             value={d.marca || ""}
@@ -269,6 +308,7 @@ export function EditableBudgetTable({
             className="h-8 text-xs"
           />
         </TableCell>
+
         <TableCell>
           <Input
             type="number"
@@ -278,6 +318,7 @@ export function EditableBudgetTable({
             className="h-8 w-20 text-right text-xs tabular-nums"
           />
         </TableCell>
+
         <TableCell>
           <Input
             value={d.unidade || ""}
@@ -285,6 +326,7 @@ export function EditableBudgetTable({
             className="h-8 w-16 text-xs"
           />
         </TableCell>
+
         <TableCell>
           <Input
             type="number"
@@ -294,9 +336,11 @@ export function EditableBudgetTable({
             className="h-8 w-24 text-right text-xs tabular-nums"
           />
         </TableCell>
+
         <TableCell className="text-right font-medium tabular-nums text-emerald-700">
           {formatCurrency(toNum(d.quantidade) * toNum(d.preco_unitario))}
         </TableCell>
+
         <TableCell>
           <Input
             value={d.codigo_sinapi || ""}
@@ -304,6 +348,7 @@ export function EditableBudgetTable({
             className="h-8 w-24 text-xs font-mono"
           />
         </TableCell>
+
         <TableCell className="whitespace-nowrap">
           <div className="flex gap-1">
             <Button
@@ -315,6 +360,7 @@ export function EditableBudgetTable({
             >
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
             </Button>
+
             <Button
               size="sm"
               variant="outline"
@@ -348,12 +394,15 @@ export function EditableBudgetTable({
             <TableHead className="w-24 text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
+
         <TableBody>
           {items.map((item, i) => {
             if (editingId === item.item && draft) return renderEditingRow(draft, false);
+
             const match = sinapiMatches[item.item];
-            const isConciliado = item.preco_conciliado;
+            const isConciliado = !!item.preco_conciliado;
             const hasSinapiCode = !!item.codigo_sinapi;
+            const unpriced = isItemUnpriced(item);
             const zebra = items.length > 5 && i % 2 === 1 ? "bg-slate-50/60" : "";
 
             return (
@@ -362,18 +411,52 @@ export function EditableBudgetTable({
                 className={
                   item.alerta_revisao
                     ? "bg-red-50 border-l-4 border-l-red-500"
+                    : unpriced
+                    ? "bg-amber-50/60 border-l-4 border-l-amber-400"
                     : isConciliado
                     ? "bg-green-50/50"
                     : zebra
                 }
               >
                 <TableCell className="font-mono text-xs">{item.item}</TableCell>
+
                 <TableCell className="text-sm">
-                  {item.descricao}
-                  {item.perda_aplicada && (
-                    <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>
-                  )}
-                </TableCell>
+  <div className="flex flex-col gap-1">
+    <div>
+      {item.descricao}
+      {item.perda_aplicada && (
+        <span className="ml-1 text-xs text-muted-foreground">(perda: {item.perda_aplicada})</span>
+      )}
+    </div>
+
+    <div className="flex flex-wrap gap-1">
+      {item.modo_conciliacao === "automatica" && (
+        <Badge className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white">
+          Auto SINAPI
+        </Badge>
+      )}
+
+      {item.modo_conciliacao === "manual" && (
+        <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white">
+          Vinculado manualmente
+        </Badge>
+      )}
+
+      {item.estimado_ia && (
+        <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white">
+          ✨ Estimativa IA
+        </Badge>
+      )}
+
+      {item.sem_preco_sinapi && (
+        <Badge variant="destructive" className="text-[10px]">
+          Sem preço
+        </Badge>
+      )}
+    </div>
+  </div>
+</TableCell>
+
                 <TableCell className="text-xs">
                   {item.local_aplicacao ? (
                     <Badge variant="secondary" className="text-xs font-normal">
@@ -383,12 +466,41 @@ export function EditableBudgetTable({
                     "—"
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{item.fornecedor}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{item.marca}</TableCell>
+
+                <TableCell className="text-xs text-muted-foreground">{item.fornecedor || "—"}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{item.marca || "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{item.quantidade}</TableCell>
                 <TableCell>{item.unidade}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatCurrency(item.preco_unitario)}</TableCell>
-                <TableCell className="text-right font-medium tabular-nums">{formatCurrency(item.preco_total)}</TableCell>
+
+                <TableCell className="text-right tabular-nums">
+                  {unpriced ? (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  ) : (
+                    <span>{formatCurrency(item.preco_unitario)}</span>
+                  )}
+
+                  {item.preco_sinapi_unitario != null && toNum(item.preco_sinapi_unitario) > 0 && (
+                    <div className="text-xs text-green-600">
+                      SINAPI: {formatCurrency(item.preco_sinapi_unitario)}
+                    </div>
+                  )}
+                </TableCell>
+
+                <TableCell className="text-right font-medium tabular-nums">
+                  {unpriced ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm text-muted-foreground">Não precificado</span>
+                      <Badge variant="destructive" className="text-[10px]">
+                        Aguardando conciliação
+                      </Badge>
+                    </div>
+                  ) : (
+  <span>{formatCurrency(item.preco_total)}</span>
+)}
+                    <span>{formatCurrency(item.preco_total)}</span>
+                  
+                </TableCell>
+
                 <TableCell>
                   {isConciliado ? (
                     <Badge
@@ -408,10 +520,15 @@ export function EditableBudgetTable({
                     >
                       <Link2 className="h-3 w-3 mr-1" /> Vincular ({match.matches.length})
                     </Badge>
+                  ) : unpriced ? (
+                    <Badge variant="outline" className="text-xs text-red-600 border-red-200">
+                      Sem preço
+                    </Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </TableCell>
+
                 <TableCell className="text-right">
                   <Button
                     size="sm"
@@ -426,6 +543,7 @@ export function EditableBudgetTable({
               </TableRow>
             );
           })}
+
           {adding && newDraft && renderEditingRow(newDraft, true)}
         </TableBody>
       </Table>
