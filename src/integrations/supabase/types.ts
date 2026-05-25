@@ -1020,62 +1020,77 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_type: string | null
           ano_criacao_negocio: number | null
           area_atuacao: string | null
           celular_whatsapp: string | null
           cidade: string | null
+          cnpj: string | null
           como_conheceu: string | null
+          cpf: string | null
           created_at: string
           data_nascimento: string | null
           empresa: string | null
           estado: string | null
           id: string
+          inscricao_estadual: string | null
           motivo_uso: string | null
           nome: string | null
           nome_completo: string | null
           nome_empresa: string | null
           qtd_funcionarios: string | null
           qtd_obras_atual: number | null
+          telefone_comercial: string | null
           tipo_empresa: string | null
           user_id: string
         }
         Insert: {
+          account_type?: string | null
           ano_criacao_negocio?: number | null
           area_atuacao?: string | null
           celular_whatsapp?: string | null
           cidade?: string | null
+          cnpj?: string | null
           como_conheceu?: string | null
+          cpf?: string | null
           created_at?: string
           data_nascimento?: string | null
           empresa?: string | null
           estado?: string | null
           id?: string
+          inscricao_estadual?: string | null
           motivo_uso?: string | null
           nome?: string | null
           nome_completo?: string | null
           nome_empresa?: string | null
           qtd_funcionarios?: string | null
           qtd_obras_atual?: number | null
+          telefone_comercial?: string | null
           tipo_empresa?: string | null
           user_id: string
         }
         Update: {
+          account_type?: string | null
           ano_criacao_negocio?: number | null
           area_atuacao?: string | null
           celular_whatsapp?: string | null
           cidade?: string | null
+          cnpj?: string | null
           como_conheceu?: string | null
+          cpf?: string | null
           created_at?: string
           data_nascimento?: string | null
           empresa?: string | null
           estado?: string | null
           id?: string
+          inscricao_estadual?: string | null
           motivo_uso?: string | null
           nome?: string | null
           nome_completo?: string | null
           nome_empresa?: string | null
           qtd_funcionarios?: string | null
           qtd_obras_atual?: number | null
+          telefone_comercial?: string | null
           tipo_empresa?: string | null
           user_id?: string
         }
