@@ -747,9 +747,9 @@ export default function Index() {
             <div>
               <h4 className="font-semibold text-slate-900 mb-3 text-sm">Geral</h4>
               <ul className="space-y-2 text-sm text-slate-500">
-                <li><a href="#" className="hover:text-slate-900 transition-colors">Carreira</a></li>
-                <li><a href="#" className="hover:text-slate-900 transition-colors">Termos de Uso</a></li>
-                <li><a href="#" className="hover:text-slate-900 transition-colors">Política de Privacidade</a></li>
+                <li><Link to="/carreira" className="hover:text-slate-900 transition-colors">Carreira</Link></li>
+                <li><Link to="/termos-de-uso" className="hover:text-slate-900 transition-colors">Termos de Uso</Link></li>
+                <li><Link to="/politica-de-privacidade" className="hover:text-slate-900 transition-colors">Política de Privacidade</Link></li>
               </ul>
             </div>
 
