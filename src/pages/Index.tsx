@@ -101,16 +101,8 @@ export default function Index() {
     { step: "04", icon: FileSpreadsheet, title: "Exportação Completa", desc: "Baixe PDF, Excel ou compartilhe o link do orçamento." },
   ];
 
-  const faqItems = [
-    { q: "Quais formatos de planta são suportados?", a: "Aceitamos PDF, JPG, PNG e arquivos DWG (até 50MB para DWG e 20MB para os demais). A IA funciona melhor com plantas em escala e boa resolução." },
-    { q: "Como funciona a integração com o SINAPI?", a: "Você pode fazer upload da planilha oficial do SINAPI para sua região. A IA vincula automaticamente cada insumo identificado ao código SINAPI mais próximo por similaridade de descrição." },
-    { q: "A IA substitui o orçamentista?", a: "Não. O Obra Link é um copiloto que acelera o trabalho do profissional. A revisão humana continua sendo fundamental, especialmente em projetos complexos." },
-    { q: "Qual a margem de precisão da análise?", a: "Para plantas com escala definida e área informada, a precisão fica entre 85-95%. Sem escala, a margem de erro pode chegar a 30%. Sempre recomendamos calibração manual." },
-    { q: "Posso usar para obras de grande porte?", a: "Sim. O sistema suporta múltiplos pavimentos e diversas tipologias construtivas. Para obras muito complexas, recomendamos dividir a análise por etapas ou blocos." },
-    { q: "Como funciona o BDI configurável?", a: "Você define os percentuais de administração central, lucro, impostos e outros encargos. O BDI é aplicado sobre o custo direto de cada item do orçamento." },
-    { q: "Meus dados e plantas ficam seguros?", a: "Sim. Toda comunicação é criptografada (TLS/SSL), os dados ficam em servidores isolados e seguimos as diretrizes da LGPD. Você pode excluir seus dados a qualquer momento." },
-    { q: "Quantas análises posso fazer gratuitamente?", a: "As primeiras 3 análises são gratuitas, sem necessidade de cartão de crédito. Após isso, oferecemos planos acessíveis para profissionais e empresas." },
-  ];
+  const faqItems = landingFaq;
+
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
