@@ -9,6 +9,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Páginas Públicas
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import EsqueciSenha from "./pages/EsqueciSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import Blog from "./pages/Blog";
 import DocumentosDicas from "./pages/DocumentosDicas";
 import QuemSomos from "./pages/QuemSomos";
@@ -65,6 +67,8 @@ const App = () => (
             {/* ── Rotas Públicas ───────────────────────────────────── */}
             <Route path="/"               element={<Index />} />
             <Route path="/auth"           element={<Auth />} />
+            <Route path="/esqueci-senha"  element={<EsqueciSenha />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
             <Route path="/blog"           element={<Blog />} />
             <Route path="/documentos"     element={<DocumentosDicas />} />
             <Route path="/sobre-nos"      element={<QuemSomos />} />
