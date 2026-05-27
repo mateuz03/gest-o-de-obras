@@ -67,6 +67,8 @@ const App = () => (
             {/* ── Rotas Públicas ───────────────────────────────────── */}
             <Route path="/"               element={<Index />} />
             <Route path="/auth"           element={<Auth />} />
+            <Route path="/esqueci-senha"  element={<EsqueciSenha />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
             <Route path="/blog"           element={<Blog />} />
             <Route path="/documentos"     element={<DocumentosDicas />} />
             <Route path="/sobre-nos"      element={<QuemSomos />} />
