@@ -9,6 +9,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Páginas Públicas
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import EsqueciSenha from "./pages/EsqueciSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import Blog from "./pages/Blog";
 import DocumentosDicas from "./pages/DocumentosDicas";
 import QuemSomos from "./pages/QuemSomos";
