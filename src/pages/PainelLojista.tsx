@@ -95,7 +95,9 @@ export default function PainelLojista() {
             estado: dataPerfil.estado || "SP",
             descricao: dataPerfil.descricao || "",
             instagram: dataPerfil.instagram || "",
-            horario_atendimento: dataPerfil.horario_atendimento || ""
+            horario_atendimento: dataPerfil.horario_atendimento || "",
+            categoria: dataPerfil.categoria || "",
+            logo_url: dataPerfil.logo_url || ""
           });
         }
       } catch (error) {
