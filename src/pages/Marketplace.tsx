@@ -765,8 +765,11 @@ export default function Marketplace() {
               ))}
             </div>
           )}
+          </>
+          )}
 
           <div className="grid sm:grid-cols-2 gap-4 mt-8">
+
             <Card className="border-0 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-md">
               <CardContent className="p-5 flex items-center gap-4">
                 <Sparkles className="h-8 w-8 text-emerald-100 shrink-0" />
