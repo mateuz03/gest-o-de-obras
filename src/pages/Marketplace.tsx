@@ -352,6 +352,7 @@ export default function Marketplace() {
   const [precoMin, setPrecoMin] = useState("");
   const [precoMax, setPrecoMax] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("recentes");
+  const [viewMode, setViewMode] = useState<"produtos" | "lojas">("produtos");
 
   const [itens, setItens] = useState<ItemProjeto[]>([]);
 
