@@ -66,7 +66,9 @@ export default function PainelLojista() {
     estado: "SP",
     descricao: "",
     instagram: "",
-    horario_atendimento: ""
+    horario_atendimento: "",
+    categoria: "",
+    logo_url: ""
   });
 
   // Calcula % de preenchimento
@@ -93,7 +95,9 @@ export default function PainelLojista() {
             estado: dataPerfil.estado || "SP",
             descricao: dataPerfil.descricao || "",
             instagram: dataPerfil.instagram || "",
-            horario_atendimento: dataPerfil.horario_atendimento || ""
+            horario_atendimento: dataPerfil.horario_atendimento || "",
+            categoria: dataPerfil.categoria || "",
+            logo_url: dataPerfil.logo_url || ""
           });
         }
       } catch (error) {
@@ -288,8 +292,41 @@ export default function PainelLojista() {
                           className="mt-1 resize-none" 
                         />
                       </div>
+
+                      <div className="grid sm:grid-cols-2 gap-6">
+                        <div>
+                          <Label className="text-slate-700 font-bold">Categoria / Nicho <span className="text-red-500">*</span></Label>
+                          <select
+                            value={perfil.categoria}
+                            onChange={(e) => setPerfil({ ...perfil, categoria: e.target.value })}
+                            className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          >
+                            <option value="">Selecione a categoria</option>
+                            {[
+                              "Materiais de Construção",
+                              "Ferramentas",
+                              "Materiais Elétricos",
+                              "Materiais Hidráulicos",
+                              "Equipamentos",
+                              "Acabamentos",
+                              "Tintas e Revestimentos",
+                              "Madeiras",
+                              "Aço e Ferragens",
+                            ].map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Ajuda os clientes a encontrarem sua loja no diretório.</p>
+                        </div>
+                        <div>
+                          <Label className="text-slate-700 font-bold">Logotipo (URL) (Opcional)</Label>
+                          <Input placeholder="https://..." value={perfil.logo_url} onChange={(e) => setPerfil({ ...perfil, logo_url: e.target.value })} className="mt-1" />
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Link da imagem do logo da sua loja.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
 
                   {/* Seção 2: Contato e Localização */}
                   <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">

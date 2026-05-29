@@ -928,6 +928,7 @@ export type Database = {
       }
       perfil_lojista: {
         Row: {
+          categoria: string | null
           cidade: string
           cnpj: string
           created_at: string
@@ -936,6 +937,8 @@ export type Database = {
           horario_atendimento: string | null
           id: string
           instagram: string | null
+          is_premium: boolean
+          logo_url: string | null
           nome_loja: string
           plano_atual: string
           status: string
@@ -943,6 +946,7 @@ export type Database = {
           whatsapp: string
         }
         Insert: {
+          categoria?: string | null
           cidade: string
           cnpj: string
           created_at?: string
@@ -951,6 +955,8 @@ export type Database = {
           horario_atendimento?: string | null
           id?: string
           instagram?: string | null
+          is_premium?: boolean
+          logo_url?: string | null
           nome_loja: string
           plano_atual?: string
           status?: string
@@ -958,6 +964,7 @@ export type Database = {
           whatsapp: string
         }
         Update: {
+          categoria?: string | null
           cidade?: string
           cnpj?: string
           created_at?: string
@@ -966,6 +973,8 @@ export type Database = {
           horario_atendimento?: string | null
           id?: string
           instagram?: string | null
+          is_premium?: boolean
+          logo_url?: string | null
           nome_loja?: string
           plano_atual?: string
           status?: string
