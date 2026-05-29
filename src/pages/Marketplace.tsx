@@ -607,7 +607,46 @@ export default function Marketplace() {
         </aside>
 
         <main className="min-w-0">
+          {/* Alternância de visão: Materiais x Lojas */}
+          <div className="mb-5 inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <button
+              onClick={() => setViewMode("produtos")}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "produtos"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Materiais
+            </button>
+            <button
+              onClick={() => setViewMode("lojas")}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "lojas"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Store className="h-4 w-4" />
+              Lojas
+            </button>
+          </div>
+
+          {viewMode === "lojas" ? (
+            <>
+              <div className="mb-5">
+                <h2 className="text-xl font-bold text-slate-900">Diretório de Lojas</h2>
+                <p className="text-sm text-slate-500">
+                  Conheça as lojas parceiras e visite a vitrine de cada uma.
+                </p>
+              </div>
+              <StoreDirectory />
+            </>
+          ) : (
+          <>
           <div className="space-y-4 mb-5">
+
             <div className="flex flex-col md:flex-row md:items-center gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
