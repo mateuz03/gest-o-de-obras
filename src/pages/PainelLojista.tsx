@@ -66,7 +66,9 @@ export default function PainelLojista() {
     estado: "SP",
     descricao: "",
     instagram: "",
-    horario_atendimento: ""
+    horario_atendimento: "",
+    categoria: "",
+    logo_url: ""
   });
 
   // Calcula % de preenchimento
