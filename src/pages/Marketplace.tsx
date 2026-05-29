@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
+import { StoreDirectory } from "@/components/marketplace/StoreDirectory";
 
 const categorias = [
   "Todos",
