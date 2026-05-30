@@ -1,68 +1,39 @@
+## Objetivo
 
-# AI Construct Estimator — Plano de Implementação
+Aprimorar o fluxo de recuperação de senha em três frentes: reenvio do link com proteção anti-spam, feedback visual de força/critérios da senha e tratamento claro de token expirado ou inválido.
 
-## Visão Geral
-App web para análise de plantas baixas usando IA (Gemini via Lovable AI), que gera estimativas detalhadas de materiais de construção com exportação em PDF e Excel.
+## O que será feito
 
-## Abordagem Técnica para Análise de Plantas
-- **Motor**: Gemini 2.5 Pro (multimodal, excelente para análise de imagens e raciocínio complexo)
-- **Método**: Enviar imagem/PDF da planta para o modelo com prompt especializado de engenharia civil. O modelo interpreta paredes, portas, janelas, escala e dimensões diretamente — sem necessidade de OpenCV
-- **Guia de escala**: O prompt instrui a IA a identificar indicadores de escala (cotas, legenda, escala gráfica) e usar proporções para calcular dimensões reais
+### 1. Reenvio do link com cooldown (`src/pages/EsqueciSenha.tsx`)
+Na tela de sucesso ("Verifique seu e-mail"), o botão atual "Enviar para outro e-mail" será mantido, e será adicionado um novo botão **"Reenviar link"** que:
+- Reenvia para o mesmo e-mail já informado.
+- Fica desabilitado durante um **cooldown de 60s**, exibindo a contagem regressiva (ex.: "Reenviar em 45s").
+- Mostra um toast de confirmação após o reenvio.
+- O cooldown inicia automaticamente no primeiro envio, evitando spam.
 
-## Stack
-- **Frontend**: React + Tailwind + shadcn/ui
-- **Backend**: Lovable Cloud (Supabase) — auth, banco de dados, edge functions
-- **IA**: Lovable AI Gateway (Gemini 2.5 Pro) via edge function
-- **Exportação**: PDF (client-side) + Excel (client-side)
+### 2. Medidor de força e critérios visuais (`src/pages/RedefinirSenha.tsx`)
+No formulário de nova senha:
+- **Barra de força** (Fraca / Média / Forte / Muito forte) calculada por comprimento e variedade de caracteres (letras, números, maiúsculas, símbolos), com cor adaptativa usando tokens do design system.
+- **Checklist de critérios** em tempo real, com ícone de check/pendente para cada regra:
+  - Mínimo de 8 caracteres
+  - Pelo menos uma letra
+  - Pelo menos um número
+- Indicador de **"As senhas conferem"** para o campo "Confirmar Nova Senha".
+- A lógica de validação Zod existente permanece como fonte de verdade para habilitar o botão.
 
-## Páginas e Funcionalidades
+### 3. Validação de token aprimorada (`src/pages/RedefinirSenha.tsx`)
+- Detectar explicitamente erros vindos no hash da URL (`error`, `error_code`, `error_description`) — caso comum quando o link expira (`otp_expired`) ou é inválido (`access_denied`).
+- Diferenciar mensagens: **expirado** vs **inválido**, com texto orientando a solicitar um novo link.
+- Manter o estado de carregamento enquanto verifica a sessão/evento `PASSWORD_RECOVERY`, e cair no estado de erro claro quando nenhum token válido for encontrado (com botão "Solicitar novo link" já existente, reforçado).
 
-### 1. Landing Page
-- Hero com descrição do produto e CTA "Começar Análise"
-- Como funciona (3 passos: Upload → IA Analisa → Resultados)
+## Detalhes técnicos
 
-### 2. Autenticação
-- Login/Cadastro com email e senha
-- Perfil do usuário (nome, empresa)
+- **Componentes reutilizados:** `Button`, `Input`, `Card`, ícones `lucide-react` (`Check`, `X`, `RefreshCw`), `toast` (sonner) — todos já usados nas telas.
+- **Cooldown:** implementado com `useState` + `useEffect`/`setInterval` para a contagem regressiva, limpando o intervalo no unmount.
+- **Força da senha:** função pura local que retorna `{ score, label, color }`; barra renderizada com `div` segmentada ou `Progress`, usando classes de token (`bg-primary`, `bg-destructive`, etc.) — sem cores hardcoded.
+- **Sem mudanças de backend:** nenhuma migração, RLS ou edge function. Apenas chamadas já existentes (`resetPasswordForEmail`, `updateUser`).
+- **Sem mudança de paleta:** todo o styling segue os tokens atuais do design system.
 
-### 3. Dashboard
-- Lista de análises anteriores com data, nome do projeto e status
-- Botão "Nova Análise"
-
-### 4. Nova Análise (fluxo principal)
-- **Step 1**: Upload de imagem (JPG/PNG) ou PDF da planta baixa
-- **Step 2**: Formulário com dados complementares (escala se conhecida, tipo de construção, região/cidade para preços)
-- **Step 3**: Processamento — enviar para edge function que chama Gemini
-- **Step 4**: Resultados em tabelas organizadas por categoria:
-
-#### Tabelas de Resultado:
-| Categoria | Itens Estimados |
-|-----------|----------------|
-| **Estrutura** | Tijolos, cimento (sacos), areia (m³), vergalhões (barras/kg) |
-| **Acabamento** | Piso (m²), tinta (latas), gesso (m²) |
-| **Instalações** | Fiação elétrica (metros), tubulação hidráulica (metros), pontos elétricos, pontos hidráulicos |
-| **Recomendações** | Top 3 marcas custo-benefício por item principal |
-
-### 5. Exportação
-- Botão "Exportar PDF" — relatório formatado com logo e tabelas
-- Botão "Exportar Excel" — planilha com todas as tabelas de materiais
-
-## Banco de Dados (Supabase)
-- **profiles**: id, user_id, nome, empresa
-- **analyses**: id, user_id, nome_projeto, imagem_url, dados_input, resultado_json, created_at
-- Storage bucket para uploads de plantas
-
-## Edge Function: analyze-blueprint
-- Recebe imagem (base64) + dados complementares
-- Envia para Gemini 2.5 Pro com prompt de engenharia civil
-- Retorna JSON estruturado com todas as estimativas
-- Trata erros 429/402
-
-## User Stories do MVP
-1. Como usuário, quero me cadastrar e fazer login para salvar minhas análises
-2. Como usuário, quero fazer upload de uma planta baixa (imagem ou PDF)
-3. Como usuário, quero informar a escala e tipo de construção antes da análise
-4. Como usuário, quero ver os resultados organizados em tabelas por categoria
-5. Como usuário, quero receber recomendações de marcas para cada material
-6. Como usuário, quero exportar os resultados em PDF e Excel
-7. Como usuário, quero acessar análises anteriores no meu dashboard
+## Arquivos afetados
+- `src/pages/EsqueciSenha.tsx` (editar) — botão de reenvio + cooldown
+- `src/pages/RedefinirSenha.tsx` (editar) — medidor de força, checklist, validação de token

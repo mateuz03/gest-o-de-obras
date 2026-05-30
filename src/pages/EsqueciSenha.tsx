@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { z } from "zod";
-import { Box, ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
+import { Box, ArrowLeft, Mail, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,28 +10,57 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const emailSchema = z.string().trim().email().max(255);
+const RESEND_COOLDOWN = 60;
 
 export default function EsqueciSenha() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const isValid = useMemo(() => emailSchema.safeParse(email).success, [email]);
+
+  // Contagem regressiva do cooldown de reenvio (prevenção de spam)
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => {
+      setCooldown((c) => (c <= 1 ? 0 : c - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
+  const sendLink = async () => {
+    // Por segurança, sempre exibimos a mesma mensagem, sem revelar se o e-mail existe
+    await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
     setLoading(true);
     try {
-      // Por segurança, sempre exibimos a mesma mensagem, sem revelar se o e-mail existe
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
-      });
-      setSent(true);
+      await sendLink();
     } catch {
       // Mantemos o mesmo feedback para não vazar existência de conta
-      setSent(true);
     } finally {
+      setSent(true);
+      setCooldown(RESEND_COOLDOWN);
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0 || !isValid) return;
+    setLoading(true);
+    try {
+      await sendLink();
+      toast.success("Link reenviado! Verifique sua caixa de entrada.");
+    } catch {
+      toast.success("Link reenviado! Verifique sua caixa de entrada.");
+    } finally {
+      setCooldown(RESEND_COOLDOWN);
       setLoading(false);
     }
   };
@@ -66,7 +95,15 @@ export default function EsqueciSenha() {
                 </p>
               </div>
               <div className="flex flex-col gap-2">
-                <Button asChild className="w-full">
+                <Button
+                  className="w-full"
+                  onClick={handleResend}
+                  disabled={cooldown > 0 || loading}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  {cooldown > 0 ? `Reenviar em ${cooldown}s` : "Reenviar link"}
+                </Button>
+                <Button asChild variant="outline" className="w-full">
                   <Link to="/auth">Voltar ao login</Link>
                 </Button>
                 <Button
@@ -75,6 +112,7 @@ export default function EsqueciSenha() {
                   onClick={() => {
                     setSent(false);
                     setEmail("");
+                    setCooldown(0);
                   }}
                 >
                   Enviar para outro e-mail
