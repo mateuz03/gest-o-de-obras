@@ -90,7 +90,7 @@ export default function Navbar() {
               <Link to="/dashboard" className="text-sm font-medium text-slate-700">Gestão de Projetos</Link>
               <Link to="/marketplace" className="text-sm font-medium text-slate-700">Marketplace</Link>
               <Link to="/profissionais" className="text-sm font-medium text-slate-700">Prestar Serviços</Link>
-              <Link to="/seja-parceiro" className="text-sm font-medium text-slate-700">Seja Parceiro</Link>
+              {podeCriarLoja && <Link to="/seja-parceiro" className="text-sm font-medium text-slate-700">Crie sua Loja</Link>}
             </div>
           </div>
           <div>
