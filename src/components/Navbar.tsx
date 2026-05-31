@@ -34,7 +34,7 @@ export default function Navbar() {
               <Link to="/dashboard" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Gestão de Projetos</Link>
               <Link to="/marketplace" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Marketplace</Link>
               <Link to="/profissionais" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Prestar Serviços</Link>
-              <Link to="/seja-parceiro" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Seja Parceiro</Link>
+              {podeCriarLoja && <Link to="/seja-parceiro" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Crie sua Loja</Link>}
             </div>
           </div>
 
