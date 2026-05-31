@@ -11,6 +11,7 @@ import { Analysis } from "@/lib/types";
 import {
   Plus, LogOut, Box, Search, AlertCircle, RefreshCw, Database, User, ShieldCheck,
   FolderOpen, FolderKanban, DollarSign, TrendingUp, Users, LayoutGrid, List,
+  Store, Megaphone,
 } from "lucide-react";
 import { DashboardAlertsSummary } from "@/components/DashboardAlertsSummary";
 import { KPICard } from "@/components/dashboard/KPICard";
@@ -30,7 +31,7 @@ const formatCurrencyShort = (v: number) => {
 type ViewMode = "grid" | "list";
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, accountType } = useAuth();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -138,6 +139,16 @@ export default function Dashboard() {
             <p className="text-slate-500">Visão geral das suas obras e orçamentos</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* Navegação condicional por tipo de conta */}
+            {accountType === "CNPJ" ? (
+              <Button variant="outline" asChild className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                <Link to="/painel-loja"><Store className="mr-2 h-4 w-4" /> Gerenciar Minha Loja</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" asChild className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                <Link to="/meus-anuncios"><Megaphone className="mr-2 h-4 w-4" /> Meus Anúncios</Link>
+              </Button>
+            )}
             <Button variant="outline" asChild className="border-slate-200 text-slate-600 hover:bg-white">
               <Link to="/sinapi"><Database className="mr-2 h-4 w-4" /> Base SINAPI</Link>
             </Button>

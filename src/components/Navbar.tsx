@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, accountType } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // "Crie sua Loja" é exclusivo de CNPJ. Visível para visitantes e contas CNPJ.
+  const podeCriarLoja = !user || accountType === "CNPJ";
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
@@ -31,7 +34,7 @@ export default function Navbar() {
               <Link to="/dashboard" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Gestão de Projetos</Link>
               <Link to="/marketplace" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Marketplace</Link>
               <Link to="/profissionais" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Prestar Serviços</Link>
-              <Link to="/seja-parceiro" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Seja Parceiro</Link>
+              {podeCriarLoja && <Link to="/seja-parceiro" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Crie sua Loja</Link>}
             </div>
           </div>
 
@@ -87,7 +90,7 @@ export default function Navbar() {
               <Link to="/dashboard" className="text-sm font-medium text-slate-700">Gestão de Projetos</Link>
               <Link to="/marketplace" className="text-sm font-medium text-slate-700">Marketplace</Link>
               <Link to="/profissionais" className="text-sm font-medium text-slate-700">Prestar Serviços</Link>
-              <Link to="/seja-parceiro" className="text-sm font-medium text-slate-700">Seja Parceiro</Link>
+              {podeCriarLoja && <Link to="/seja-parceiro" className="text-sm font-medium text-slate-700">Crie sua Loja</Link>}
             </div>
           </div>
           <div>

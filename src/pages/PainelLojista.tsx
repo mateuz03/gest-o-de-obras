@@ -43,8 +43,16 @@ const maskCNPJ = (v: string) =>
     .replace(/(\d{4})(\d)/, "$1-$2");
 
 export default function PainelLojista() {
-  const { user } = useAuth();
+  const { user, accountType, profileLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Bloqueio: a criação/gestão de loja é exclusiva de contas CNPJ (Pessoa Jurídica)
+  useEffect(() => {
+    if (user && !profileLoading && accountType === "CPF") {
+      toast.error("A criação de loja é exclusiva para contas CNPJ (Pessoa Jurídica).");
+      navigate("/meus-anuncios", { replace: true });
+    }
+  }, [user, accountType, profileLoading, navigate]);
   
   const [abaAtiva, setAbaAtiva] = useState<"catalogo" | "perfil" | "oportunidades">("catalogo");
   

@@ -1032,6 +1032,7 @@ export type Database = {
           account_type: string | null
           ano_criacao_negocio: number | null
           area_atuacao: string | null
+          avatar_url: string | null
           celular_whatsapp: string | null
           cidade: string | null
           cnpj: string | null
@@ -1057,6 +1058,7 @@ export type Database = {
           account_type?: string | null
           ano_criacao_negocio?: number | null
           area_atuacao?: string | null
+          avatar_url?: string | null
           celular_whatsapp?: string | null
           cidade?: string | null
           cnpj?: string | null
@@ -1082,6 +1084,7 @@ export type Database = {
           account_type?: string | null
           ano_criacao_negocio?: number | null
           area_atuacao?: string | null
+          avatar_url?: string | null
           celular_whatsapp?: string | null
           cidade?: string | null
           cnpj?: string | null
@@ -1429,6 +1432,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_public_seller: {
+        Args: { p_user_id: string }
+        Returns: {
+          account_type: string
+          avatar_url: string
+          nome: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
