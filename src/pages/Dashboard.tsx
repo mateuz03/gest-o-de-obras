@@ -31,7 +31,7 @@ const formatCurrencyShort = (v: number) => {
 type ViewMode = "grid" | "list";
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, accountType } = useAuth();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
