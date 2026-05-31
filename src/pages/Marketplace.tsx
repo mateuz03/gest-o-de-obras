@@ -271,7 +271,7 @@ function ProjetoPanel({
                         {it.produto.nome_produto}
                       </p>
                       <Link
-                        to={`/loja/${it.produto.user_id}`}
+                        to={`/vendedor/${it.produto.user_id}`}
                         className="text-xs text-emerald-600 hover:underline mt-0.5 inline-block"
                       >
                         {it.produto.perfil_lojista?.nome_loja || "Loja Parceira"}
@@ -734,7 +734,7 @@ export default function Marketplace() {
                     </h3>
 
                     <Link
-                      to={`/loja/${p.user_id}`}
+                      to={`/vendedor/${p.user_id}`}
                       className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 transition-colors group w-fit"
                     >
                       <Store className="w-3 h-3 text-emerald-600 group-hover:scale-110 transition-transform" />
