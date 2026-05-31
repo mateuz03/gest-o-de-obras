@@ -19,6 +19,9 @@ import Marketplace from "./pages/Marketplace";
 import LojaPublica from "./pages/LojaPublica";
 import Profissionais from "./pages/Profissionais";
 import SejaParceiro from "./pages/SejaParceiro";
+import Carreira from "./pages/Carreira";
+import TermosUso from "./pages/TermosUso";
+import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import NotFound from "./pages/NotFound";
 
 // Páginas Protegidas (usuário autenticado)
@@ -72,6 +75,9 @@ const App = () => (
             <Route path="/seja-parceiro"  element={<SejaParceiro />} />
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/share/:analysisId" element={<ShareAnalise />} />
+            <Route path="/carreira" element={<Carreira />} />
+            <Route path="/termos-de-uso" element={<TermosUso />} />
+            <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
 
             {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
             <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />

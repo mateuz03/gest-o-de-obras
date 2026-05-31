@@ -415,7 +415,9 @@ export default function NovaAnalise() {
 
       const isHybrid = formData.modo_precisao === "hibrido_sinapi";
 
-      const { data: result, error: fnErr } = await supabase.functions.invoke("analyze-blueprint", {
+      // ETAPA 1: A IA LÊ E EXTRAI (O "Estagiário")
+      toast.info("1/3: IA extraindo o escopo do projeto...");
+      const { data: resultIA, error: fnErr } = await supabase.functions.invoke("analyze-blueprint", {
         body: {
           images,
           escala: formData.escala,
@@ -439,13 +441,25 @@ export default function NovaAnalise() {
 
       if (fnErr) throw fnErr;
 
-      let finalResult = result;
+      let finalResult = resultIA;
 
-      if (isHybrid && result?.measurements?.length) {
-        toast.info(`Calculando preços via base SINAPI local (${result.measurements.length} itens)...`);
+      if (isHybrid && resultIA?.servicos?.length) {
+        // ETAPA 2: O CÁLCULO MATEMÁTICO (O "Engenheiro Sênior")
+        toast.info(`2/3: Calculando materiais exatos para ${resultIA.servicos.length} serviços...`);
+        const { data: calcData, error: calcErr } = await supabase.functions.invoke("calcular-quantitativos", {
+          body: { servicos: resultIA.servicos }
+        });
+
+        if (calcErr) throw calcErr;
+        
+        const materiaisAgrupados = calcData.materiais;
+
+        // ETAPA 3: A BUSCA DE PREÇOS NO SINAPI
+        toast.info(`3/3: Buscando preços oficiais para ${materiaisAgrupados.length} insumos...`);
         const { data: matchData, error: matchErr } = await supabase.functions.invoke("match-sinapi", {
           body: {
-            measurements: result.measurements,
+            // 👇 MUDE DE 'itens' PARA 'measurements' AQUI 👇
+            measurements: materiaisAgrupados, 
             uf: formData.sinapi_uf,
             mes_ano: formData.sinapi_mes_ano,
             desonerado: formData.sinapi_desonerado === "true",
@@ -453,13 +467,16 @@ export default function NovaAnalise() {
             bdi_percentual: bdiValue,
           },
         });
+
         if (matchErr) throw matchErr;
+
         if (matchData?.orcamento) {
           finalResult = {
             ...matchData.orcamento,
-            area_total_m2: result.area_total_m2 || matchData.orcamento.area_total_m2,
-            escala_detectada: result.escala_detectada || matchData.orcamento.escala_detectada,
-            resumo: result.resumo || matchData.orcamento.resumo,
+            area_total_m2: resultIA.area_total_m2 || matchData.orcamento.area_total_m2,
+            escala_detectada: resultIA.escala_detectada || matchData.orcamento.escala_detectada,
+            resumo: resultIA.resumo || matchData.orcamento.resumo,
+            materiais_rastreabilidade: materiaisAgrupados // Salva a origem dos cálculos para o front-end mostrar
           };
         }
       }
@@ -468,13 +485,16 @@ export default function NovaAnalise() {
         ? parseFloat(String(finalResult.resumo_final.total_geral))
         : null;
 
+      // SALVA TUDO NO BANCO E REDIRECIONA
       await supabase
         .from("analyses")
         .update({ resultado_json: finalResult, status: "completed", total_estimado: totalGeral } as any)
         .eq("id", analysisId!);
 
-      toast.success("Análise concluída!");
+      toast.success("Orçamento gerado com precisão paramétrica!");
       navigate(`/analise/${analysisId}`);
+
+
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro ao processar análise");
@@ -508,7 +528,7 @@ export default function NovaAnalise() {
         {/* Step indicators */}
         <div className="mb-8 flex items-center justify-center gap-4">
           {[0, 1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2">
+            <div key={s} className="flex items-center gap-2"> 
               <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s + 1}</div>
               <span className={`text-sm hidden sm:inline ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
                 {s === 0 ? "Modo" : s === 1 ? "Upload" : "Detalhes"}

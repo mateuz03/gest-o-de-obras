@@ -1,1 +1,22 @@
 project_id = "wunghdnjiqlkuotenoip"
+[functions.vetorizar-sinapi]
+enabled = true
+verify_jwt = false
+import_map = "./functions/vetorizar-sinapi/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/vetorizar-sinapi/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/vetorizar-sinapi/*.html" ]
+
+[functions.calcular-quantitativos]
+enabled = true
+verify_jwt = false
+import_map = "./functions/calcular-quantitativos/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/calcular-quantitativos/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/calcular-quantitativos/*.html" ]

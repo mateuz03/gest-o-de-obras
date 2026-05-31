@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 const AI_TIMEOUT_MS = 115_000;
-const MAX_IMAGES_STANDARD = 3;
-const MAX_IMAGES_HYBRID = 2;
-const MAX_IMAGE_BASE64_LENGTH = 180_000;
-const MAX_TOTAL_BASE64_LENGTH = 450_000;
+const MAX_IMAGES_STANDARD = 5;
+const MAX_IMAGES_HYBRID = 5;
+const MAX_IMAGE_BASE64_LENGTH = 500_000;
+const MAX_TOTAL_BASE64_LENGTH = 2_000_000;
 
 const MACRO_ETAPA_SCHEMA_KEYS = [
   { key: "1_servicos_preliminares", nome: "Serviços Preliminares" },
@@ -660,38 +660,6 @@ Para a área total (m²) fornecida ou extraída da planta, você DEVE calcular p
 NOMENCLATURA: Use os nomes técnicos exatos e separe Material de Mão de Obra em itens diferentes.
 `;
 
-const PHOTO_SYSTEM_PROMPT = `Você é um Engenheiro Civil e Orçamentista especializado em análise de ambientes reais a partir de fotos e orçamentos de reformas no padrão brasileiro.`;
-
-const HYBRID_SYSTEM_PROMPT = `Você é um Engenheiro Civil Sênior especializado em ORÇAMENTAÇÃO RESIDENCIAL no Brasil.
-Sua missão é identificar itens construtivos visíveis, separar o que foi medido visualmente do que foi inferido por parâmetro e retornar um quantitativo físico preliminar sem inventar preços.`;
-
-const JSON_STRUCTURE = `
-Retorne APENAS um JSON válido (sem markdown) com esta estrutura:
-{
-  "tipo_analise": "levantamento_fotografico" ou "quantitativo_preliminar",
-  "resumo": "Descrição da análise",
-  "area_total_m2": 0,
-  "escala_detectada": "1:50",
-  "referencia_sinapi": "SINAPI - SP",
-  "macro_etapas": [],
-  "quantitativo_por_comodo": [],
-  "resumo_final": {
-    "total_materiais": 0,
-    "total_mao_de_obra": 0,
-    "total_geral": 0,
-    "bdi_percentual": 25,
-    "bdi_valor": 0,
-    "premissas_bdi": "BDI aplicado"
-  },
-  "warnings": [],
-  "confiabilidade": {
-    "nivel_geral": "alto, medio ou baixo",
-    "observacoes": []
-  },
-  "recomendacoes": []
-}
-${STRICT_JSON_RULES}`;
-
 const STRUCTURED_BLUEPRINT_JSON_STRUCTURE = `
 Retorne APENAS um JSON válido (sem markdown ou textos adicionais).
 
@@ -819,72 +787,27 @@ serve(async (req) => {
     const safeNumBanheiros = toFiniteNumber(num_banheiros);
     const safeNumVagas = toFiniteNumber(num_vagas);
 
-    const systemPrompt = isHybrid
-      ? HYBRID_SYSTEM_PROMPT + JSON_STRUCTURE
-      : isPhotoMode
-      ? PHOTO_SYSTEM_PROMPT + JSON_STRUCTURE
-      : BLUEPRINT_SYSTEM_PROMPT + STRUCTURED_BLUEPRINT_JSON_STRUCTURE;
+    const systemPrompt = BLUEPRINT_SYSTEM_PROMPT + STRUCTURED_BLUEPRINT_JSON_STRUCTURE;
 
-    let userPrompt = isHybrid
-      ? "Identifique e meça os itens construtivos visíveis. Separe o que foi observado visualmente do que foi inferido por parâmetro. Não invente preços."
-      : isPhotoMode
+    let userPrompt = isPhotoMode
       ? "Analise esta(s) foto(s) do ambiente real e retorne o orçamento de reforma completo no formato JSON solicitado."
       : "Analise esta(s) planta(s), quadros técnicos ou documentos de engenharia e retorne o orçamento analítico completo estruturado no formato JSON solicitado.";
 
-    if (!isPhotoMode && safeEscala && safeEscala !== "auto") {
-      userPrompt += ` A escala informada é ${safeEscala}.`;
-    }
-
-    if (safeTipoDocumento && safeTipoDocumento !== "auto") {
-      userPrompt += ` Tipo de documento principal: ${safeTipoDocumento}.`;
-    }
-
+    if (!isPhotoMode && safeEscala && safeEscala !== "auto") userPrompt += ` A escala informada é ${safeEscala}.`;
+    if (safeTipoDocumento && safeTipoDocumento !== "auto") userPrompt += ` Tipo de documento principal: ${safeTipoDocumento}.`;
     if (safeTipoConstrucao) userPrompt += ` Tipo de construção: ${safeTipoConstrucao}.`;
     if (safeRegiao) userPrompt += ` Região do projeto: ${safeRegiao}.`;
-
-    if (safeBdi !== null && safeBdi > 0 && safeBdi !== 25) {
-      userPrompt += ` Use BDI de ${safeBdi}%.`;
-    }
-
-    if (safeArea !== null && safeArea > 0) {
-      userPrompt += ` IMPORTANTE: A área total construída é ${safeArea} m². Use este valor para calcular proporcionalmente as metragens paramétricas de infraestrutura e condutores.`;
-    }
-
-    if (safePeDireito !== null && safePeDireito > 0) {
-      userPrompt += ` Pé-direito: ${safePeDireito}m.`;
-    }
-
-    if (safeNumPavimentos !== null && safeNumPavimentos > 0) {
-      userPrompt += ` Pavimentos: ${safeNumPavimentos}.`;
-    }
-
-    if (safePadraoAcabamento) {
-      userPrompt += ` Padrão de acabamento solicitado: ${safePadraoAcabamento}.`;
-    }
-
-    if (safeNumQuartos !== null && safeNumQuartos >= 0) {
-      userPrompt += ` Quartos: ${safeNumQuartos}.`;
-    }
-
-    if (safeNumBanheiros !== null && safeNumBanheiros >= 0) {
-      userPrompt += ` Banheiros: ${safeNumBanheiros}.`;
-    }
-
-    if (safeNumVagas !== null && safeNumVagas >= 0) {
-      userPrompt += ` Vagas de garagem: ${safeNumVagas}.`;
-    }
-
-    if (safeTipoFundacao && safeTipoFundacao !== "nao_sei") {
-      userPrompt += ` Tipo de fundação definida: ${safeTipoFundacao}.`;
-    }
-
-    if (safeTipoCobertura && safeTipoCobertura !== "nao_sei") {
-      userPrompt += ` Tipo de cobertura/telhado: ${safeTipoCobertura}.`;
-    }
-
-    if (safeInstrucoes) {
-      userPrompt += `\n\nInstruções adicionais importantes: ${safeInstrucoes}`;
-    }
+    if (safeBdi !== null && safeBdi > 0 && safeBdi !== 25) userPrompt += ` Use BDI de ${safeBdi}%.`;
+    if (safeArea !== null && safeArea > 0) userPrompt += ` IMPORTANTE: A área total construída é ${safeArea} m².`;
+    if (safePeDireito !== null && safePeDireito > 0) userPrompt += ` Pé-direito: ${safePeDireito}m.`;
+    if (safeNumPavimentos !== null && safeNumPavimentos > 0) userPrompt += ` Pavimentos: ${safeNumPavimentos}.`;
+    if (safePadraoAcabamento) userPrompt += ` Padrão de acabamento solicitado: ${safePadraoAcabamento}.`;
+    if (safeNumQuartos !== null && safeNumQuartos >= 0) userPrompt += ` Quartos: ${safeNumQuartos}.`;
+    if (safeNumBanheiros !== null && safeNumBanheiros >= 0) userPrompt += ` Banheiros: ${safeNumBanheiros}.`;
+    if (safeNumVagas !== null && safeNumVagas >= 0) userPrompt += ` Vagas de garagem: ${safeNumVagas}.`;
+    if (safeTipoFundacao && safeTipoFundacao !== "nao_sei") userPrompt += ` Tipo de fundação definida: ${safeTipoFundacao}.`;
+    if (safeTipoCobertura && safeTipoCobertura !== "nao_sei") userPrompt += ` Tipo de cobertura/telhado: ${safeTipoCobertura}.`;
+    if (safeInstrucoes) userPrompt += `\n\nInstruções adicionais importantes: ${safeInstrucoes}`;
 
     let content = "";
     try {
@@ -905,17 +828,14 @@ serve(async (req) => {
 
     let parsed: any;
     let repaired = false;
-    let repairedText = "";
 
     try {
       try {
         parsed = JSON.parse(cleanText);
       } catch (initialParseErr) {
-        console.warn("JSON.parse inicial falhou; reparando estrutura:", initialParseErr);
-        repairedText = repairAiJson(cleanText);
+        const repairedText = repairAiJson(cleanText);
         parsed = JSON.parse(repairedText);
         repaired = true;
-        console.log("JSON REPAIR aplicado com sucesso.");
       }
 
       parsed = normalizeStructuredBlueprintResponse(parsed, {
@@ -925,30 +845,67 @@ serve(async (req) => {
 
       const finalValidation = validateFinalStructuredResponse(parsed, mode);
       if (!finalValidation.ok) {
-        throw new Error(
-          `A resposta estruturada da IA ficou incompleta após normalização: ${finalValidation.errors.join(
-            " "
-          )}`
-        );
+        throw new Error(`A resposta da IA ficou incompleta: ${finalValidation.errors.join(" ")}`);
       }
     } catch (parseErr: any) {
       console.error("Raw AI Response que falhou no parse:", rawText);
-      throw new Error(
-        `Falha ao converter resposta da IA em JSON. Erro: ${
-          parseErr?.message || parseErr
-        }`
-      );
+      throw new Error(`Falha ao converter resposta da IA em JSON. Erro: ${parseErr?.message || parseErr}`);
     }
 
+    // ========================================
+    // NOVA SEÇÃO: CHAMAR match-sinapi
+    // ========================================
+    let matchSinapiResult: any = null;
+    try {
+      const itemsToMatch = [];
+      
+      // Extrair todos os itens de todas as macroetapas
+      for (const etapa of parsed.macro_etapas || []) {
+        for (const item of etapa.itens || []) {
+          itemsToMatch.push({
+            item: item.item,
+            descricao: item.descricao,
+          });
+        }
+      }
+
+      // Chamar match-sinapi apenas se houver itens
+      if (itemsToMatch.length > 0) {
+        const matchResponse = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/match-sinapi`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ items: itemsToMatch }),
+          }
+        );
+
+        if (matchResponse.ok) {
+          matchSinapiResult = await matchResponse.json();
+          console.log("match-sinapi respondeu com sucesso:", matchSinapiResult);
+        } else {
+          const errorText = await matchResponse.text();
+          console.error("match-sinapi erro:", matchResponse.status, errorText);
+          matchSinapiResult = { error: errorText, status: matchResponse.status };
+        }
+      }
+    } catch (matchErr: any) {
+      console.error("Erro ao chamar match-sinapi:", matchErr.message);
+      matchSinapiResult = { error: matchErr.message };
+    }
+    // ========================================
+
     const responseWarnings = [
-      ...(Array.isArray(parsed?.warnings)
-        ? parsed.warnings.filter((w: unknown) => typeof w === "string")
-        : []),
+      ...(Array.isArray(parsed?.warnings) ? parsed.warnings.filter((w: unknown) => typeof w === "string") : []),
       ...imageValidation.errors.filter((e) => e.includes("apenas")),
     ];
 
     const responsePayload = {
       ...parsed,
+      match_sinapi_resultado: matchSinapiResult,
       meta_processamento: {
         modo_analise: modeLabel,
         imagens_recebidas: Array.isArray(images) ? images.length : 0,
@@ -962,6 +919,7 @@ serve(async (req) => {
     return new Response(JSON.stringify(responsePayload), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error) {
     console.error("analyze-blueprint error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";

@@ -15,6 +15,11 @@ interface ProfileExtra {
   area_atuacao?: string | null;
   motivo_uso?: string | null;
   como_conheceu?: string | null;
+  account_type?: "PF" | "PJ" | null;
+  cpf?: string | null;
+  cnpj?: string | null;
+  inscricao_estadual?: string | null;
+  telefone_comercial?: string | null;
 }
 
 interface AuthContextType {
@@ -50,10 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, nome: string, extra?: ProfileExtra) => {
+    const redirectUrl = `${window.location.origin}/`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nome } },
+      options: { data: { nome }, emailRedirectTo: redirectUrl },
     });
     if (error) throw error;
 
