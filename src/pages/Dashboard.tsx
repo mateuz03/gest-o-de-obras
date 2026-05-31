@@ -11,6 +11,7 @@ import { Analysis } from "@/lib/types";
 import {
   Plus, LogOut, Box, Search, AlertCircle, RefreshCw, Database, User, ShieldCheck,
   FolderOpen, FolderKanban, DollarSign, TrendingUp, Users, LayoutGrid, List,
+  Store, Megaphone,
 } from "lucide-react";
 import { DashboardAlertsSummary } from "@/components/DashboardAlertsSummary";
 import { KPICard } from "@/components/dashboard/KPICard";
