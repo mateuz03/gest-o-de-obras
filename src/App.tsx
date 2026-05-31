@@ -19,6 +19,7 @@ import ShareAnalise from "./pages/ShareAnalise";
 import SolicitarAcesso from "./pages/SolicitarAcesso";
 import Marketplace from "./pages/Marketplace";
 import LojaPublica from "./pages/LojaPublica";
+import VendedorPerfil from "./pages/VendedorPerfil";
 import Profissionais from "./pages/Profissionais";
 import SejaParceiro from "./pages/SejaParceiro";
 import Carreira from "./pages/Carreira";
