@@ -109,9 +109,13 @@ const App = () => (
             <Route path="/cadastrar-profissional"
               element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
 
-            {/* ✅ Painel do lojista agora protegido */}
+            {/* ✅ Painel do lojista agora protegido (apenas CNPJ) */}
             <Route path="/painel-loja"
               element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
+
+            {/* Gestão de anúncios avulsos (Pessoa Física / CPF) */}
+            <Route path="/meus-anuncios"
+              element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
 
             {/* ── Rotas Admin ──────────────────────────────────────── */}
             
