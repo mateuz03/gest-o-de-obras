@@ -36,6 +36,7 @@ import NotasFiscais from "./pages/NotasFiscais";
 import Perfil from "./pages/Perfil";
 import CadastrarProfissional from "./pages/CadastrarProfissional";
 import PainelLojista from "./pages/PainelLojista";
+import MeusAnuncios from "./pages/MeusAnuncios";
 
 // Páginas Admin
 import AdminLayout from "./pages/Admin/AdminLayout";
