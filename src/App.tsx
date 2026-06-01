@@ -45,6 +45,7 @@ import UsuariosList from "./pages/Admin/UsuariosList";
 import SinapiPage from "./pages/Admin/SinapiPage";
 import LogsIA from "./pages/Admin/LogsIA";
 import Configuracoes from "./pages/Admin/Configuracoes";
+import LojasPendentes from "./pages/Admin/LojasPendentes";
 
 // ✅ QueryClient instanciado fora do componente (evita recriação a cada render)
 const queryClient = new QueryClient({
@@ -123,6 +124,7 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
               <Route index element={<VisaoGeral />} /> 
               <Route path="usuarios" element={<UsuariosList />} />
+              <Route path="lojas" element={<LojasPendentes />} /> {/* Moderação de lojas */}
               <Route path="sinapi" element={<SinapiPage />} /> {/* Nova tela filha */}
               <Route path="logs-ia" element={<LogsIA />} /> {/* <-- ADICIONE AQUI */}
               <Route path="config" element={<Configuracoes />} /> {/* <-- NOVA ROTA AQUI */}
