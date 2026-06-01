@@ -134,14 +134,28 @@ export default function PainelLojista() {
     setSalvandoPerfil(true);
     
     try {
+      // Loja nova ou reenvio após recusa volta para análise (pending).
+      // Loja já aprovada continua aprovada ao editar.
+      const novoStatus = statusLoja === "approved" ? "approved" : "pending";
+
       const { error } = await supabase.from("perfil_lojista").upsert({
           user_id: user.id,
           ...perfil,
-          status: "ativo"
+          status: novoStatus,
+          motivo_rejeicao: novoStatus === "pending" ? null : motivoRejeicao,
         }, { onConflict: "user_id" });
 
       if (error) throw error;
-      toast.success("Alterações salvas com sucesso!");
+
+      setLojaExiste(true);
+      setStatusLoja(novoStatus as any);
+      setModoEdicao(false);
+      if (novoStatus === "pending") {
+        setMotivoRejeicao("");
+        toast.success("Loja enviada para análise da nossa equipe!");
+      } else {
+        toast.success("Alterações salvas com sucesso!");
+      }
     } catch (error) {
       toast.error("Erro ao atualizar os dados.");
     } finally {
