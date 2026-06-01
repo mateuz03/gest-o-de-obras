@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   TerminalSquare,
   Activity,
+  Store,
   Box
 } from "lucide-react";
 
@@ -35,6 +36,10 @@ export default function AdminLayout() {
           </Link>
           <Link to="/admin/usuarios" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/usuarios") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
             <Users className="w-5 h-5" /> Usuários & Assinaturas
+          </Link>
+
+          <Link to="/admin/lojas" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/lojas") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
+            <Store className="w-5 h-5" /> Aprovação de Lojas
           </Link>
           
           {/* Botões provisórios sem link ainda */}

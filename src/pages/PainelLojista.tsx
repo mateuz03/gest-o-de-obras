@@ -66,6 +66,11 @@ export default function PainelLojista() {
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  // Controle de moderação: pending (em análise), approved (ativa), rejected (recusada)
+  const [lojaExiste, setLojaExiste] = useState(false);
+  const [statusLoja, setStatusLoja] = useState<"pending" | "approved" | "rejected" | "">("");
+  const [motivoRejeicao, setMotivoRejeicao] = useState("");
+  const [modoEdicao, setModoEdicao] = useState(false);
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
@@ -95,6 +100,10 @@ export default function PainelLojista() {
 
         const { data: dataPerfil } = await supabase.from("perfil_lojista").select("*").eq("user_id", user?.id).maybeSingle();
         if (dataPerfil) {
+          setLojaExiste(true);
+          const st = (dataPerfil.status as string) || "pending";
+          setStatusLoja((["pending", "approved", "rejected"].includes(st) ? st : "approved") as any);
+          setMotivoRejeicao(dataPerfil.motivo_rejeicao || "");
           setPerfil({
             nome_loja: dataPerfil.nome_loja || "",
             cnpj: dataPerfil.cnpj || "",
@@ -125,14 +134,28 @@ export default function PainelLojista() {
     setSalvandoPerfil(true);
     
     try {
+      // Loja nova ou reenvio após recusa volta para análise (pending).
+      // Loja já aprovada continua aprovada ao editar.
+      const novoStatus = statusLoja === "approved" ? "approved" : "pending";
+
       const { error } = await supabase.from("perfil_lojista").upsert({
           user_id: user.id,
           ...perfil,
-          status: "ativo"
+          status: novoStatus,
+          motivo_rejeicao: novoStatus === "pending" ? null : motivoRejeicao,
         }, { onConflict: "user_id" });
 
       if (error) throw error;
-      toast.success("Alterações salvas com sucesso!");
+
+      setLojaExiste(true);
+      setStatusLoja(novoStatus as any);
+      setModoEdicao(false);
+      if (novoStatus === "pending") {
+        setMotivoRejeicao("");
+        toast.success("Loja enviada para análise da nossa equipe!");
+      } else {
+        toast.success("Alterações salvas com sucesso!");
+      }
     } catch (error) {
       toast.error("Erro ao atualizar os dados.");
     } finally {
@@ -220,6 +243,61 @@ export default function PainelLojista() {
   };
 
   if (!user) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
+
+  // ─── TELAS DE MODERAÇÃO (em análise / recusada) ───
+  const mostrarGate = lojaExiste && !loadingPerfil && (statusLoja === "pending" || (statusLoja === "rejected" && !modoEdicao));
+  if (mostrarGate) {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900">
+        <header className="border-b border-slate-200 bg-white">
+          <div className="container max-w-5xl mx-auto flex h-16 items-center justify-between px-4">
+            <div className="flex items-center gap-2 font-bold text-xl">
+              <Box className="h-6 w-6 text-emerald-600" /> Obra Link <span className="text-emerald-600 text-xs align-top">Lojas</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-slate-600">
+              <LogOut className="w-4 h-4 mr-2" /> Voltar ao Site
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          {statusLoja === "pending" ? (
+            <div className="max-w-lg w-full bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sm:p-10 text-center animate-in fade-in duration-300">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-3">Sua loja está em análise</h1>
+              <p className="text-slate-600 leading-relaxed mb-6">
+                Sua loja <strong>{perfil.nome_loja}</strong> está sendo analisada por nossa equipe.
+                Você receberá um aviso assim que for liberada. Esse processo costuma ser rápido!
+              </p>
+              <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50">Aguardando aprovação</Badge>
+            </div>
+          ) : (
+            <div className="max-w-lg w-full bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sm:p-10 text-center animate-in fade-in duration-300">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Info className="w-8 h-8" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-3">Sua loja não foi aprovada</h1>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                Revisamos o cadastro da loja <strong>{perfil.nome_loja}</strong> e identificamos um ponto que precisa de ajuste:
+              </p>
+              <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-left mb-6">
+                <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Motivo da recusa</p>
+                <p className="text-sm text-red-800">{motivoRejeicao || "Não foi informado um motivo específico."}</p>
+              </div>
+              <Button
+                onClick={() => { setModoEdicao(true); setAbaAtiva("perfil"); }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+              >
+                <Pencil className="w-4 h-4 mr-2" /> Corrigir dados e reenviar
+              </Button>
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans text-slate-900">

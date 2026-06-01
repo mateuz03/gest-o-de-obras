@@ -369,9 +369,10 @@ export default function Marketplace() {
             preco,
             unidade_medida,
             foto_url,
-            perfil_lojista(nome_loja, whatsapp)
+            perfil_lojista!inner(nome_loja, whatsapp, status)
           `)
           .eq("status", "ativo")
+          .eq("perfil_lojista.status", "approved")
           .order("created_at", { ascending: false });
 
         if (error) throw error;
