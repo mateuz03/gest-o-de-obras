@@ -244,6 +244,61 @@ export default function PainelLojista() {
 
   if (!user) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
 
+  // ─── TELAS DE MODERAÇÃO (em análise / recusada) ───
+  const mostrarGate = lojaExiste && !loadingPerfil && (statusLoja === "pending" || (statusLoja === "rejected" && !modoEdicao));
+  if (mostrarGate) {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900">
+        <header className="border-b border-slate-200 bg-white">
+          <div className="container max-w-5xl mx-auto flex h-16 items-center justify-between px-4">
+            <div className="flex items-center gap-2 font-bold text-xl">
+              <Box className="h-6 w-6 text-emerald-600" /> Obra Link <span className="text-emerald-600 text-xs align-top">Lojas</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-slate-600">
+              <LogOut className="w-4 h-4 mr-2" /> Voltar ao Site
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          {statusLoja === "pending" ? (
+            <div className="max-w-lg w-full bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sm:p-10 text-center animate-in fade-in duration-300">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-3">Sua loja está em análise</h1>
+              <p className="text-slate-600 leading-relaxed mb-6">
+                Sua loja <strong>{perfil.nome_loja}</strong> está sendo analisada por nossa equipe.
+                Você receberá um aviso assim que for liberada. Esse processo costuma ser rápido!
+              </p>
+              <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50">Aguardando aprovação</Badge>
+            </div>
+          ) : (
+            <div className="max-w-lg w-full bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sm:p-10 text-center animate-in fade-in duration-300">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Info className="w-8 h-8" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-3">Sua loja não foi aprovada</h1>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                Revisamos o cadastro da loja <strong>{perfil.nome_loja}</strong> e identificamos um ponto que precisa de ajuste:
+              </p>
+              <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-left mb-6">
+                <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Motivo da recusa</p>
+                <p className="text-sm text-red-800">{motivoRejeicao || "Não foi informado um motivo específico."}</p>
+              </div>
+              <Button
+                onClick={() => { setModoEdicao(true); setAbaAtiva("perfil"); }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+              >
+                <Pencil className="w-4 h-4 mr-2" /> Corrigir dados e reenviar
+              </Button>
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans text-slate-900">
       
