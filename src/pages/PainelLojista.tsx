@@ -100,6 +100,10 @@ export default function PainelLojista() {
 
         const { data: dataPerfil } = await supabase.from("perfil_lojista").select("*").eq("user_id", user?.id).maybeSingle();
         if (dataPerfil) {
+          setLojaExiste(true);
+          const st = (dataPerfil.status as string) || "pending";
+          setStatusLoja((["pending", "approved", "rejected"].includes(st) ? st : "approved") as any);
+          setMotivoRejeicao(dataPerfil.motivo_rejeicao || "");
           setPerfil({
             nome_loja: dataPerfil.nome_loja || "",
             cnpj: dataPerfil.cnpj || "",
