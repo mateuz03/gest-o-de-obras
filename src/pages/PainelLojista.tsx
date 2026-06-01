@@ -66,6 +66,11 @@ export default function PainelLojista() {
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  // Controle de moderação: pending (em análise), approved (ativa), rejected (recusada)
+  const [lojaExiste, setLojaExiste] = useState(false);
+  const [statusLoja, setStatusLoja] = useState<"pending" | "approved" | "rejected" | "">("");
+  const [motivoRejeicao, setMotivoRejeicao] = useState("");
+  const [modoEdicao, setModoEdicao] = useState(false);
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
