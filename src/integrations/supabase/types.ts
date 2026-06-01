@@ -939,6 +939,7 @@ export type Database = {
           instagram: string | null
           is_premium: boolean
           logo_url: string | null
+          motivo_rejeicao: string | null
           nome_loja: string
           plano_atual: string
           status: string
@@ -957,6 +958,7 @@ export type Database = {
           instagram?: string | null
           is_premium?: boolean
           logo_url?: string | null
+          motivo_rejeicao?: string | null
           nome_loja: string
           plano_atual?: string
           status?: string
@@ -975,6 +977,7 @@ export type Database = {
           instagram?: string | null
           is_premium?: boolean
           logo_url?: string | null
+          motivo_rejeicao?: string | null
           nome_loja?: string
           plano_atual?: string
           status?: string
