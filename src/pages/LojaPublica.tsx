@@ -45,7 +45,8 @@ export default function LojaPublica() {
           .maybeSingle();
 
         if (perfilError) throw perfilError;
-        if (perfilData) {
+        // A vitrine só é pública quando a loja está aprovada pela moderação.
+        if (perfilData && perfilData.status === "approved") {
           setLoja(perfilData);
         }
 
