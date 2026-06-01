@@ -9,6 +9,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Páginas Públicas
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import EsqueciSenha from "./pages/EsqueciSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import Blog from "./pages/Blog";
 import DocumentosDicas from "./pages/DocumentosDicas";
 import QuemSomos from "./pages/QuemSomos";
@@ -17,6 +19,7 @@ import ShareAnalise from "./pages/ShareAnalise";
 import SolicitarAcesso from "./pages/SolicitarAcesso";
 import Marketplace from "./pages/Marketplace";
 import LojaPublica from "./pages/LojaPublica";
+import VendedorPerfil from "./pages/VendedorPerfil";
 import Profissionais from "./pages/Profissionais";
 import SejaParceiro from "./pages/SejaParceiro";
 import Carreira from "./pages/Carreira";
@@ -33,6 +36,7 @@ import NotasFiscais from "./pages/NotasFiscais";
 import Perfil from "./pages/Perfil";
 import CadastrarProfissional from "./pages/CadastrarProfissional";
 import PainelLojista from "./pages/PainelLojista";
+import MeusAnuncios from "./pages/MeusAnuncios";
 
 // Páginas Admin
 import AdminLayout from "./pages/Admin/AdminLayout";
@@ -65,12 +69,15 @@ const App = () => (
             {/* ── Rotas Públicas ───────────────────────────────────── */}
             <Route path="/"               element={<Index />} />
             <Route path="/auth"           element={<Auth />} />
+            <Route path="/esqueci-senha"  element={<EsqueciSenha />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
             <Route path="/blog"           element={<Blog />} />
             <Route path="/documentos"     element={<DocumentosDicas />} />
             <Route path="/sobre-nos"      element={<QuemSomos />} />
             <Route path="/suporte"        element={<Suporte />} />
             <Route path="/marketplace"    element={<Marketplace />} />
             <Route path="/loja/:id"       element={<LojaPublica />} />
+            <Route path="/vendedor/:id"   element={<VendedorPerfil />} />
             <Route path="/profissionais"  element={<Profissionais />} />
             <Route path="/seja-parceiro"  element={<SejaParceiro />} />
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
@@ -102,9 +109,13 @@ const App = () => (
             <Route path="/cadastrar-profissional"
               element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
 
-            {/* ✅ Painel do lojista agora protegido */}
+            {/* ✅ Painel do lojista agora protegido (apenas CNPJ) */}
             <Route path="/painel-loja"
               element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
+
+            {/* Gestão de anúncios avulsos (Pessoa Física / CPF) */}
+            <Route path="/meus-anuncios"
+              element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
 
             {/* ── Rotas Admin ──────────────────────────────────────── */}
             

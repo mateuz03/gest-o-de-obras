@@ -184,7 +184,15 @@ export default function Auth() {
                   <Input id="login-email" name="email" type="email" required placeholder="seu@email.com" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password">Senha</Label>
+                    <Link
+                      to="/esqueci-senha"
+                      className="text-xs text-muted-foreground hover:text-primary hover:underline"
+                    >
+                      Esqueci minha senha
+                    </Link>
+                  </div>
                   <Input id="login-password" name="password" type="password" required placeholder="••••••••" />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>

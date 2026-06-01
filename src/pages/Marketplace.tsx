@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
+import { StoreDirectory } from "@/components/marketplace/StoreDirectory";
 
 const categorias = [
   "Todos",
@@ -270,7 +271,7 @@ function ProjetoPanel({
                         {it.produto.nome_produto}
                       </p>
                       <Link
-                        to={`/loja/${it.produto.user_id}`}
+                        to={`/vendedor/${it.produto.user_id}`}
                         className="text-xs text-emerald-600 hover:underline mt-0.5 inline-block"
                       >
                         {it.produto.perfil_lojista?.nome_loja || "Loja Parceira"}
@@ -351,6 +352,7 @@ export default function Marketplace() {
   const [precoMin, setPrecoMin] = useState("");
   const [precoMax, setPrecoMax] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("recentes");
+  const [viewMode, setViewMode] = useState<"produtos" | "lojas">("produtos");
 
   const [itens, setItens] = useState<ItemProjeto[]>([]);
 
@@ -605,7 +607,46 @@ export default function Marketplace() {
         </aside>
 
         <main className="min-w-0">
+          {/* Alternância de visão: Materiais x Lojas */}
+          <div className="mb-5 inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <button
+              onClick={() => setViewMode("produtos")}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "produtos"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Materiais
+            </button>
+            <button
+              onClick={() => setViewMode("lojas")}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "lojas"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Store className="h-4 w-4" />
+              Lojas
+            </button>
+          </div>
+
+          {viewMode === "lojas" ? (
+            <>
+              <div className="mb-5">
+                <h2 className="text-xl font-bold text-slate-900">Diretório de Lojas</h2>
+                <p className="text-sm text-slate-500">
+                  Conheça as lojas parceiras e visite a vitrine de cada uma.
+                </p>
+              </div>
+              <StoreDirectory />
+            </>
+          ) : (
+          <>
           <div className="space-y-4 mb-5">
+
             <div className="flex flex-col md:flex-row md:items-center gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -693,7 +734,7 @@ export default function Marketplace() {
                     </h3>
 
                     <Link
-                      to={`/loja/${p.user_id}`}
+                      to={`/vendedor/${p.user_id}`}
                       className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 transition-colors group w-fit"
                     >
                       <Store className="w-3 h-3 text-emerald-600 group-hover:scale-110 transition-transform" />
@@ -724,8 +765,11 @@ export default function Marketplace() {
               ))}
             </div>
           )}
+          </>
+          )}
 
           <div className="grid sm:grid-cols-2 gap-4 mt-8">
+
             <Card className="border-0 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-md">
               <CardContent className="p-5 flex items-center gap-4">
                 <Sparkles className="h-8 w-8 text-emerald-100 shrink-0" />
