@@ -62,6 +62,8 @@ interface Produto {
   preco: number;
   unidade_medida: string;
   foto_url?: string;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
   perfil_lojista?: {
     nome_loja: string;
     whatsapp: string;
