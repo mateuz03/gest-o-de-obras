@@ -271,6 +271,29 @@ export default function PainelLojista() {
               </div>
             </div>
 
+            {/* CTA: Loja em Destaque */}
+            <div className="mb-8 overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white shadow-md">
+              <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 text-amber-300 ring-1 ring-amber-300/30">
+                    <Sparkles className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-bold">Coloque sua loja em destaque</h3>
+                    <p className="text-sm text-slate-200">
+                      Apareça no topo das buscas do diretório e receba mais contatos de clientes.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setUpgradeLojaOpen(true)}
+                  className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+                >
+                  <Rocket className="mr-2 h-4 w-4" /> Quero destacar minha loja
+                </Button>
+              </div>
+            </div>
+
             {loadingPerfil ? (
                <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>
             ) : (
