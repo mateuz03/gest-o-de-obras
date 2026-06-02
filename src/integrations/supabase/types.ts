@@ -934,6 +934,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           estado: string | null
+          featured_until: string | null
           horario_atendimento: string | null
           id: string
           instagram: string | null
@@ -953,6 +954,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           estado?: string | null
+          featured_until?: string | null
           horario_atendimento?: string | null
           id?: string
           instagram?: string | null
@@ -972,6 +974,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           estado?: string | null
+          featured_until?: string | null
           horario_atendimento?: string | null
           id?: string
           instagram?: string | null
@@ -990,8 +993,10 @@ export type Database = {
         Row: {
           categoria: string
           created_at: string
+          featured_until: string | null
           foto_url: string | null
           id: string
+          is_featured: boolean
           nome_produto: string
           preco: number
           status: string
@@ -1001,8 +1006,10 @@ export type Database = {
         Insert: {
           categoria: string
           created_at?: string
+          featured_until?: string | null
           foto_url?: string | null
           id?: string
+          is_featured?: boolean
           nome_produto: string
           preco: number
           status?: string
@@ -1012,8 +1019,10 @@ export type Database = {
         Update: {
           categoria?: string
           created_at?: string
+          featured_until?: string | null
           foto_url?: string | null
           id?: string
+          is_featured?: boolean
           nome_produto?: string
           preco?: number
           status?: string
