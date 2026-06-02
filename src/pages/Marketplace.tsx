@@ -37,6 +37,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import { StoreDirectory } from "@/components/marketplace/StoreDirectory";
+import { ProductCard } from "@/components/marketplace/ProductCard";
+import { isHighlightActive } from "@/lib/featured";
 
 const categorias = [
   "Todos",
