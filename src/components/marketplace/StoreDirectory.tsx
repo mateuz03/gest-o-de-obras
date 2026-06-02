@@ -18,7 +18,7 @@ export function StoreDirectory() {
         const { data: perfis, error } = await supabase
           .from("perfil_lojista")
           .select(
-            "id, user_id, nome_loja, logo_url, descricao, categoria, cidade, estado, is_premium"
+            "id, user_id, nome_loja, logo_url, descricao, categoria, cidade, estado, is_premium, featured_until"
           )
           .eq("status", "ativo");
 
