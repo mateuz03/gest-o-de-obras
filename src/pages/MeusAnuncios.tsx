@@ -151,6 +151,9 @@ export default function MeusAnuncios() {
         if (error) throw error;
         if (data) setAnuncios((prev) => [data[0], ...prev]);
         toast.success("Anúncio publicado!");
+        // Oferece o destaque logo após a publicação
+        setSucessoNome(payload.nome_produto);
+        setSucessoOpen(true);
       }
       setModalAberto(false);
     } catch {
