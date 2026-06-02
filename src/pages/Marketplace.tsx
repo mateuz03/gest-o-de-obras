@@ -373,6 +373,8 @@ export default function Marketplace() {
             preco,
             unidade_medida,
             foto_url,
+            is_featured,
+            featured_until,
             perfil_lojista(nome_loja, whatsapp)
           `)
           .eq("status", "ativo")
