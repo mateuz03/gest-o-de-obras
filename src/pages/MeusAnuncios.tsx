@@ -50,6 +50,12 @@ export default function MeusAnuncios() {
   const [loading, setLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Destaque (upgrade)
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeNome, setUpgradeNome] = useState("");
+  // Tela de sucesso pós-publicação
+  const [sucessoOpen, setSucessoOpen] = useState(false);
+  const [sucessoNome, setSucessoNome] = useState("");
   const [form, setForm] = useState({
     id: "",
     nome_produto: "",
@@ -58,6 +64,11 @@ export default function MeusAnuncios() {
     unidade_medida: "un",
     foto_url: "",
   });
+
+  const abrirUpgrade = (nome: string) => {
+    setUpgradeNome(nome);
+    setUpgradeOpen(true);
+  };
 
   useEffect(() => {
     if (!user) return;
