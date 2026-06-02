@@ -65,6 +65,7 @@ export default function PainelLojista() {
   const [modalAberto, setModalAberto] = useState(false);
   const [salvandoProduto, setSalvandoProduto] = useState(false);
   const [formProduto, setFormProduto] = useState({ id: "", nome_produto: "", categoria: "Cimento e Argamassa", preco: "", unidade_medida: "un" });
+  const [upgradeLojaOpen, setUpgradeLojaOpen] = useState(false);
 
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
