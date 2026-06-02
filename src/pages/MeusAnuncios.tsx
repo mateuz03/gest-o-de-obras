@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Box, ArrowLeft, Plus, Loader2, Trash2, Pencil, Megaphone, PackageOpen, Eye, Info,
+  Sparkles, Rocket, PartyPopper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { UpgradeDialog } from "@/components/marketplace/UpgradeDialog";
+import { isHighlightActive, highlightDaysLeft } from "@/lib/featured";
 
 // Limite de anúncios gratuitos para Pessoa Física
 const LIMITE_GRATIS = 10;
