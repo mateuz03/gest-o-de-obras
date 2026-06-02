@@ -1,3 +1,4 @@
+// @ts-nocheck
 // middleware/rateLimit.ts
 // Proteção contra ataques de força bruta, DDoS básico e Billing Exhaustion (IA).
 

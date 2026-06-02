@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Box, ArrowLeft, Plus, Loader2, Trash2, Pencil, Megaphone, PackageOpen, Eye, Info,
+  Sparkles, Rocket, PartyPopper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { UpgradeDialog } from "@/components/marketplace/UpgradeDialog";
+import { isHighlightActive, highlightDaysLeft } from "@/lib/featured";
 
 // Limite de anúncios gratuitos para Pessoa Física
 const LIMITE_GRATIS = 10;
@@ -47,6 +50,12 @@ export default function MeusAnuncios() {
   const [loading, setLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Destaque (upgrade)
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeNome, setUpgradeNome] = useState("");
+  // Tela de sucesso pós-publicação
+  const [sucessoOpen, setSucessoOpen] = useState(false);
+  const [sucessoNome, setSucessoNome] = useState("");
   const [form, setForm] = useState({
     id: "",
     nome_produto: "",
@@ -55,6 +64,11 @@ export default function MeusAnuncios() {
     unidade_medida: "un",
     foto_url: "",
   });
+
+  const abrirUpgrade = (nome: string) => {
+    setUpgradeNome(nome);
+    setUpgradeOpen(true);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -137,6 +151,9 @@ export default function MeusAnuncios() {
         if (error) throw error;
         if (data) setAnuncios((prev) => [data[0], ...prev]);
         toast.success("Anúncio publicado!");
+        // Oferece o destaque logo após a publicação
+        setSucessoNome(payload.nome_produto);
+        setSucessoOpen(true);
       }
       setModalAberto(false);
     } catch {
@@ -241,15 +258,30 @@ export default function MeusAnuncios() {
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {anuncios.map((a) => (
-              <Card key={a.id} className="overflow-hidden border-slate-200 bg-white">
-                <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+            {anuncios.map((a) => {
+              const destacado = isHighlightActive(a.is_featured, a.featured_until);
+              const diasRestantes = highlightDaysLeft(a.featured_until);
+              return (
+              <Card
+                key={a.id}
+                className={`overflow-hidden bg-white transition-all ${
+                  destacado
+                    ? "border-amber-300 ring-1 ring-amber-200 shadow-md"
+                    : "border-slate-200"
+                }`}
+              >
+                <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
                   <img
                     src={a.foto_url || fallbackImage}
                     alt={a.nome_produto}
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />
+                  {destacado && (
+                    <Badge className="absolute left-2 top-2 gap-1 border-0 bg-amber-500 text-white shadow-sm hover:bg-amber-500">
+                      <Sparkles className="h-3 w-3" /> Em destaque
+                    </Badge>
+                  )}
                 </div>
                 <CardContent className="p-4">
                   <Badge variant="outline" className="mb-2 text-xs text-slate-500">{a.categoria}</Badge>
@@ -257,6 +289,23 @@ export default function MeusAnuncios() {
                   <p className="mt-1 text-emerald-600 font-bold">
                     {formatCurrency(Number(a.preco))} <span className="text-xs font-normal text-slate-400">/ {a.unidade_medida}</span>
                   </p>
+
+                  {destacado ? (
+                    <p className="mt-2 text-xs font-medium text-amber-600">
+                      {diasRestantes > 0
+                        ? `Destaque ativo • ${diasRestantes} ${diasRestantes === 1 ? "dia restante" : "dias restantes"}`
+                        : "Destaque ativo"}
+                    </p>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="mt-3 w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm hover:from-amber-600 hover:to-amber-700"
+                      onClick={() => abrirUpgrade(a.nome_produto)}
+                    >
+                      <Rocket className="mr-1.5 h-3.5 w-3.5" /> Destacar anúncio
+                    </Button>
+                  )}
+
                   <div className="mt-3 flex gap-2">
                     <Button size="sm" variant="outline" className="flex-1 border-slate-200" onClick={() => abrirEdicao(a)}>
                       <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
@@ -267,10 +316,66 @@ export default function MeusAnuncios() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
+
+      {/* Tela de sucesso pós-publicação com oferta de destaque */}
+      <Dialog open={sucessoOpen} onOpenChange={setSucessoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="items-center text-center">
+            <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+              <PartyPopper className="h-7 w-7 text-emerald-600" />
+            </div>
+            <DialogTitle className="text-xl">Anúncio publicado!</DialogTitle>
+            <DialogDescription>
+              "{sucessoNome}" já está no Marketplace. Que tal turbinar a visibilidade?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  Destaque seu anúncio e venda até 5x mais rápido!
+                </p>
+                <p className="mt-0.5 text-xs text-slate-600">
+                  Apareça no topo do feed com um card que chama atenção dos compradores.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Button
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+              onClick={() => {
+                setSucessoOpen(false);
+                abrirUpgrade(sucessoNome);
+              }}
+            >
+              <Rocket className="mr-2 h-4 w-4" /> Destacar agora
+            </Button>
+            <Button variant="ghost" className="w-full text-slate-500" onClick={() => setSucessoOpen(false)}>
+              Agora não
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de upgrade / destaque */}
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        variant="anuncio"
+        itemNome={upgradeNome}
+      />
+
 
       {/* Modal de anúncio */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
