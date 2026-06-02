@@ -28,6 +28,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { UpgradeDialog } from "@/components/marketplace/UpgradeDialog";
+import { isHighlightActive } from "@/lib/featured";
+import { Sparkles, Rocket } from "lucide-react";
 
 // Helpers de Máscara
 const maskPhone = (v: string) =>
