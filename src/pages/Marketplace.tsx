@@ -450,6 +450,21 @@ export default function Marketplace() {
     return resultado;
   }, [produtosDB, busca, categoria, marcasSelecionadas, precoMin, precoMax, ordenacao]);
 
+  // Anúncios com destaque ativo (respeitando a validade do prazo)
+  const destacados = useMemo(
+    () => filtrados.filter((p) => isHighlightActive(p.is_featured, p.featured_until)),
+    [filtrados]
+  );
+
+  // Feed geral com os destaques priorizados no topo
+  const filtradosOrdenados = useMemo(() => {
+    return [...filtrados].sort((a, b) => {
+      const fa = isHighlightActive(a.is_featured, a.featured_until) ? 1 : 0;
+      const fb = isHighlightActive(b.is_featured, b.featured_until) ? 1 : 0;
+      return fb - fa;
+    });
+  }, [filtrados]);
+
   const filtrosAtivos = useMemo(() => {
     const ativos: { label: string; onRemove: () => void }[] = [];
 
