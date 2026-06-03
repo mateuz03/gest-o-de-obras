@@ -31,7 +31,7 @@ export default function Navbar() {
               Soluções <ChevronDown className="w-4 h-4 transition-transform group-hover:-rotate-180" />
             </button>
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white border border-slate-100 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 flex flex-col p-2">
-              <Link to="/dashboard" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Gestão de Projetos</Link>
+              <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Gestão de Projetos</Link>
               <Link to="/marketplace" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Marketplace</Link>
               <Link to="/profissionais" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Prestar Serviços</Link>
               {podeCriarLoja && <Link to="/seja-parceiro" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Crie sua Loja</Link>}
@@ -87,7 +87,7 @@ export default function Navbar() {
           <div>
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Soluções</h4>
             <div className="flex flex-col gap-3 pl-2">
-              <Link to="/dashboard" className="text-sm font-medium text-slate-700">Gestão de Projetos</Link>
+              <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="text-sm font-medium text-slate-700">Gestão de Projetos</Link>
               <Link to="/marketplace" className="text-sm font-medium text-slate-700">Marketplace</Link>
               <Link to="/profissionais" className="text-sm font-medium text-slate-700">Prestar Serviços</Link>
               {podeCriarLoja && <Link to="/seja-parceiro" className="text-sm font-medium text-slate-700">Crie sua Loja</Link>}
