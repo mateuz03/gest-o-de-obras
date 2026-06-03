@@ -133,9 +133,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
+  /**
+   * Logout seguro: encerra a sessão, limpa o estado/caches locais e reseta a
+   * pilha de navegação com `location.replace` — assim o botão "Voltar" do
+   * navegador não consegue reaver telas/dados privados.
+   */
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // Limpa estado em memória
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      // Limpa caches persistidos (inclui tokens do Supabase e preferências)
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        /* ambiente sem storage — ignora */
+      }
+      // Reset duro da navegação para a área pública (sem histórico privado)
+      window.location.replace("/");
+    }
   };
 
   return (
