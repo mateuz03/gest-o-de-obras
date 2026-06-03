@@ -127,7 +127,7 @@ export default function Index() {
               </button>
               {/* Menu Invisível que aparece no Hover */}
               <div className="absolute top-full left-0 hidden group-hover:block w-56 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
-                <Link to={user ? "/dashboard" : "/auth"} className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Gestão de Projetos</Link>
+                <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Gestão de Projetos</Link>
                 <Link to="/marketplace" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Marketplace</Link>
                 <Link to="/profissionais" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Prestar Serviços</Link>
                 <Link to="/seja-parceiro" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Seja Parceiro</Link>
