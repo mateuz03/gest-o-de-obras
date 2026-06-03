@@ -40,7 +40,8 @@ export interface SolutionRoute {
   slug: string;
   path: string;
   /** Componente da tela privada (lazy). */
-  component: LazyExoticComponent<ComponentType<unknown>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  component: LazyExoticComponent<ComponentType<any>>;
   marketing: SolutionMarketing;
 }
 
