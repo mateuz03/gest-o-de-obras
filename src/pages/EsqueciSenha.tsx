@@ -17,6 +17,7 @@ export default function EsqueciSenha() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
 
   const isValid = useMemo(() => emailSchema.safeParse(email).success, [email]);
 
@@ -29,24 +30,53 @@ export default function EsqueciSenha() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  const sendLink = async () => {
-    // Por segurança, sempre exibimos a mesma mensagem, sem revelar se o e-mail existe
-    await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    });
+  // Chama o endpoint do servidor que aplica o rate limiting (3 / 15 min por IP+e-mail).
+  // Retorna a mensagem de bloqueio quando o servidor responde 429, ou null em caso de sucesso.
+  const sendLink = async (): Promise<string | null> => {
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/request-password-reset`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          redirectTo: `${window.location.origin}/redefinir-senha`,
+        }),
+      },
+    );
+
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      return (
+        data.error ||
+        "Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente."
+      );
+    }
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
     setLoading(true);
+    setRateLimitMsg(null);
     try {
-      await sendLink();
-    } catch {
-      // Mantemos o mesmo feedback para não vazar existência de conta
-    } finally {
+      const limited = await sendLink();
+      if (limited) {
+        setRateLimitMsg(limited);
+        return;
+      }
       setSent(true);
       setCooldown(RESEND_COOLDOWN);
+    } catch {
+      // Mantemos o mesmo feedback para não vazar existência de conta
+      setSent(true);
+      setCooldown(RESEND_COOLDOWN);
+    } finally {
       setLoading(false);
     }
   };
@@ -54,16 +84,23 @@ export default function EsqueciSenha() {
   const handleResend = async () => {
     if (cooldown > 0 || !isValid) return;
     setLoading(true);
+    setRateLimitMsg(null);
     try {
-      await sendLink();
+      const limited = await sendLink();
+      if (limited) {
+        setRateLimitMsg(limited);
+        return;
+      }
       toast.success("Link reenviado! Verifique sua caixa de entrada.");
+      setCooldown(RESEND_COOLDOWN);
     } catch {
       toast.success("Link reenviado! Verifique sua caixa de entrada.");
-    } finally {
       setCooldown(RESEND_COOLDOWN);
+    } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
