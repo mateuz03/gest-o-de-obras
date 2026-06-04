@@ -132,12 +132,20 @@ export default function EsqueciSenha() {
                 </p>
               </div>
               <div className="flex flex-col gap-2">
+                {rateLimitMsg && (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive"
+                  >
+                    {rateLimitMsg}
+                  </p>
+                )}
                 <Button
                   className="w-full"
                   onClick={handleResend}
                   disabled={cooldown > 0 || loading}
                 >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
                   {cooldown > 0 ? `Reenviar em ${cooldown}s` : "Reenviar link"}
                 </Button>
                 <Button asChild variant="outline" className="w-full">
