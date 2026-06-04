@@ -926,6 +926,27 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
       perfil_lojista: {
         Row: {
           categoria: string | null
