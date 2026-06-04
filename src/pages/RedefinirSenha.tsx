@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { z } from "zod";
-import { Box, CheckCircle2, Lock, Check, X } from "lucide-react";
+import { Box, CheckCircle2, Lock, Check, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,52 +8,23 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const passwordSchema = z
-  .object({
-    password: z
-      .string()
-      .min(8, "Mínimo de 8 caracteres")
-      .max(72, "Máximo de 72 caracteres")
-      .regex(/[A-Za-z]/, "Inclua ao menos uma letra")
-      .regex(/[0-9]/, "Inclua ao menos um número"),
-    confirmPassword: z.string(),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "As senhas não conferem",
-    path: ["confirmPassword"],
-  });
+import {
+  validatePasswordStrength,
+  PASSWORD_MIN_LENGTH,
+} from "@/lib/passwordStrength";
 
 type TokenStatus = "checking" | "valid" | "expired" | "invalid";
 
-// Calcula a força da senha com base em comprimento e variedade de caracteres
-function getPasswordStrength(pw: string): {
-  score: number;
-  label: string;
-  barClass: string;
-  textClass: string;
-} {
-  if (!pw) return { score: 0, label: "", barClass: "", textClass: "" };
-  let score = 0;
-  if (pw.length >= 8) score++;
-  if (pw.length >= 12) score++;
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-
-  if (score <= 1) return { score: 1, label: "Fraca", barClass: "bg-destructive", textClass: "text-destructive" };
-  if (score === 2) return { score: 2, label: "Média", barClass: "bg-amber-500", textClass: "text-amber-600" };
-  if (score === 3) return { score: 3, label: "Forte", barClass: "bg-primary", textClass: "text-primary" };
-  return { score: 4, label: "Muito forte", barClass: "bg-accent", textClass: "text-accent" };
-}
-
-function Criterion({ ok, label }: { ok: boolean; label: string }) {
+function Criterion({ ok, label, id }: { ok: boolean; label: string; id?: string }) {
   return (
-    <li className={cn("flex items-center gap-1.5 text-xs", ok ? "text-foreground" : "text-muted-foreground")}>
+    <li
+      id={id}
+      className={cn("flex items-center gap-1.5 text-xs", ok ? "text-foreground" : "text-muted-foreground")}
+    >
       {ok ? (
-        <Check className="h-3.5 w-3.5 text-primary" />
+        <Check className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
       ) : (
-        <X className="h-3.5 w-3.5 text-muted-foreground/60" />
+        <X className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
       )}
       {label}
     </li>
@@ -70,6 +40,7 @@ export default function RedefinirSenha() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
 
   // Supabase envia o token no hash da URL (#access_token=...&type=recovery)
   // e dispara um evento PASSWORD_RECOVERY na sessão. Em caso de link expirado
@@ -107,29 +78,43 @@ export default function RedefinirSenha() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const strength = useMemo(() => getPasswordStrength(password), [password]);
-  const hasMinLength = password.length >= 8;
-  const hasLetter = /[A-Za-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
+  // Fonte única de verdade: alimenta o medidor visual E a validação.
+  const strength = useMemo(() => validatePasswordStrength(password), [password]);
   const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+  const isFormValid = strength.isValid && password === confirmPassword && confirmPassword.length > 0;
 
-  const isFormValid = useMemo(
-    () => passwordSchema.safeParse({ password, confirmPassword }).success,
-    [password, confirmPassword],
+  // Lista ordenada de erros para o resumo no topo do formulário.
+  const errorEntries = useMemo(
+    () =>
+      Object.entries(errors).map(([field, message]) => ({
+        field,
+        message,
+        targetId: field === "confirmPassword" ? "confirm-password" : "new-password",
+      })),
+    [errors],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = passwordSchema.safeParse({ password, confirmPassword });
-    if (!parsed.success) {
-      const fe: Record<string, string> = {};
-      parsed.error.issues.forEach((i) => {
-        const k = String(i.path[0] ?? "");
-        if (!fe[k]) fe[k] = i.message;
-      });
+
+    // Valida usando o utilitário compartilhado.
+    const fe: Record<string, string> = {};
+    if (!strength.isValid) {
+      fe.password = strength.errors[0] ?? "Senha inválida";
+    }
+    if (confirmPassword.length === 0) {
+      fe.confirmPassword = "Confirme a nova senha";
+    } else if (password !== confirmPassword) {
+      fe.confirmPassword = "As senhas não conferem";
+    }
+
+    if (Object.keys(fe).length > 0) {
       setErrors(fe);
+      // Move o foco para o resumo de erros assim que o envio falha.
+      requestAnimationFrame(() => errorSummaryRef.current?.focus());
       return;
     }
+
     setErrors({});
     setLoading(true);
     try {
@@ -145,10 +130,12 @@ export default function RedefinirSenha() {
     }
   };
 
+  const hasErrors = errorEntries.length > 0;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
       <Link to="/" className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <Box className="h-7 w-7 text-primary" />
+        <Box className="h-7 w-7 text-primary" aria-hidden="true" />
         Obra Link
       </Link>
 
@@ -163,12 +150,16 @@ export default function RedefinirSenha() {
         <CardContent>
           {!ready ? (
             <div className="flex justify-center py-6">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div
+                className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                role="status"
+                aria-label="Verificando link de recuperação"
+              />
             </div>
           ) : success ? (
             <div className="space-y-5 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <CheckCircle2 className="h-6 w-6 text-primary" />
+                <CheckCircle2 className="h-6 w-6 text-primary" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h2 className="text-base font-semibold">Senha redefinida!</h2>
@@ -183,7 +174,7 @@ export default function RedefinirSenha() {
           ) : tokenStatus !== "valid" ? (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-                <X className="h-6 w-6 text-destructive" />
+                <X className="h-6 w-6 text-destructive" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h2 className="text-base font-semibold">
@@ -204,24 +195,54 @@ export default function RedefinirSenha() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {/* Resumo de erros: recebe foco dinâmico ao falhar o envio */}
+              {hasErrors && (
+                <div
+                  ref={errorSummaryRef}
+                  tabIndex={-1}
+                  role="alert"
+                  aria-labelledby="error-summary-title"
+                  className="rounded-md border border-destructive/40 bg-destructive/10 p-3 outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
+                    <p id="error-summary-title" className="text-sm font-semibold text-destructive">
+                      Corrija os seguintes problemas:
+                    </p>
+                  </div>
+                  <ul className="mt-2 list-disc space-y-1 pl-8 text-sm text-destructive">
+                    {errorEntries.map((err) => (
+                      <li key={err.field}>
+                        <a href={`#${err.targetId}`} className="underline underline-offset-2">
+                          {err.message}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nova senha *</Label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                   <Input
                     id="new-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres, com letra e número"
+                    placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, com letra e número`}
                     className="pl-9"
                     autoComplete="new-password"
+                    required
+                    aria-required="true"
                     aria-invalid={!!errors.password}
+                    aria-describedby="password-strength password-criteria password-error"
                   />
                 </div>
 
                 {password && (
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-2 pt-1" id="password-strength">
                     <div className="flex gap-1" aria-hidden="true">
                       {[1, 2, 3, 4].map((i) => (
                         <span
@@ -233,27 +254,29 @@ export default function RedefinirSenha() {
                         />
                       ))}
                     </div>
-                    <p className={cn("text-xs font-medium", strength.textClass)}>
+                    <p className={cn("text-xs font-medium", strength.textClass)} aria-live="polite">
                       Força da senha: {strength.label}
                     </p>
                   </div>
                 )}
 
-                <ul className="space-y-1 pt-1">
-                  <Criterion ok={hasMinLength} label="Mínimo de 8 caracteres" />
-                  <Criterion ok={hasLetter} label="Pelo menos uma letra" />
-                  <Criterion ok={hasNumber} label="Pelo menos um número" />
+                <ul className="space-y-1 pt-1" id="password-criteria">
+                  {strength.criteria.map((c) => (
+                    <Criterion key={c.key} ok={c.met} label={c.label} />
+                  ))}
                 </ul>
 
                 {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password}</p>
+                  <p id="password-error" className="text-xs text-destructive">
+                    {errors.password}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar nova senha *</Label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                   <Input
                     id="confirm-password"
                     type="password"
@@ -262,14 +285,21 @@ export default function RedefinirSenha() {
                     placeholder="Repita a senha"
                     className="pl-9"
                     autoComplete="new-password"
+                    required
+                    aria-required="true"
                     aria-invalid={!!errors.confirmPassword}
+                    aria-describedby="confirm-match confirm-error"
                   />
                 </div>
                 {confirmPassword && (
-                  <Criterion ok={passwordsMatch} label="As senhas conferem" />
+                  <div id="confirm-match">
+                    <Criterion ok={passwordsMatch} label="As senhas conferem" />
+                  </div>
                 )}
                 {errors.confirmPassword && (
-                  <p className="text-xs text-destructive">{errors.confirmPassword}</p>
+                  <p id="confirm-error" className="text-xs text-destructive">
+                    {errors.confirmPassword}
+                  </p>
                 )}
               </div>
 
