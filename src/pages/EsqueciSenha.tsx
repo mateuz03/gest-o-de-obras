@@ -190,6 +190,16 @@ export default function EsqueciSenha() {
                 </p>
               </div>
 
+              {rateLimitMsg && (
+                <p
+                  role="alert"
+                  tabIndex={-1}
+                  className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive"
+                >
+                  {rateLimitMsg}
+                </p>
+              )}
+
               <Button type="submit" className="w-full" disabled={!isValid || loading}>
                 {loading ? "Enviando..." : "Enviar Instruções"}
               </Button>
@@ -198,7 +208,7 @@ export default function EsqueciSenha() {
                 to="/auth"
                 className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
                 Voltar ao login
               </Link>
             </form>
