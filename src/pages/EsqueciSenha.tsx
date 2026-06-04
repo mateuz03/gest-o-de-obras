@@ -124,7 +124,7 @@ export default function EsqueciSenha() {
               <div className="space-y-2">
                 <Label htmlFor="recover-email">E-mail cadastrado</Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                   <Input
                     id="recover-email"
                     type="email"
@@ -135,8 +135,14 @@ export default function EsqueciSenha() {
                     autoComplete="email"
                     autoFocus
                     required
+                    aria-required="true"
+                    aria-invalid={email.length > 0 && !isValid}
+                    aria-describedby="recover-email-hint"
                   />
                 </div>
+                <p id="recover-email-hint" className="text-xs text-muted-foreground">
+                  Enviaremos um link de redefinição se este e-mail estiver cadastrado.
+                </p>
               </div>
 
               <Button type="submit" className="w-full" disabled={!isValid || loading}>
