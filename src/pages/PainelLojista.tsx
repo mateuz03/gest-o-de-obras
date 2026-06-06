@@ -418,13 +418,30 @@ export default function PainelLojista() {
                           <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Ajuda os clientes a encontrarem sua loja no diretório.</p>
                         </div>
                         <div>
-                          <Label className="text-slate-700 font-bold">Logotipo (URL) (Opcional)</Label>
-                          <Input placeholder="https://..." value={perfil.logo_url} onChange={(e) => setPerfil({ ...perfil, logo_url: e.target.value })} className="mt-1" />
-                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Link da imagem do logo da sua loja.</p>
+                          <Label className="text-slate-700 font-bold">Logotipo (Opcional)</Label>
+                          <div className="mt-1 flex items-center gap-3">
+                            {(logoFile || perfil.logo_url) && (
+                              <img src={logoFile || perfil.logo_url} alt="Pré-visualização do logo" className="h-12 w-12 rounded-lg border border-slate-200 object-cover" />
+                            )}
+                            <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handlePickImage(e, setLogoFile)} className="cursor-pointer" />
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Imagem quadrada (PNG, JPG ou WEBP, até 5 MB).</p>
                         </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-slate-700 font-bold">Banner da Vitrine (Opcional)</Label>
+                        <div className="mt-1 flex items-center gap-3">
+                          {(bannerFile || perfil.banner_url) && (
+                            <img src={bannerFile || perfil.banner_url} alt="Pré-visualização do banner" className="h-16 w-28 rounded-lg border border-slate-200 object-cover" />
+                          )}
+                          <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handlePickImage(e, setBannerFile)} className="cursor-pointer" />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Imagem de capa exibida no topo da sua vitrine (até 5 MB).</p>
                       </div>
                     </div>
                   </div>
+
 
 
                   {/* Seção 2: Contato e Localização */}
