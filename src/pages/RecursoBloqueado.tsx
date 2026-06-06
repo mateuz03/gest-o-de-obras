@@ -112,14 +112,15 @@ export default function RecursoBloqueado({ slug: slugProp }: RecursoBloqueadoPro
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="h-12 bg-emerald-600 px-8 text-base text-white hover:bg-emerald-700">
-                <Link to="/auth?tab=signup">
-                  Criar conta gratuita <ArrowRight className="ml-2 h-5 w-5" />
+                <Link to={signupUrl}>
+                  Criar conta e acessar {name} <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12 border-slate-300 px-8 text-base text-slate-700 hover:bg-slate-50">
-                <Link to="/auth">Já tenho conta</Link>
+                <Link to={loginUrl}>Já tenho conta</Link>
               </Button>
             </div>
+
 
             <p className="mt-4 text-sm text-slate-400">
               Primeiras 3 análises grátis • Sem cartão de crédito
