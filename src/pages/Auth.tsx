@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Box, User, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { consumeIntendedRoute } from "@/lib/intendedRoute";
 import {
   isValidCPF, isValidCNPJ, maskCPF, maskCNPJ, maskPhone, onlyDigits,
 } from "@/lib/brValidators";
@@ -72,7 +73,7 @@ export default function Auth() {
   const [form, setForm] = useState(emptyForm);
 
   if (user) {
-    navigate("/dashboard", { replace: true });
+    navigate(consumeIntendedRoute(searchParams.get("redirect")), { replace: true });
     return null;
   }
 
@@ -113,7 +114,7 @@ export default function Auth() {
     try {
       await signIn(fd.get("email") as string, fd.get("password") as string);
       toast.success("Login realizado!");
-      navigate("/dashboard");
+      navigate(consumeIntendedRoute(searchParams.get("redirect")), { replace: true });
     } catch (err: any) {
       toast.error(err.message || "Erro ao fazer login");
     } finally {
