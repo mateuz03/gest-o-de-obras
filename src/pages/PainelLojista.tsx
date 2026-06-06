@@ -70,6 +70,9 @@ export default function PainelLojista() {
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  // Imagens novas selecionadas (data URL base64) enviadas ao Storage no save.
+  const [logoFile, setLogoFile] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<string | null>(null);
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
@@ -80,7 +83,8 @@ export default function PainelLojista() {
     instagram: "",
     horario_atendimento: "",
     categoria: "",
-    logo_url: ""
+    logo_url: "",
+    banner_url: ""
   });
 
   // Calcula % de preenchimento
