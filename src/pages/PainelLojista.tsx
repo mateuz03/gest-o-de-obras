@@ -127,27 +127,78 @@ export default function PainelLojista() {
     carregarDados();
   }, [user]);
 
-  // ─── SALVAR PERFIL ───
+  // ─── SALVAR PERFIL (via endpoint de onboarding com RBAC + Storage) ───
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSalvandoPerfil(true);
-    
-    try {
-      const { error } = await supabase.from("perfil_lojista").upsert({
-          user_id: user.id,
-          ...perfil,
-          status: "ativo"
-        }, { onConflict: "user_id" });
 
-      if (error) throw error;
-      toast.success("Alterações salvas com sucesso!");
+    try {
+      // O endpoint valida o escopo CNPJ no servidor (retorna 403 para CPF),
+      // grava o logotipo/banner no Storage e parametriza a vitrine.
+      const { data, error } = await supabase.functions.invoke("store-onboarding", {
+        body: {
+          nome_loja: perfil.nome_loja,
+          categoria: perfil.categoria,
+          descricao: perfil.descricao,
+          cidade: perfil.cidade,
+          estado: perfil.estado,
+          whatsapp: perfil.whatsapp,
+          cnpj: perfil.cnpj,
+          instagram: perfil.instagram,
+          horario_atendimento: perfil.horario_atendimento,
+          logo_url: perfil.logo_url || null,
+          banner_url: perfil.banner_url || null,
+          logo_data_url: logoFile,
+          banner_data_url: bannerFile,
+        },
+      });
+
+      if (error) {
+        // FunctionsHttpError expõe o status via context.
+        const status = (error as { context?: { status?: number } }).context?.status;
+        if (status === 403) {
+          toast.error("Acesso restrito a contas Pessoa Jurídica (CNPJ).");
+          navigate("/meus-anuncios", { replace: true });
+          return;
+        }
+        throw error;
+      }
+
+      const saved = (data as { perfil?: typeof perfil & { banner_url?: string } })?.perfil;
+      if (saved) {
+        setPerfil((p) => ({
+          ...p,
+          logo_url: saved.logo_url || p.logo_url,
+          banner_url: saved.banner_url || p.banner_url,
+        }));
+      }
+      setLogoFile(null);
+      setBannerFile(null);
+      toast.success("Vitrine salva com sucesso!");
     } catch (error) {
       toast.error("Erro ao atualizar os dados.");
     } finally {
       setSalvandoPerfil(false);
     }
   };
+
+  // Converte um arquivo selecionado em data URL (base64) para envio ao Storage.
+  const handlePickImage = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (v: string) => void,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande (máximo 5 MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setter(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
 
   // ─── FUNÇÕES DO CATÁLOGO ───
   const abrirModalNovo = () => { 
