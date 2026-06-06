@@ -106,7 +106,9 @@ describe("Guard condicional — Soluções Internas", () => {
 
     expect(PrivateScreen).not.toHaveBeenCalled();
     expect(screen.queryByText(PRIVATE_TEXT)).not.toBeInTheDocument();
-    // A tela de bloqueio mostra o marketing do recurso.
-    expect(screen.getByText(/Gestão de Projetos/i)).toBeInTheDocument();
+    // A tela de bloqueio mostra o marketing do recurso (tagline única).
+    expect(
+      screen.getByText(/Todos os seus orçamentos e obras em um só painel/i),
+    ).toBeInTheDocument();
   });
 });
