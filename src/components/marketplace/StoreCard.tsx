@@ -3,6 +3,7 @@ import { Store, MapPin, Package, BadgeCheck, Sparkles, ArrowRight } from "lucide
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { isHighlightActive } from "@/lib/featured";
+import { resolveSellerLink } from "@/lib/sellerLink";
 
 export interface LojaDiretorio {
   id: string;
