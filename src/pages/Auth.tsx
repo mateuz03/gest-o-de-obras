@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Box, User, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { consumeIntendedRoute } from "@/lib/intendedRoute";
 import {
   isValidCPF, isValidCNPJ, maskCPF, maskCNPJ, maskPhone, onlyDigits,
 } from "@/lib/brValidators";
