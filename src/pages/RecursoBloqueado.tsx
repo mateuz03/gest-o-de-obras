@@ -1,28 +1,71 @@
-import { Link, useParams, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useParams, useLocation, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Box, CheckCircle2, Lock, ArrowLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSolutionBySlug } from "@/config/solutions";
+import { saveIntendedRoute, authUrlWithRedirect } from "@/lib/intendedRoute";
 
 interface RecursoBloqueadoProps {
   /** Slug da solução. Quando omitido, é lido da URL (`/recurso/:slug`). */
   slug?: string;
 }
 
+/** Atualiza título e meta description para SEO dinâmico por recurso. */
+function useResourceSeo(name?: string, description?: string) {
+  useEffect(() => {
+    if (!name) return;
+    const prevTitle = document.title;
+    document.title = `${name} — Obra Link`;
+
+    const meta =
+      (document.querySelector('meta[name="description"]') as HTMLMetaElement | null) ??
+      (() => {
+        const m = document.createElement("meta");
+        m.name = "description";
+        document.head.appendChild(m);
+        return m;
+      })();
+    const prevDesc = meta.content;
+    if (description) meta.content = description.slice(0, 160);
+
+    return () => {
+      document.title = prevTitle;
+      if (description) meta.content = prevDesc;
+    };
+  }, [name, description]);
+}
+
 /**
  * Tela de Explicação / Bloqueio (UX Educativa).
  * Exibida quando um visitante (não logado) tenta acessar uma Solução Interna.
- * Mostra o valor do recurso e direciona para criar conta / login.
+ * Mostra o valor do recurso e direciona para criar conta / login, preservando
+ * a rota de intenção para redirecionamento pós-login.
  */
 export default function RecursoBloqueado({ slug: slugProp }: RecursoBloqueadoProps) {
   const params = useParams();
+  const location = useLocation();
   const slug = slugProp ?? params.slug;
   const solution = getSolutionBySlug(slug);
+
+  // Destino de intenção: se a tela foi renderizada no lugar da rota privada
+  // (slugProp vindo do guard), usamos a URL real acessada; caso contrário,
+  // usamos o caminho canônico da solução.
+  const intended = slugProp ? location.pathname + location.search : solution?.path ?? "/dashboard";
+
+  useEffect(() => {
+    if (solution) saveIntendedRoute(intended);
+  }, [solution, intended]);
+
+  useResourceSeo(solution?.marketing.name, solution?.marketing.description);
 
   // Slug inexistente → manda para a Home pública.
   if (!solution) return <Navigate to="/" replace />;
 
   const { name, tagline, description, benefits, icon: Icon } = solution.marketing;
+  const signupUrl = authUrlWithRedirect(intended, "signup");
+  const loginUrl = authUrlWithRedirect(intended, "login");
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 text-slate-900">
