@@ -73,7 +73,7 @@ export default function Auth() {
   const [form, setForm] = useState(emptyForm);
 
   if (user) {
-    navigate("/dashboard", { replace: true });
+    navigate(consumeIntendedRoute(searchParams.get("redirect")), { replace: true });
     return null;
   }
 
