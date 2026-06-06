@@ -23,7 +23,7 @@ export function StoreCard({ loja }: { loja: LojaDiretorio }) {
   const premium = isHighlightActive(loja.is_premium, loja.featured_until);
 
   return (
-    <Link to={`/loja/${loja.user_id}`} className="group block h-full">
+    <Link to={resolveSellerLink({ userId: loja.user_id, isStore: true })} className="group block h-full">
       <Card
         className={`h-full overflow-hidden bg-white transition-all hover:-translate-y-1 hover:shadow-lg ${
           premium
