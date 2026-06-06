@@ -949,6 +949,7 @@ export type Database = {
       }
       perfil_lojista: {
         Row: {
+          banner_url: string | null
           categoria: string | null
           cidade: string
           cnpj: string
@@ -969,6 +970,7 @@ export type Database = {
           whatsapp: string
         }
         Insert: {
+          banner_url?: string | null
           categoria?: string | null
           cidade: string
           cnpj: string
@@ -989,6 +991,7 @@ export type Database = {
           whatsapp: string
         }
         Update: {
+          banner_url?: string | null
           categoria?: string | null
           cidade?: string
           cnpj?: string
