@@ -37,6 +37,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import { StoreDirectory } from "@/components/marketplace/StoreDirectory";
+import { ProductCard } from "@/components/marketplace/ProductCard";
+import { isHighlightActive } from "@/lib/featured";
 
 const categorias = [
   "Todos",
@@ -60,6 +62,8 @@ interface Produto {
   preco: number;
   unidade_medida: string;
   foto_url?: string;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
   perfil_lojista?: {
     nome_loja: string;
     whatsapp: string;
@@ -369,7 +373,13 @@ export default function Marketplace() {
             preco,
             unidade_medida,
             foto_url,
+<<<<<<< HEAD
             perfil_lojista!inner(nome_loja, whatsapp, status)
+=======
+            is_featured,
+            featured_until,
+            perfil_lojista(nome_loja, whatsapp)
+>>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
           `)
           .eq("status", "ativo")
           .eq("perfil_lojista.status", "approved")
@@ -444,6 +454,21 @@ export default function Marketplace() {
 
     return resultado;
   }, [produtosDB, busca, categoria, marcasSelecionadas, precoMin, precoMax, ordenacao]);
+
+  // Anúncios com destaque ativo (respeitando a validade do prazo)
+  const destacados = useMemo(
+    () => filtrados.filter((p) => isHighlightActive(p.is_featured, p.featured_until)),
+    [filtrados]
+  );
+
+  // Feed geral com os destaques priorizados no topo
+  const filtradosOrdenados = useMemo(() => {
+    return [...filtrados].sort((a, b) => {
+      const fa = isHighlightActive(a.is_featured, a.featured_until) ? 1 : 0;
+      const fb = isHighlightActive(b.is_featured, b.featured_until) ? 1 : 0;
+      return fb - fa;
+    });
+  }, [filtrados]);
 
   const filtrosAtivos = useMemo(() => {
     const ativos: { label: string; onRemove: () => void }[] = [];
@@ -714,57 +739,38 @@ export default function Marketplace() {
               </p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-              {filtrados.map((p) => (
-                <Card
-                  key={p.id}
-                  className="overflow-hidden border-slate-200 hover:shadow-lg transition-all bg-white flex flex-col"
-                >
-                  <ProductImage src={p.foto_url} alt={p.nome_produto} />
-
-                  <CardContent className="p-4 flex flex-col gap-2 flex-1">
-                    <Badge
-                      variant="outline"
-                      className="w-fit text-xs border-slate-200 text-slate-600 bg-slate-50"
-                    >
-                      {p.categoria}
+            <>
+              {/* Carrossel "Materiais em Destaque" */}
+              {destacados.length > 0 && (
+                <section className="mb-8 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 sm:p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-amber-500" />
+                    <h2 className="text-lg font-bold text-slate-900">Materiais em Destaque</h2>
+                    <Badge className="bg-amber-500 text-white hover:bg-amber-500">
+                      Patrocinado
                     </Badge>
+                  </div>
+                  <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 snap-x">
+                    {destacados.map((p) => (
+                      <div key={p.id} className="w-60 shrink-0 snap-start">
+                        <ProductCard produto={p} featured onAdd={adicionarAoProjeto} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-                    <h3 className="font-semibold text-slate-900 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
-                      {p.nome_produto}
-                    </h3>
-
-                    <Link
-                      to={`/vendedor/${p.user_id}`}
-                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 transition-colors group w-fit"
-                    >
-                      <Store className="w-3 h-3 text-emerald-600 group-hover:scale-110 transition-transform" />
-                      <span className="font-medium truncate group-hover:underline">
-                        {p.perfil_lojista?.nome_loja || "Loja Parceira"}
-                      </span>
-                    </Link>
-
-                    <div className="mt-1 flex items-baseline gap-1">
-                      <span className="text-lg font-bold text-slate-900 tabular-nums">
-                        {formatCurrency(p.preco)}
-                      </span>
-                      <span className="text-xs text-slate-500">/ {p.unidade_medida}</span>
-                    </div>
-
-                    <div className="mt-auto pt-2">
-                      <Button
-                        size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                        onClick={() => adicionarAoProjeto(p)}
-                      >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Adicionar ao Projeto
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                {filtradosOrdenados.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    produto={p}
+                    featured={isHighlightActive(p.is_featured, p.featured_until)}
+                    onAdd={adicionarAoProjeto}
+                  />
+                ))}
+              </div>
+            </>
           )}
           </>
           )}

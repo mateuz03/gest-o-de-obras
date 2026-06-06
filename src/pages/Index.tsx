@@ -127,7 +127,7 @@ export default function Index() {
               </button>
               {/* Menu Invisível que aparece no Hover */}
               <div className="absolute top-full left-0 hidden group-hover:block w-56 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
-                <Link to={user ? "/dashboard" : "/auth"} className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Gestão de Projetos</Link>
+                <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Gestão de Projetos</Link>
                 <Link to="/marketplace" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Marketplace</Link>
                 <Link to="/profissionais" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Prestar Serviços</Link>
                 <Link to="/seja-parceiro" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Seja Parceiro</Link>
@@ -275,6 +275,56 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      {/* ─── BANNER CRIE SUA CONTA (apenas visitantes) ─── */}
+      {!user && (
+        <section className="py-12">
+          <div className="container">
+            <motion.div
+              {...fadeInUp}
+              className="relative overflow-hidden rounded-3xl bg-slate-900 px-8 py-12 shadow-2xl shadow-slate-900/20 sm:px-12"
+            >
+              <div className="absolute -right-10 -top-10 h-52 w-52 rounded-full bg-emerald-500/20 blur-3xl" />
+              <div className="absolute -bottom-12 left-1/3 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl" />
+              <div className="relative flex flex-col items-center justify-between gap-8 lg:flex-row lg:text-left">
+                <div className="max-w-xl text-center lg:text-left">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
+                    <Sparkles className="h-4 w-4" /> Comece agora, é grátis
+                  </div>
+                  <h2 className="mb-3 text-3xl font-bold text-white sm:text-4xl">
+                    Desbloqueie todas as soluções do Obra Link
+                  </h2>
+                  <p className="text-lg text-slate-300">
+                    Crie sua conta e tenha acesso à análise de plantas com IA, gestão de
+                    projetos, marketplace e muito mais. Suas 3 primeiras análises são grátis.
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-12 bg-emerald-500 px-8 text-base font-semibold text-white hover:bg-emerald-600"
+                  >
+                    <Link to="/auth?tab=signup">
+                      Criar conta gratuita <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="outline"
+                    className="h-12 border-slate-600 bg-transparent px-8 text-base text-white hover:bg-white/10 hover:text-white"
+                  >
+                    <Link to="/auth">Fazer login</Link>
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
+
 
       {/* ─── ANATOMIA DA ANÁLISE (Bento Grid) ─── */}
       <section className="py-20 bg-slate-50">

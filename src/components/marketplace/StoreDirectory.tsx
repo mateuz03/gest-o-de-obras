@@ -3,6 +3,7 @@ import { Loader2, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StoreCard, type LojaDiretorio } from "./StoreCard";
+import { isHighlightActive } from "@/lib/featured";
 
 const CATEGORIA_TODAS = "Todas";
 
@@ -17,7 +18,7 @@ export function StoreDirectory() {
         const { data: perfis, error } = await supabase
           .from("perfil_lojista")
           .select(
-            "id, user_id, nome_loja, logo_url, descricao, categoria, cidade, estado, is_premium"
+            "id, user_id, nome_loja, logo_url, descricao, categoria, cidade, estado, is_premium, featured_until"
           )
           .eq("status", "approved");
 
@@ -64,9 +65,11 @@ export function StoreDirectory() {
         ? lojas
         : lojas.filter((l) => l.categoria === categoriaAtiva);
 
-    // Premium sempre no topo
+    // Lojas em destaque (com prazo válido) sempre no topo
     return [...base].sort((a, b) => {
-      if (!!a.is_premium !== !!b.is_premium) return a.is_premium ? -1 : 1;
+      const fa = isHighlightActive(a.is_premium, a.featured_until) ? 1 : 0;
+      const fb = isHighlightActive(b.is_premium, b.featured_until) ? 1 : 0;
+      if (fa !== fb) return fb - fa;
       return a.nome_loja.localeCompare(b.nome_loja, "pt-BR");
     });
   }, [lojas, categoriaAtiva]);

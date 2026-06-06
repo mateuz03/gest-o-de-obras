@@ -28,6 +28,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { UpgradeDialog } from "@/components/marketplace/UpgradeDialog";
+import { isHighlightActive } from "@/lib/featured";
+import { Sparkles, Rocket } from "lucide-react";
 
 // Helpers de Máscara
 const maskPhone = (v: string) =>
@@ -62,15 +65,22 @@ export default function PainelLojista() {
   const [modalAberto, setModalAberto] = useState(false);
   const [salvandoProduto, setSalvandoProduto] = useState(false);
   const [formProduto, setFormProduto] = useState({ id: "", nome_produto: "", categoria: "Cimento e Argamassa", preco: "", unidade_medida: "un" });
+  const [upgradeLojaOpen, setUpgradeLojaOpen] = useState(false);
 
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+<<<<<<< HEAD
   // Controle de moderação: pending (em análise), approved (ativa), rejected (recusada)
   const [lojaExiste, setLojaExiste] = useState(false);
   const [statusLoja, setStatusLoja] = useState<"pending" | "approved" | "rejected" | "">("");
   const [motivoRejeicao, setMotivoRejeicao] = useState("");
   const [modoEdicao, setModoEdicao] = useState(false);
+=======
+  // Imagens novas selecionadas (data URL base64) enviadas ao Storage no save.
+  const [logoFile, setLogoFile] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<string | null>(null);
+>>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
@@ -81,7 +91,8 @@ export default function PainelLojista() {
     instagram: "",
     horario_atendimento: "",
     categoria: "",
-    logo_url: ""
+    logo_url: "",
+    banner_url: ""
   });
 
   // Calcula % de preenchimento
@@ -114,7 +125,8 @@ export default function PainelLojista() {
             instagram: dataPerfil.instagram || "",
             horario_atendimento: dataPerfil.horario_atendimento || "",
             categoria: dataPerfil.categoria || "",
-            logo_url: dataPerfil.logo_url || ""
+            logo_url: dataPerfil.logo_url || "",
+            banner_url: (dataPerfil as { banner_url?: string }).banner_url || ""
           });
         }
       } catch (error) {
@@ -127,11 +139,12 @@ export default function PainelLojista() {
     carregarDados();
   }, [user]);
 
-  // ─── SALVAR PERFIL ───
+  // ─── SALVAR PERFIL (via endpoint de onboarding com RBAC + Storage) ───
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSalvandoPerfil(true);
+<<<<<<< HEAD
     
     try {
       // Loja nova ou reenvio após recusa volta para análise (pending).
@@ -156,12 +169,75 @@ export default function PainelLojista() {
       } else {
         toast.success("Alterações salvas com sucesso!");
       }
+=======
+
+    try {
+      // O endpoint valida o escopo CNPJ no servidor (retorna 403 para CPF),
+      // grava o logotipo/banner no Storage e parametriza a vitrine.
+      const { data, error } = await supabase.functions.invoke("store-onboarding", {
+        body: {
+          nome_loja: perfil.nome_loja,
+          categoria: perfil.categoria,
+          descricao: perfil.descricao,
+          cidade: perfil.cidade,
+          estado: perfil.estado,
+          whatsapp: perfil.whatsapp,
+          cnpj: perfil.cnpj,
+          instagram: perfil.instagram,
+          horario_atendimento: perfil.horario_atendimento,
+          logo_url: perfil.logo_url || null,
+          banner_url: perfil.banner_url || null,
+          logo_data_url: logoFile,
+          banner_data_url: bannerFile,
+        },
+      });
+
+      if (error) {
+        // FunctionsHttpError expõe o status via context.
+        const status = (error as { context?: { status?: number } }).context?.status;
+        if (status === 403) {
+          toast.error("Acesso restrito a contas Pessoa Jurídica (CNPJ).");
+          navigate("/meus-anuncios", { replace: true });
+          return;
+        }
+        throw error;
+      }
+
+      const saved = (data as { perfil?: typeof perfil & { banner_url?: string } })?.perfil;
+      if (saved) {
+        setPerfil((p) => ({
+          ...p,
+          logo_url: saved.logo_url || p.logo_url,
+          banner_url: saved.banner_url || p.banner_url,
+        }));
+      }
+      setLogoFile(null);
+      setBannerFile(null);
+      toast.success("Vitrine salva com sucesso!");
+>>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
     } catch (error) {
       toast.error("Erro ao atualizar os dados.");
     } finally {
       setSalvandoPerfil(false);
     }
   };
+
+  // Converte um arquivo selecionado em data URL (base64) para envio ao Storage.
+  const handlePickImage = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (v: string) => void,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande (máximo 5 MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setter(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
 
   // ─── FUNÇÕES DO CATÁLOGO ───
   const abrirModalNovo = () => { 
@@ -345,6 +421,37 @@ export default function PainelLojista() {
               </div>
             </div>
 
+            {/* CTA: Loja em Destaque */}
+            <div className="mb-8 overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white shadow-md">
+              <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 text-amber-300 ring-1 ring-amber-300/30">
+                    <Sparkles className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-bold">Coloque sua loja em destaque</h3>
+                    <p className="text-sm text-slate-200">
+                      Apareça no topo das buscas do diretório e receba mais contatos de clientes.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setUpgradeLojaOpen(true)}
+                  className="shrink-0 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+                >
+                  <Rocket className="mr-2 h-4 w-4" /> Quero destacar minha loja
+                </Button>
+              </div>
+            </div>
+
+            <UpgradeDialog
+              open={upgradeLojaOpen}
+              onOpenChange={setUpgradeLojaOpen}
+              variant="loja"
+              itemNome={perfil.nome_loja}
+            />
+
+
             {loadingPerfil ? (
                <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>
             ) : (
@@ -405,13 +512,30 @@ export default function PainelLojista() {
                           <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Ajuda os clientes a encontrarem sua loja no diretório.</p>
                         </div>
                         <div>
-                          <Label className="text-slate-700 font-bold">Logotipo (URL) (Opcional)</Label>
-                          <Input placeholder="https://..." value={perfil.logo_url} onChange={(e) => setPerfil({ ...perfil, logo_url: e.target.value })} className="mt-1" />
-                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Link da imagem do logo da sua loja.</p>
+                          <Label className="text-slate-700 font-bold">Logotipo (Opcional)</Label>
+                          <div className="mt-1 flex items-center gap-3">
+                            {(logoFile || perfil.logo_url) && (
+                              <img src={logoFile || perfil.logo_url} alt="Pré-visualização do logo" className="h-12 w-12 rounded-lg border border-slate-200 object-cover" />
+                            )}
+                            <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handlePickImage(e, setLogoFile)} className="cursor-pointer" />
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Imagem quadrada (PNG, JPG ou WEBP, até 5 MB).</p>
                         </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-slate-700 font-bold">Banner da Vitrine (Opcional)</Label>
+                        <div className="mt-1 flex items-center gap-3">
+                          {(bannerFile || perfil.banner_url) && (
+                            <img src={bannerFile || perfil.banner_url} alt="Pré-visualização do banner" className="h-16 w-28 rounded-lg border border-slate-200 object-cover" />
+                          )}
+                          <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handlePickImage(e, setBannerFile)} className="cursor-pointer" />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Info className="w-3 h-3" /> Imagem de capa exibida no topo da sua vitrine (até 5 MB).</p>
                       </div>
                     </div>
                   </div>
+
 
 
                   {/* Seção 2: Contato e Localização */}

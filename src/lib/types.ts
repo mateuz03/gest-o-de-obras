@@ -27,6 +27,8 @@ export interface BudgetItem {
   sinapi_match?: SinapiMatch | null;
   preco_sinapi_unitario?: number | null;
   preco_conciliado?: boolean;
+  // How the SINAPI reconciliation was applied (auto vs manual link)
+  modo_conciliacao?: "automatica" | "manual" | string;
   // Hybrid SINAPI flow: true when match-sinapi could not find a match in the local DB
   sem_preco_sinapi?: boolean;
   // Hybrid SINAPI flow: true when price came from AI estimate (fallback)

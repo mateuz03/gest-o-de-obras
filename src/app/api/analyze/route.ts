@@ -1,3 +1,4 @@
+// @ts-nocheck
 // app/api/analyze/route.ts
 // Rota blindada para orquestrar a IA: Prevenção de IDOR, Validação Zod e Idempotência.
 

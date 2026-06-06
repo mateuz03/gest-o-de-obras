@@ -1,0 +1,1 @@
+ALTER TABLE public.perfil_lojista ADD COLUMN IF NOT EXISTS banner_url text;

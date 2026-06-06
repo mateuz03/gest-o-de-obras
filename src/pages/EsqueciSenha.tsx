@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const emailSchema = z.string().trim().email().max(255);
@@ -17,6 +16,7 @@ export default function EsqueciSenha() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
 
   const isValid = useMemo(() => emailSchema.safeParse(email).success, [email]);
 
@@ -29,24 +29,53 @@ export default function EsqueciSenha() {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  const sendLink = async () => {
-    // Por segurança, sempre exibimos a mesma mensagem, sem revelar se o e-mail existe
-    await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    });
+  // Chama o endpoint do servidor que aplica o rate limiting (3 / 15 min por IP+e-mail).
+  // Retorna a mensagem de bloqueio quando o servidor responde 429, ou null em caso de sucesso.
+  const sendLink = async (): Promise<string | null> => {
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/request-password-reset`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          redirectTo: `${window.location.origin}/redefinir-senha`,
+        }),
+      },
+    );
+
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      return (
+        data.error ||
+        "Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente."
+      );
+    }
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
     setLoading(true);
+    setRateLimitMsg(null);
     try {
-      await sendLink();
-    } catch {
-      // Mantemos o mesmo feedback para não vazar existência de conta
-    } finally {
+      const limited = await sendLink();
+      if (limited) {
+        setRateLimitMsg(limited);
+        return;
+      }
       setSent(true);
       setCooldown(RESEND_COOLDOWN);
+    } catch {
+      // Mantemos o mesmo feedback para não vazar existência de conta
+      setSent(true);
+      setCooldown(RESEND_COOLDOWN);
+    } finally {
       setLoading(false);
     }
   };
@@ -54,16 +83,23 @@ export default function EsqueciSenha() {
   const handleResend = async () => {
     if (cooldown > 0 || !isValid) return;
     setLoading(true);
+    setRateLimitMsg(null);
     try {
-      await sendLink();
+      const limited = await sendLink();
+      if (limited) {
+        setRateLimitMsg(limited);
+        return;
+      }
       toast.success("Link reenviado! Verifique sua caixa de entrada.");
+      setCooldown(RESEND_COOLDOWN);
     } catch {
       toast.success("Link reenviado! Verifique sua caixa de entrada.");
-    } finally {
       setCooldown(RESEND_COOLDOWN);
+    } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
@@ -95,12 +131,20 @@ export default function EsqueciSenha() {
                 </p>
               </div>
               <div className="flex flex-col gap-2">
+                {rateLimitMsg && (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive"
+                  >
+                    {rateLimitMsg}
+                  </p>
+                )}
                 <Button
                   className="w-full"
                   onClick={handleResend}
                   disabled={cooldown > 0 || loading}
                 >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
                   {cooldown > 0 ? `Reenviar em ${cooldown}s` : "Reenviar link"}
                 </Button>
                 <Button asChild variant="outline" className="w-full">
@@ -124,7 +168,7 @@ export default function EsqueciSenha() {
               <div className="space-y-2">
                 <Label htmlFor="recover-email">E-mail cadastrado</Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                   <Input
                     id="recover-email"
                     type="email"
@@ -135,9 +179,25 @@ export default function EsqueciSenha() {
                     autoComplete="email"
                     autoFocus
                     required
+                    aria-required="true"
+                    aria-invalid={email.length > 0 && !isValid}
+                    aria-describedby="recover-email-hint"
                   />
                 </div>
+                <p id="recover-email-hint" className="text-xs text-muted-foreground">
+                  Enviaremos um link de redefinição se este e-mail estiver cadastrado.
+                </p>
               </div>
+
+              {rateLimitMsg && (
+                <p
+                  role="alert"
+                  tabIndex={-1}
+                  className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive"
+                >
+                  {rateLimitMsg}
+                </p>
+              )}
 
               <Button type="submit" className="w-full" disabled={!isValid || loading}>
                 {loading ? "Enviando..." : "Enviar Instruções"}
@@ -147,7 +207,7 @@ export default function EsqueciSenha() {
                 to="/auth"
                 className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
                 Voltar ao login
               </Link>
             </form>
