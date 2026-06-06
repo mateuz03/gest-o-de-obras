@@ -113,7 +113,8 @@ export default function PainelLojista() {
             instagram: dataPerfil.instagram || "",
             horario_atendimento: dataPerfil.horario_atendimento || "",
             categoria: dataPerfil.categoria || "",
-            logo_url: dataPerfil.logo_url || ""
+            logo_url: dataPerfil.logo_url || "",
+            banner_url: (dataPerfil as { banner_url?: string }).banner_url || ""
           });
         }
       } catch (error) {
