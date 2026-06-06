@@ -83,7 +83,7 @@ export function ProductCard({ produto: p, featured = false, onAdd }: ProductCard
         </h3>
 
         <Link
-          to={`/vendedor/${p.user_id}`}
+          to={resolveSellerLink({ userId: p.user_id, isStore: !!p.perfil_lojista })}
           className="group flex w-fit items-center gap-1 text-xs text-slate-500 transition-colors hover:text-emerald-600"
         >
           <Store className="h-3 w-3 text-emerald-600 transition-transform group-hover:scale-110" />
