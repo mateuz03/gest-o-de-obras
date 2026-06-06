@@ -15,10 +15,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Configuracoes() {
   const [mostrarChaveIA, setMostrarChaveIA] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  
+  // Estado para controlar o modal de confirmação do modo manutenção
+  const [showAlertaManutencao, setShowAlertaManutencao] = useState(false);
   
   // Estados simulados das configurações
   const [config, setConfig] = useState({
@@ -29,13 +42,48 @@ export default function Configuracoes() {
     cadastroLojistasAberto: true
   });
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
+    // 5. Validação dos campos antes de salvar
+    if (!config.iaKey.trim()) {
+      toast.error("A Chave da API não pode estar vazia.");
+      return;
+    }
+    
+    if (Number(config.limiteTokens) <= 0) {
+      toast.error("O limite de tokens deve ser maior que zero.");
+      return;
+    }
+
     setSalvando(true);
-    // Simula uma chamada ao backend para salvar as variáveis de ambiente
-    setTimeout(() => {
-      setSalvando(false);
+    
+    // 3. Estrutura try/catch preparada para o backend real
+    try {
+      // Simula a latência da rede (Substituir pela chamada real do Supabase)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
       toast.success("Configurações do sistema atualizadas com sucesso!");
-    }, 1500);
+    } catch (error) {
+      console.error(error);
+      toast.error("Falha ao atualizar as configurações. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const toggleModoManutencao = (checked: boolean) => {
+    if (checked) {
+      // 1. Se estiver ativando, mostra o alerta antes de mudar o estado
+      setShowAlertaManutencao(true);
+    } else {
+      // Se estiver desativando, pode desativar direto
+      setConfig(prev => ({ ...prev, modoManutencao: false }));
+    }
+  };
+
+  const confirmarManutencao = () => {
+    setConfig(prev => ({ ...prev, modoManutencao: true }));
+    setShowAlertaManutencao(false);
+    toast.warning("Modo de manutenção ativado. Usuários foram bloqueados.");
   };
 
   return (
@@ -80,13 +128,16 @@ export default function Configuracoes() {
                 <Input 
                   type={mostrarChaveIA ? "text" : "password"} 
                   value={config.iaKey}
-                  onChange={(e) => setConfig({...config, iaKey: e.target.value})}
+                  // 4. Usando functional update (prev => ...)
+                  onChange={(e) => setConfig(prev => ({ ...prev, iaKey: e.target.value }))}
                   className="pr-10 bg-slate-50 font-mono text-sm" 
                 />
                 <button 
                   type="button"
                   onClick={() => setMostrarChaveIA(!mostrarChaveIA)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  // 2. aria-label adicionado para acessibilidade
+                  aria-label={mostrarChaveIA ? "Ocultar chave da API" : "Mostrar chave da API"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                 >
                   {mostrarChaveIA ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -98,7 +149,7 @@ export default function Configuracoes() {
               <Input 
                 type="number" 
                 value={config.limiteTokens}
-                onChange={(e) => setConfig({...config, limiteTokens: e.target.value})}
+                onChange={(e) => setConfig(prev => ({ ...prev, limiteTokens: e.target.value }))}
                 className="bg-slate-50 max-w-[200px]" 
               />
               <p className="text-xs text-slate-500 mt-1">Evita cobranças surpresa caso ocorra um pico anômalo de uso.</p>
@@ -122,7 +173,7 @@ export default function Configuracoes() {
               <Input 
                 type="password" 
                 value={config.stripeWebhook}
-                onChange={(e) => setConfig({...config, stripeWebhook: e.target.value})}
+                onChange={(e) => setConfig(prev => ({ ...prev, stripeWebhook: e.target.value }))}
                 className="bg-slate-50 font-mono text-sm" 
               />
             </div>
@@ -149,7 +200,7 @@ export default function Configuracoes() {
               </div>
               <Switch 
                 checked={config.cadastroLojistasAberto} 
-                onCheckedChange={(checked) => setConfig({...config, cadastroLojistasAberto: checked})} 
+                onCheckedChange={(checked) => setConfig(prev => ({ ...prev, cadastroLojistasAberto: checked }))} 
               />
             </div>
 
@@ -164,7 +215,7 @@ export default function Configuracoes() {
               </div>
               <Switch 
                 checked={config.modoManutencao} 
-                onCheckedChange={(checked) => setConfig({...config, modoManutencao: checked})} 
+                onCheckedChange={toggleModoManutencao} 
               />
             </div>
 
@@ -172,6 +223,31 @@ export default function Configuracoes() {
         </Card>
 
       </div>
+
+      {/* ─── ALERT DIALOG DO MODO MANUTENÇÃO ─── */}
+      <AlertDialog open={showAlertaManutencao} onOpenChange={setShowAlertaManutencao}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <ShieldAlert className="w-5 h-5" />
+              Atenção: Modo de Manutenção
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja ativar o modo de manutenção? Isso bloqueará o acesso de <strong>todos os usuários ativos</strong> imediatamente. O sistema ficará inacessível até que você desative esta opção.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarManutencao}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Ativar Manutenção
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

@@ -7,11 +7,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_TIMEOUT_MS = 115_000;
+const AI_TIMEOUT_MS = 90000;
 const MAX_IMAGES_STANDARD = 5;
 const MAX_IMAGES_HYBRID = 5;
-const MAX_IMAGE_BASE64_LENGTH = 500_000;
-const MAX_TOTAL_BASE64_LENGTH = 2_000_000;
+const MAX_IMAGE_BASE64_LENGTH = 9_500_000;  // ~1.1MB por imagem
+const MAX_TOTAL_BASE64_LENGTH = 9_000_000;
 
 const MACRO_ETAPA_SCHEMA_KEYS = [
   { key: "1_servicos_preliminares", nome: "Serviços Preliminares" },
@@ -519,10 +519,16 @@ async function generateWithOpenAI(opts: {
   images: Array<{ mime_type?: string; base64: string }>;
 }): Promise<string> {
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  
+  console.log("=== generateWithOpenAI iniciado ===");
+  console.log("API KEY existe:", !!OPENAI_API_KEY);
+  console.log("API KEY prefixo:", OPENAI_API_KEY?.slice(0, 7));
+  console.log("Imagens para enviar:", opts.images.length);
+  console.log("Total base64:", opts.images.reduce((s, i) => s + i.base64.length, 0));
+
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
   const content: any[] = [{ type: "text", text: opts.userText }];
-
   for (const img of opts.images) {
     content.push({
       type: "image_url",
@@ -533,10 +539,15 @@ async function generateWithOpenAI(opts: {
     });
   }
 
+  // 1. GARANTA QUE O TEMPO SEJA ALTO (60 ou 90 segundos)
+  const AI_TIMEOUT_MS = 120000; // 120.000 milissegundos = 120 segundos
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
   try {
+    console.log("Chamando OpenAI fetch...");
+    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -545,7 +556,7 @@ async function generateWithOpenAI(opts: {
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         response_format: { type: "json_object" },
         temperature: 0.1,
         max_tokens: 8192,
@@ -556,48 +567,47 @@ async function generateWithOpenAI(opts: {
       }),
     });
 
+    // 2. LIMPE O TIMEOUT SE A RESPOSTA CHEGAR ANTES DOS 60s
     clearTimeout(timeout);
+
+    console.log("OpenAI HTTP status:", response.status);
+    
+    const rawBody = await response.text();
+    console.log("OpenAI raw body (primeiros 500 chars):", rawBody.slice(0, 500));
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("OpenAI error raw body:", errorText);
-
       let errorData: any = {};
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { raw: errorText };
-      }
+      try { errorData = JSON.parse(rawBody); } catch { errorData = { raw: rawBody }; }
 
-      if (response.status === 401) {
-        throw new Error("Falha de autenticação com o provedor de IA.");
-      }
-      if (response.status === 429) {
-        throw new Error("Limite de uso temporariamente atingido no provedor de IA. Tente novamente.");
-      }
-      if (response.status === 413) {
-        throw new Error("As imagens enviadas estão grandes demais para processamento. Reduza a resolução/qualidade e tente novamente.");
-      }
-      if (response.status >= 500) {
-        throw new Error("O provedor de IA está indisponível no momento. Tente novamente em instantes.");
-      }
+      if (response.status === 401) throw new Error("Falha de autenticação com o provedor de IA.");
+      if (response.status === 429) throw new Error("Limite de uso temporariamente atingido no provedor de IA. Tente novamente.");
+      if (response.status === 413) throw new Error("As imagens enviadas estão grandes demais para processamento.");
+      if (response.status >= 500) throw new Error("O provedor de IA está indisponível no momento.");
 
-      throw new Error(
-        `OpenAI Erro: ${response.status} - ${
-          errorData?.error?.message || errorData?.raw || response.statusText
-        }`
-      );
+      throw new Error(`OpenAI Erro: ${response.status} - ${errorData?.error?.message || rawBody}`);
     }
 
-    const data = await response.json();
-    return data?.choices?.[0]?.message?.content ?? "";
+    const data = JSON.parse(rawBody);
+    const finishReason = data?.choices?.[0]?.finish_reason;
+    const contentText = data?.choices?.[0]?.message?.content;
+    
+    console.log("finish_reason:", finishReason);
+    console.log("content length:", contentText?.length ?? "VAZIO/NULL");
+    console.log("usage:", JSON.stringify(data?.usage ?? null));
+
+    return contentText ?? "";
+    
   } catch (error: any) {
+    // 3. BOA PRÁTICA: Limpar o timeout também no catch, caso ocorra erro de rede antes de abortar
     clearTimeout(timeout);
-    if (error.name === "AbortError") {
-      throw new Error(
-        "A análise excedeu o tempo seguro de processamento. Envie menos imagens ou imagens mais leves e tente novamente."
-      );
+    
+    // 4. TRATAMENTO ESPECÍFICO DO ERRO DE TIMEOUT
+    if (error.name === 'AbortError') {
+      console.error("OpenAI error: A análise demorou mais que 60 segundos.");
+      throw new Error("A análise excedeu o tempo seguro de processamento. A planta pode ser muito complexa.");
     }
+    
+    // Se for outro erro, repassa pra frente
     throw error;
   }
 }

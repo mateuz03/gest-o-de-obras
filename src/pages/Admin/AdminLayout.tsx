@@ -1,17 +1,40 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
-import { 
-  Users, 
-  Database, 
-  Settings, 
+import { Link, Outlet, useLocation, Navigate } from "react-router-dom";
+import {
+  Users,
+  Database,
+  Settings,
   ShieldCheck,
   TerminalSquare,
   Activity,
-  Box
+  Store,
+  Box,
+  BookOpen
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+
+// 4. Lista de itens de navegação extraída para facilitar manutenção
+const NAV_ITEMS = [
+  { to: "/admin", icon: Box, label: "Visão Geral", exact: true },
+  { to: "/admin/usuarios", icon: Users, label: "Usuários & Assinaturas" },
+  { to: "/admin/lojas", icon: Store, label: "Aprovação de Lojas" },
+  { to: "/admin/sinapi", icon: Database, label: "Base de Dados (SINAPI)" },
+  { to: "/admin/logs-ia", icon: TerminalSquare, label: "Logs de IA" },
+  { to: "/admin/config", icon: Settings, label: "Configurações do Sistema" },
+  { to: "/admin/blog", icon: BookOpen, label: "Gestão do Blog" },
+];
 
 export default function AdminLayout() {
   const location = useLocation();
   const path = location.pathname;
+  const { user } = useAuth(); // Assumindo que seu contexto expõe o usuário atual
+
+  // 5. Guard de role de admin corrigido
+  // Verifica se a role está no metadata ou usa o seu email como "Chave Mestra"
+  const isAdmin = user?.user_metadata?.role === "admin" || user?.email === "mateusdiasteus03@gmail.com";
+
+  if (user && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen flex bg-slate-50 font-sans text-slate-900">
@@ -29,28 +52,26 @@ export default function AdminLayout() {
         </div>
 
         <nav className="flex-1 px-4 py-4 space-y-1">
-          {/* Note o uso do <Link> para trocar de tela sem recarregar a página */}
-          <Link to="/admin" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path === "/admin" ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Box className="w-5 h-5" /> Visão Geral
-          </Link>
-          <Link to="/admin/usuarios" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/usuarios") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Users className="w-5 h-5" /> Usuários & Assinaturas
-          </Link>
-          
-          {/* Botões provisórios sem link ainda */}
-          <Link to="/admin/sinapi" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/sinapi") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-  <Database className="w-5 h-5" /> Base de Dados (SINAPI)
-</Link>
-          {/* Menu de Logs de IA */}
-          <Link to="/admin/logs-ia" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/logs-ia") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <TerminalSquare className="w-5 h-5" /> Logs de IA
-          </Link>
+          {NAV_ITEMS.map(({ to, icon: Icon, label, exact }) => {
+            // 2. Troca do path.includes() por path.startsWith() (e path === to para a raiz)
+            const isActive = exact ? path === to : path.startsWith(to);
 
-          {/* Menu de Configurações */}
-          <Link to="/admin/config" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/config") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Settings className="w-5 h-5" /> Configurações do Sistema
-          </Link>
-          
+            return (
+              <Link
+                key={to}
+                to={to}
+                // 3. Adição do aria-current para acessibilidade
+                aria-current={isActive ? "page" : undefined}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${
+                  isActive
+                    ? "bg-slate-800 text-white"
+                    : "hover:bg-slate-800/50 hover:text-white"
+                }`}
+              >
+                <Icon className="w-5 h-5" /> {label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="p-4 m-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
@@ -64,11 +85,9 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      
-
       {/* ─── CONTEÚDO DINÂMICO (ONDE AS TELAS FILHAS APARECEM) ─── */}
       <main className="flex-1 p-8 overflow-y-auto">
-        {/* O <Outlet /> pega a tela VisaoGeral ou UsuariosList e "injeta" aqui dentro */}
+        {/* O <Outlet /> pega a tela filha e "injeta" aqui dentro */}
         <Outlet />
       </main>
     </div>

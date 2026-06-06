@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import EsqueciSenha from "./pages/EsqueciSenha";
 import RedefinirSenha from "./pages/RedefinirSenha";
 import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import DocumentosDicas from "./pages/DocumentosDicas";
 import QuemSomos from "./pages/QuemSomos";
 import Suporte from "./pages/Suporte";
@@ -45,6 +46,8 @@ import UsuariosList from "./pages/Admin/UsuariosList";
 import SinapiPage from "./pages/Admin/SinapiPage";
 import LogsIA from "./pages/Admin/LogsIA";
 import Configuracoes from "./pages/Admin/Configuracoes";
+import LojasPendentes from "./pages/Admin/LojasPendentes";
+import AdminBlog from "./pages/Admin/AdminBlog";
 
 // ✅ QueryClient instanciado fora do componente (evita recriação a cada render)
 const queryClient = new QueryClient({
@@ -67,19 +70,20 @@ const App = () => (
           <Routes>
 
             {/* ── Rotas Públicas ───────────────────────────────────── */}
-            <Route path="/"               element={<Index />} />
-            <Route path="/auth"           element={<Auth />} />
-            <Route path="/esqueci-senha"  element={<EsqueciSenha />} />
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-            <Route path="/blog"           element={<Blog />} />
-            <Route path="/documentos"     element={<DocumentosDicas />} />
-            <Route path="/sobre-nos"      element={<QuemSomos />} />
-            <Route path="/suporte"        element={<Suporte />} />
-            <Route path="/marketplace"    element={<Marketplace />} />
-            <Route path="/loja/:id"       element={<LojaPublica />} />
-            <Route path="/vendedor/:id"   element={<VendedorPerfil />} />
-            <Route path="/profissionais"  element={<Profissionais />} />
-            <Route path="/seja-parceiro"  element={<SejaParceiro />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/documentos" element={<DocumentosDicas />} />
+            <Route path="/sobre-nos" element={<QuemSomos />} />
+            <Route path="/suporte" element={<Suporte />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/loja/:id" element={<LojaPublica />} />
+            <Route path="/vendedor/:id" element={<VendedorPerfil />} />
+            <Route path="/profissionais" element={<Profissionais />} />
+            <Route path="/seja-parceiro" element={<SejaParceiro />} />
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/share/:analysisId" element={<ShareAnalise />} />
             <Route path="/carreira" element={<Carreira />} />
@@ -98,7 +102,6 @@ const App = () => (
 
             <Route path="/analise/:id"
               element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
-              
 
             <Route path="/notas-fiscais"
               element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
@@ -118,16 +121,15 @@ const App = () => (
               element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
 
             {/* ── Rotas Admin ──────────────────────────────────────── */}
-            
-
-              <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-              <Route index element={<VisaoGeral />} /> 
+            <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+              <Route index element={<VisaoGeral />} />
               <Route path="usuarios" element={<UsuariosList />} />
-              <Route path="sinapi" element={<SinapiPage />} /> {/* Nova tela filha */}
-              <Route path="logs-ia" element={<LogsIA />} /> {/* <-- ADICIONE AQUI */}
-              <Route path="config" element={<Configuracoes />} /> {/* <-- NOVA ROTA AQUI */}
+              <Route path="lojas" element={<LojasPendentes />} /> {/* Moderação de lojas */}
+              <Route path="sinapi" element={<SinapiPage />} />
+              <Route path="logs-ia" element={<LogsIA />} />
+              <Route path="config" element={<Configuracoes />} />
+              <Route path="blog" element={<AdminBlog />} />
             </Route>
-
 
             {/* ── Fallback 404 ─────────────────────────────────────── */}
             <Route path="*" element={<NotFound />} />

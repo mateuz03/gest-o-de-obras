@@ -18,8 +18,8 @@ const MAGIC_BYTES: Record<string, string> = {
   "image/webp":      "52494646",        // RIFF (WebP usa RIFF....WEBP)
 };
 
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
-const MIN_FILE_SIZE_BYTES = 1024;              // 1 KB (rejeita arquivos vazios/corrompidos)
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+const MIN_FILE_SIZE_BYTES = 1024;             // 1 KB (rejeita arquivos vazios/corrompidos)
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 

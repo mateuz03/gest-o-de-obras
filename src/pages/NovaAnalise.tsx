@@ -1,17 +1,56 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import * as pdfjsLib from "pdfjs-dist";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Box, Loader2, FileImage, Save, ChevronRight, MapPin, Ruler, Settings2, Lightbulb, CheckCircle2, X, Plus, DollarSign, Camera, FileText, Home } from "lucide-react";
+import {
+  Upload,
+  ArrowLeft,
+  Box,
+  Loader2,
+  FileImage,
+  Save,
+  ChevronRight,
+  Ruler,
+  Settings2,
+  Lightbulb,
+  CheckCircle2,
+  X,
+  Plus,
+  DollarSign,
+  Camera,
+  FileText,
+  Home,
+} from "lucide-react";
 import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
+
+// ─── CORREÇÃO: Worker local (pdfjs-dist@3.11.174) ────────────────────────────
+// NÃO use unpkg nem CDN — aponte sempre para o arquivo local do pacote.
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.js",
+  import.meta.url
+).href;
+// ─────────────────────────────────────────────────────────────────────────────
 
 const TIPO_LABELS: Record<string, string> = {
   casa_terrea: "Casa Térrea",
@@ -31,6 +70,9 @@ const ESCALA_LABELS: Record<string, string> = {
 const MAX_FILES = 5;
 const ANALYSIS_IMAGE_MAX_SIDE = 1600;
 const ANALYSIS_IMAGE_QUALITY = 0.78;
+const PDF_SCALE = 1.2;
+const JPEG_QUALITY = 0.65;    // Aumentado de 0.6 → 0.75 para melhor qualidade
+const MAX_PAGES_PER_PDF = 5;
 
 type AnalysisMode = "planta" | "foto_ambiente";
 
@@ -39,17 +81,119 @@ const MODE_CONFIG = {
     title: "Upload da Planta Baixa",
     description: `Envie até ${MAX_FILES} arquivos (JPG, PNG, PDF) ou DWG para uma análise mais completa`,
     dropText: "Arraste as plantas aqui ou clique para selecionar",
-    dropSubtext: `Até ${MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 20MB cada / DWG até 50MB)`,
-    loadingText: "A IA está analisando suas plantas, identificando dimensões e calculando o orçamento completo com referência SINAPI.",
+    dropSubtext: `Até ${MAX_FILES} arquivos — JPG, PNG, PDF ou DWG (máx. 50MB cada)`,
+    loadingText:
+      "A IA está analisando suas plantas, identificando dimensões e calculando o orçamento completo com referência SINAPI.",
   },
   foto_ambiente: {
     title: "Fotos do Ambiente",
     description: `Envie até ${MAX_FILES} fotos reais do ambiente para análise de materiais e medidas`,
     dropText: "Arraste as fotos do ambiente aqui ou clique para selecionar",
-    dropSubtext: `Até ${MAX_FILES} fotos — JPG, PNG (máx. 20MB cada). Dica: inclua uma trena ou objeto de referência na foto.`,
-    loadingText: "A IA está analisando as fotos do ambiente, identificando materiais, estimando dimensões e calculando o orçamento.",
+    dropSubtext: `Até ${MAX_FILES} fotos — JPG, PNG (máx. 50MB cada). Dica: inclua uma trena...`,
+    loadingText:
+      "A IA está analisando as fotos do ambiente, identificando materiais, estimando dimensões e calculando o orçamento.",
   },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FUNÇÕES AUXILIARES PARA CONVERSÃO DE PDF
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Converte um PDF em array de imagens base64 comprimidas.
+ * Compatível com pdfjs-dist@3.11.174.
+ */
+const pdfToCompressedImages = async (
+  file: File
+): Promise<{ base64: string; mime_type: string }[]> => {
+  const arrayBuffer = await file.arrayBuffer();
+
+  // getDocument aceita ArrayBuffer diretamente na v3
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+  const pdf = await loadingTask.promise;
+
+  const maxPages = Math.min(pdf.numPages, MAX_PAGES_PER_PDF);
+  const images: { base64: string; mime_type: string }[] = [];
+
+  console.log(
+    `PDF "${file.name}": ${pdf.numPages} página(s) — processando ${maxPages}`
+  );
+
+  for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+    try {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: PDF_SCALE });
+
+      if (!viewport || viewport.width <= 0 || viewport.height <= 0) {
+        console.warn(`⚠️ Viewport inválido na página ${pageNum}, pulando.`);
+        continue;
+      }
+
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        console.warn(`⚠️ Sem contexto 2D na página ${pageNum}, pulando.`);
+        continue;
+      }
+
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+
+      // Na v3 o render recebe apenas { canvasContext, viewport }
+      await page.render({ canvasContext: context, viewport }).promise;
+
+      let dataUrl: string;
+      try {
+        dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+      } catch {
+        dataUrl = canvas.toDataURL("image/png");
+      }
+
+      const base64Data = dataUrl.split(",")[1];
+      if (!base64Data || base64Data.length < 100) {
+        console.warn(`⚠️ Imagem vazia na página ${pageNum}, pulando.`);
+        continue;
+      }
+
+      images.push({ base64: base64Data, mime_type: "image/jpeg" });
+      console.log(
+        `✓ Página ${pageNum}/${maxPages} — ${(base64Data.length / 1024).toFixed(1)}KB`
+      );
+    } catch (pageErr) {
+      console.warn(`⚠️ Erro na página ${pageNum}:`, pageErr);
+      // Continua tentando as demais páginas
+    }
+  }
+
+  if (images.length === 0) {
+    throw new Error(
+      `Nenhuma página válida convertida do PDF "${file.name}". ` +
+      `O arquivo pode estar corrompido, protegido por senha ou vazio.`
+    );
+  }
+
+  console.log(`✓ PDF concluído: ${images.length} página(s) convertida(s).`);
+  return images;
+};
+
+/**
+ * Calcula o tamanho total em bytes de um array de base64.
+ */
+const calculateBase64TotalSize = (
+  images: { base64: string; mime_type: string }[]
+): number => images.reduce((total, img) => total + img.base64.length, 0);
+
+/**
+ * Formata bytes para formato legível (KB, MB).
+ */
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function NovaAnalise() {
   const { user } = useAuth();
@@ -57,7 +201,7 @@ export default function NovaAnalise() {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("id");
   const [mode, setMode] = useState<AnalysisMode | null>(null);
-  const [step, setStep] = useState(0); 
+  const [step, setStep] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [dwgFile, setDwgFile] = useState<File | null>(null);
   const [previews, setPreviews] = useState<(string | null)[]>([]);
@@ -66,7 +210,9 @@ export default function NovaAnalise() {
   const [showSummary, setShowSummary] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hydrating, setHydrating] = useState(!!draftId);
-  const [existingFiles, setExistingFiles] = useState<{ name: string; url: string; path: string }[]>([]);
+  const [existingFiles, setExistingFiles] = useState<
+    { name: string; url: string; path: string }[]
+  >([]);
 
   const [formData, setFormData] = useState({
     nome_projeto: "",
@@ -84,10 +230,10 @@ export default function NovaAnalise() {
     num_quartos: "",
     num_banheiros: "",
     num_vagas: "",
-    modo_precisao: "ia_completa", 
+    modo_precisao: "ia_completa",
     sinapi_uf: "SP",
     sinapi_mes_ano: "2026-05",
-    sinapi_desonerado: "true", 
+    sinapi_desonerado: "true",
   });
 
   useEffect(() => {
@@ -115,19 +261,30 @@ export default function NovaAnalise() {
           escala: data.escala || "",
           tipo_construcao: data.tipo_construcao || prev.tipo_construcao,
           regiao: data.regiao || "",
-          bdi_percentual: data.bdi_percentual != null ? String(data.bdi_percentual) : prev.bdi_percentual,
+          bdi_percentual:
+            data.bdi_percentual != null
+              ? String(data.bdi_percentual)
+              : prev.bdi_percentual,
           sinapi_uf: data.sinapi_uf || prev.sinapi_uf,
         }));
 
         const prefix = `${user.id}/${draftId}`;
-        const { data: listed } = await supabase.storage.from("blueprints").list(prefix, { limit: 100 });
+        const { data: listed } = await supabase.storage
+          .from("plant-uploads")
+          .list(prefix, { limit: 100 });
         if (listed && !cancelled) {
           const items = listed
             .filter((f) => f.name && !f.name.startsWith("."))
             .map((f) => {
               const path = `${prefix}/${f.name}`;
-              const { data: u } = supabase.storage.from("blueprints").getPublicUrl(path);
-              return { name: f.name.replace(/^\d+_/, ""), url: u.publicUrl, path };
+              const { data: u } = supabase.storage
+                .from("plant-uploads")
+                .getPublicUrl(path);
+              return {
+                name: f.name.replace(/^\d+_/, ""),
+                url: u.publicUrl,
+                path,
+              };
             });
           setExistingFiles(items);
         }
@@ -140,77 +297,134 @@ export default function NovaAnalise() {
         if (!cancelled) setHydrating(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [draftId, user, navigate]);
 
   const isDwg = (f: File) => f.name.toLowerCase().endsWith(".dwg");
 
-  const addFile = useCallback((f: File) => {
-    if (isDwg(f)) {
-      if (mode === "foto_ambiente") { toast.error("Arquivos DWG não são aceitos no modo Foto do Ambiente"); return; }
-      if (f.size > 50 * 1024 * 1024) { toast.error("Arquivo DWG máximo de 50MB"); return; }
-      setDwgFile(f);
-      toast.success("Arquivo DWG anexado! Envie também imagens ou PDFs para a IA analisar.");
-      return;
-    }
-    if (mode === "foto_ambiente") {
-      if (!f.type.startsWith("image/")) { toast.error("No modo Foto do Ambiente, envie apenas imagens (JPG, PNG)"); return; }
-    } else {
-      if (!f.type.startsWith("image/") && f.type !== "application/pdf") { toast.error("Envie imagens (JPG, PNG), PDF ou DWG"); return; }
-    }
-    if (f.size > 20 * 1024 * 1024) { toast.error("Cada arquivo pode ter no máximo 20MB"); return; }
-
-    setFiles(prev => {
-      if (prev.length >= MAX_FILES) { toast.error(`Máximo de ${MAX_FILES} arquivos`); return prev; }
-      const next = [...prev, f];
-      if (f.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => setPreviews(p => { const n = [...p]; n[next.length - 1] = e.target?.result as string; return n; });
-        reader.readAsDataURL(f);
-      } else {
-        setPreviews(p => [...p, null]);
+  const addFile = useCallback(
+    (f: File) => {
+      if (isDwg(f)) {
+        if (mode === "foto_ambiente") {
+          toast.error("Arquivos DWG não são aceitos no modo Foto do Ambiente");
+          return;
+        }
+        if (f.size > 50 * 1024 * 1024) {
+          toast.error("Arquivo DWG máximo de 50MB");
+          return;
+        }
+        setDwgFile(f);
+        toast.success(
+          "Arquivo DWG anexado! Envie também imagens ou PDFs para a IA analisar."
+        );
+        return;
       }
-      return next;
-    });
-  }, [mode]);
+
+      if (mode === "foto_ambiente") {
+        if (!f.type.startsWith("image/")) {
+          toast.error(
+            "No modo Foto do Ambiente, envie apenas imagens (JPG, PNG)"
+          );
+          return;
+        }
+      } else {
+        if (!f.type.startsWith("image/") && f.type !== "application/pdf") {
+          toast.error("Envie imagens (JPG, PNG), PDF ou DWG");
+          return;
+        }
+      }
+
+      if (f.size > 50 * 1024 * 1024) {
+        toast.error(`O arquivo ${f.name} excede o limite de 50MB`);
+        return;
+      }
+
+      setFiles((prev) => {
+        if (prev.length >= MAX_FILES) {
+          toast.error(`Máximo de ${MAX_FILES} arquivos`);
+          return prev;
+        }
+
+        const totalSize =
+          prev.reduce((acc, curr) => acc + curr.size, 0) + f.size;
+        if (totalSize > 100 * 1024 * 1024) {
+          toast.error(
+            "O tamanho total dos arquivos não pode ultrapassar 100MB para evitar falhas no envio."
+          );
+          return prev;
+        }
+
+        const next = [...prev, f];
+
+        if (f.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (e) =>
+            setPreviews((p) => {
+              const n = [...p];
+              n[next.length - 1] = e.target?.result as string;
+              return n;
+            });
+          reader.readAsDataURL(f);
+        } else if (f.type === "application/pdf") {
+          setPreviews((p) => [...p, null]);
+          toast.info(`PDF "${f.name}" será convertido em imagens para análise...`);
+        } else {
+          setPreviews((p) => [...p, null]);
+        }
+
+        return next;
+      });
+    },
+    [mode]
+  );
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviews(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleFileDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    droppedFiles.forEach(f => addFile(f));
-  }, [addFile]);
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      droppedFiles.forEach((f) => addFile(f));
+    },
+    [addFile]
+  );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      Array.from(e.target.files).forEach(f => addFile(f));
+      Array.from(e.target.files).forEach((f) => addFile(f));
     }
     e.target.value = "";
   };
 
-  // ✅ Função de validação corrigida para o Autocomplete e erros visuais
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.nome_projeto.trim() || formData.nome_projeto.trim().length < 3) {
-      newErrors.nome_projeto = "Nome do projeto deve ter pelo menos 3 caracteres";
+    if (
+      !formData.nome_projeto.trim() ||
+      formData.nome_projeto.trim().length < 3
+    ) {
+      newErrors.nome_projeto =
+        "Nome do projeto deve ter pelo menos 3 caracteres";
     }
     if (formData.nome_projeto.trim().length > 100) {
-      newErrors.nome_projeto = "Nome do projeto deve ter no máximo 100 caracteres";
+      newErrors.nome_projeto =
+        "Nome do projeto deve ter no máximo 100 caracteres";
     }
     if (!formData.regiao || formData.regiao.trim().length < 2) {
-      newErrors.regiao = "Selecione uma localidade válida usando o campo de busca";
+      newErrors.regiao =
+        "Selecione uma localidade válida usando o campo de busca";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => { 
+  const handleNext = () => {
     if (validate()) {
-      setShowSummary(true); 
+      setShowSummary(true);
     } else {
       toast.error("Por favor, preencha todos os campos obrigatórios corretamente.");
     }
@@ -224,15 +438,19 @@ export default function NovaAnalise() {
     for (const f of allFiles) {
       const safe = sanitizeFileName(f.name);
       const path = `${user!.id}/${analysisId}/${Date.now()}_${safe}`;
-      const { error } = await supabase.storage.from("blueprints").upload(path, f, {
-        contentType: f.type || undefined,
-        upsert: false,
-      });
+      const { error } = await supabase.storage
+        .from("plant-uploads")
+        .upload(path, f, {
+          contentType: f.type || undefined,
+          upsert: false,
+        });
       if (error) {
         console.error("upload error", f.name, error);
         continue;
       }
-      const { data: urlData } = supabase.storage.from("blueprints").getPublicUrl(path);
+      const { data: urlData } = supabase.storage
+        .from("plant-uploads")
+        .getPublicUrl(path);
       results.push({ path, url: urlData.publicUrl });
     }
     return results;
@@ -260,15 +478,19 @@ export default function NovaAnalise() {
           .eq("id", analysisId);
         if (updErr) throw updErr;
       } else {
-        const { data: draft, error: insertErr } = await supabase.from("analyses").insert({
-          user_id: user.id,
-          nome_projeto: formData.nome_projeto || "Rascunho sem título",
-          escala: formData.escala || null,
-          tipo_construcao: formData.tipo_construcao,
-          regiao: formData.regiao || null,
-          sinapi_uf: formData.sinapi_uf,
-          status: "pending",
-        } as any).select().single();
+        const { data: draft, error: insertErr } = await supabase
+          .from("analyses")
+          .insert({
+            user_id: user.id,
+            nome_projeto: formData.nome_projeto || "Rascunho sem título",
+            escala: formData.escala || null,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao || null,
+            sinapi_uf: formData.sinapi_uf,
+            status: "pending",
+          } as any)
+          .select()
+          .single();
         if (insertErr) throw insertErr;
         analysisId = (draft as any).id;
       }
@@ -276,10 +498,13 @@ export default function NovaAnalise() {
       if (allFiles.length) {
         const uploaded = await uploadAllFiles(analysisId!, allFiles);
         if (uploaded[0]) {
-          await supabase.from("analyses").update({ imagem_url: uploaded[0].url } as any).eq("id", analysisId!);
+          await supabase
+            .from("analyses")
+            .update({ imagem_url: uploaded[0].url } as any)
+            .eq("id", analysisId!);
         }
       }
-      toast.success("Rascunho saved!");
+      toast.success("Rascunho salvo!");
       navigate("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar rascunho");
@@ -288,18 +513,23 @@ export default function NovaAnalise() {
     }
   };
 
-  const fileToBase64 = (f: File): Promise<{ base64: string; mime_type: string }> =>
+  const fileToBase64 = (
+    f: File
+  ): Promise<{ base64: string; mime_type: string }> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
         resolve({ base64: result.split(",")[1], mime_type: f.type });
       };
-      reader.onerror = () => reject(new Error(`Falha ao ler o arquivo ${f.name}`));
+      reader.onerror = () =>
+        reject(new Error(`Falha ao ler o arquivo ${f.name}`));
       reader.readAsDataURL(f);
     });
 
-  const imageToOptimizedBase64 = (f: File): Promise<{ base64: string; mime_type: string }> =>
+  const imageToOptimizedBase64 = (
+    f: File
+  ): Promise<{ base64: string; mime_type: string }> =>
     new Promise((resolve, reject) => {
       if (!f.type.startsWith("image/")) {
         fileToBase64(f).then(resolve).catch(reject);
@@ -309,7 +539,10 @@ export default function NovaAnalise() {
       const img = new Image();
       const objectUrl = URL.createObjectURL(f);
       img.onload = () => {
-        const scale = Math.min(1, ANALYSIS_IMAGE_MAX_SIDE / Math.max(img.width, img.height));
+        const scale = Math.min(
+          1,
+          ANALYSIS_IMAGE_MAX_SIDE / Math.max(img.width, img.height)
+        );
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
@@ -331,12 +564,15 @@ export default function NovaAnalise() {
       img.src = objectUrl;
     });
 
-  const urlToOptimizedBase64 = async (url: string, name: string): Promise<{ base64: string; mime_type: string } | null> => {
+  const urlToOptimizedBase64 = async (
+    url: string,
+    name: string
+  ): Promise<{ base64: string; mime_type: string } | null> => {
     try {
       const res = await fetch(url);
       const blob = await res.blob();
       const file = new File([blob], name, { type: blob.type || "image/jpeg" });
-      if (!file.type.startsWith("image/")) return null; 
+      if (!file.type.startsWith("image/")) return null;
       return await imageToOptimizedBase64(file);
     } catch (e) {
       console.error("Failed to fetch existing file", name, e);
@@ -356,19 +592,90 @@ export default function NovaAnalise() {
 
     let analysisId: string | undefined = draftId;
     try {
-      const imageFiles = files.filter(f => !isDwg(f));
-      let images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
+      // Separar imagens e PDFs
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+      const pdfFiles = files.filter((f) => f.type === "application/pdf");
 
-      if (!images.length && existingFiles.length) {
-        const fetched = await Promise.all(existingFiles.map((f) => urlToOptimizedBase64(f.url, f.name)));
-        images = fetched.filter((x): x is { base64: string; mime_type: string } => !!x);
-        if (!images.length) {
-          throw new Error("Nenhum arquivo de imagem reutilizável encontrado. Anexe novos arquivos.");
+      let images: { base64: string; mime_type: string }[] = [];
+
+      // ── Processar imagens normalmente
+      if (imageFiles.length > 0) {
+        toast.info(`Processando ${imageFiles.length} imagem(ns)...`);
+        images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
+      }
+
+      // ── Processar PDFs
+      if (pdfFiles.length > 0) {
+        for (const pdfFile of pdfFiles) {
+          try {
+            if (pdfFile.size < 1000) {
+              toast.error(
+                `PDF "${pdfFile.name}" é muito pequeno (< 1KB). Pode estar corrompido.`
+              );
+              throw new Error("PDF muito pequeno");
+            }
+
+            toast.info(`Convertendo PDF "${pdfFile.name}"...`);
+            const pdfImages = await pdfToCompressedImages(pdfFile);
+
+            if (pdfImages.length === 0) {
+              throw new Error(
+                `PDF "${pdfFile.name}" não produziu nenhuma imagem. Verifique se o arquivo é válido.`
+              );
+            }
+
+            images = [...images, ...pdfImages];
+            toast.success(
+              `✓ PDF "${pdfFile.name}" convertido em ${pdfImages.length} página(s)`
+            );
+          } catch (pdfErr: any) {
+            const errorMsg = pdfErr.message || "Erro desconhecido ao processar PDF";
+            toast.error(`Erro ao processar PDF "${pdfFile.name}": ${errorMsg}`);
+            console.error("PDF Error Details:", pdfErr);
+            throw pdfErr;
+          }
         }
+      }
+
+      // ── Processar imagens existentes (rascunho)
+      if (!images.length && existingFiles.length) {
+        toast.info("Reprocessando arquivos existentes...");
+        const fetched = await Promise.all(
+          existingFiles.map((f) => urlToOptimizedBase64(f.url, f.name))
+        );
+        images = fetched.filter(
+          (x): x is { base64: string; mime_type: string } => !!x
+        );
+        if (!images.length) {
+          throw new Error(
+            "Nenhum arquivo de imagem reutilizável encontrado. Anexe novos arquivos."
+          );
+        }
+      }
+
+      // Validar se há imagens
+      if (!images.length) {
+        throw new Error("Nenhuma imagem foi processada. Tente novamente.");
+      }
+
+      // Log de debug
+      const totalSize = calculateBase64TotalSize(images);
+      console.log(
+        `Total de imagens: ${images.length} | Tamanho total: ${formatBytes(totalSize)}`
+      );
+
+      if (totalSize > 5 * 1024 * 1024) {
+        console.warn(
+          `⚠️ Atenção: Payload de ${formatBytes(totalSize)} pode ultrapassar o limite da Edge Function`
+        );
+        toast.warning(
+          "O conjunto de imagens está grande. A análise pode demorar mais."
+        );
       }
 
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
 
+      // ── Criar ou atualizar análise no banco
       if (analysisId) {
         const { error: updErr } = await supabase
           .from("analyses")
@@ -402,6 +709,7 @@ export default function NovaAnalise() {
         analysisId = (analysis as any).id;
       }
 
+      // ── Upload de arquivos para storage (apenas os novos)
       const newFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
       if (newFiles.length) {
         const uploaded = await uploadAllFiles(analysisId!, newFiles);
@@ -415,68 +723,92 @@ export default function NovaAnalise() {
 
       const isHybrid = formData.modo_precisao === "hibrido_sinapi";
 
-      // ETAPA 1: A IA LÊ E EXTRAI (O "Estagiário")
+      // ── ETAPA 1: A IA LÊ E EXTRAI (O "Estagiário")
       toast.info("1/3: IA extraindo o escopo do projeto...");
-      const { data: resultIA, error: fnErr } = await supabase.functions.invoke("analyze-blueprint", {
-        body: {
-          images,
-          escala: formData.escala,
-          tipo_construcao: formData.tipo_construcao,
-          regiao: formData.regiao,
-          bdi_percentual: bdiValue,
-          instrucoes_adicionais: formData.instrucoes_adicionais,
-          modo_analise: mode,
-          modo_precisao: isHybrid ? "hibrido" : "completo",
-          area_m2: formData.area_m2 ? parseFloat(formData.area_m2) : null,
-          pe_direito: formData.pe_direito ? parseFloat(formData.pe_direito) : 2.80,
-          num_pavimentos: formData.num_pavimentos || "1",
-          padrao_acabamento: formData.padrao_acabamento || "medio",
-          tipo_fundacao: formData.tipo_fundacao || null,
-          tipo_cobertura: formData.tipo_cobertura || null,
-          num_quartos: formData.num_quartos ? parseInt(formData.num_quartos) : null,
-          num_banheiros: formData.num_banheiros ? parseInt(formData.num_banheiros) : null,
-          num_vagas: formData.num_vagas ? parseInt(formData.num_vagas) : null,
-        },
-      });
+      const { data: resultIA, error: fnErr } = await supabase.functions.invoke(
+        "analyze-blueprint",
+        {
+          body: {
+            images,
+            escala: formData.escala,
+            tipo_construcao: formData.tipo_construcao,
+            regiao: formData.regiao,
+            bdi_percentual: bdiValue,
+            instrucoes_adicionais: formData.instrucoes_adicionais,
+            modo_analise: mode,
+            modo_precisao: isHybrid ? "hibrido" : "completo",
+            area_m2: formData.area_m2 ? parseFloat(formData.area_m2) : null,
+            pe_direito: formData.pe_direito
+              ? parseFloat(formData.pe_direito)
+              : 2.8,
+            num_pavimentos: formData.num_pavimentos || "1",
+            padrao_acabamento: formData.padrao_acabamento || "medio",
+            tipo_fundacao: formData.tipo_fundacao || null,
+            tipo_cobertura: formData.tipo_cobertura || null,
+            num_quartos: formData.num_quartos
+              ? parseInt(formData.num_quartos)
+              : null,
+            num_banheiros: formData.num_banheiros
+              ? parseInt(formData.num_banheiros)
+              : null,
+            num_vagas: formData.num_vagas
+              ? parseInt(formData.num_vagas)
+              : null,
+          },
+        }
+      );
 
       if (fnErr) throw fnErr;
 
       let finalResult = resultIA;
 
+      // ── ETAPA 2 & 3: Modo Híbrido (se selecionado)
       if (isHybrid && resultIA?.servicos?.length) {
-        // ETAPA 2: O CÁLCULO MATEMÁTICO (O "Engenheiro Sênior")
-        toast.info(`2/3: Calculando materiais exatos para ${resultIA.servicos.length} serviços...`);
-        const { data: calcData, error: calcErr } = await supabase.functions.invoke("calcular-quantitativos", {
-          body: { servicos: resultIA.servicos }
-        });
+        toast.info(
+          `2/3: Calculando materiais exatos para ${resultIA.servicos.length} serviços...`
+        );
+        const { data: calcData, error: calcErr } =
+          await supabase.functions.invoke("calcular-quantitativos", {
+            body: { servicos: resultIA.servicos },
+          });
 
         if (calcErr) throw calcErr;
-        
+
         const materiaisAgrupados = calcData.materiais;
 
-        // ETAPA 3: A BUSCA DE PREÇOS NO SINAPI
-        toast.info(`3/3: Buscando preços oficiais para ${materiaisAgrupados.length} insumos...`);
-        const { data: matchData, error: matchErr } = await supabase.functions.invoke("match-sinapi", {
-          body: {
-            // 👇 MUDE DE 'itens' PARA 'measurements' AQUI 👇
-            measurements: materiaisAgrupados, 
-            uf: formData.sinapi_uf,
-            mes_ano: formData.sinapi_mes_ano,
-            desonerado: formData.sinapi_desonerado === "true",
-            regiao: formData.regiao,
-            bdi_percentual: bdiValue,
-          },
-        });
+        if (!materiaisAgrupados || materiaisAgrupados.length === 0) {
+          throw new Error(
+            "O cálculo de quantitativos retornou vazio. Revise a planta ou as instruções."
+          );
+        }
+
+        toast.info(
+          `3/3: Buscando preços oficiais para ${materiaisAgrupados.length} insumos...`
+        );
+        const { data: matchData, error: matchErr } =
+          await supabase.functions.invoke("match-sinapi", {
+            body: {
+              items: materiaisAgrupados,
+              uf: formData.sinapi_uf,
+              mes_ano: formData.sinapi_mes_ano,
+              desonerado: formData.sinapi_desonerado === "true",
+              regiao: formData.regiao,
+              bdi_percentual: bdiValue,
+            },
+          });
 
         if (matchErr) throw matchErr;
 
         if (matchData?.orcamento) {
           finalResult = {
             ...matchData.orcamento,
-            area_total_m2: resultIA.area_total_m2 || matchData.orcamento.area_total_m2,
-            escala_detectada: resultIA.escala_detectada || matchData.orcamento.escala_detectada,
+            area_total_m2:
+              resultIA.area_total_m2 || matchData.orcamento.area_total_m2,
+            escala_detectada:
+              resultIA.escala_detectada ||
+              matchData.orcamento.escala_detectada,
             resumo: resultIA.resumo || matchData.orcamento.resumo,
-            materiais_rastreabilidade: materiaisAgrupados // Salva a origem dos cálculos para o front-end mostrar
+            materiais_rastreabilidade: materiaisAgrupados,
           };
         }
       }
@@ -485,21 +817,26 @@ export default function NovaAnalise() {
         ? parseFloat(String(finalResult.resumo_final.total_geral))
         : null;
 
-      // SALVA TUDO NO BANCO E REDIRECIONA
+      // ── SALVAR RESULTADO
       await supabase
         .from("analyses")
-        .update({ resultado_json: finalResult, status: "completed", total_estimado: totalGeral } as any)
+        .update({
+          resultado_json: finalResult,
+          status: "completed",
+          total_estimado: totalGeral,
+        } as any)
         .eq("id", analysisId!);
 
       toast.success("Orçamento gerado com precisão paramétrica!");
       navigate(`/analise/${analysisId}`);
-
-
     } catch (err: any) {
-      console.error(err);
+      console.error("Erro:", err);
       toast.error(err.message || "Erro ao processar análise");
       if (analysisId) {
-        await supabase.from("analyses").update({ status: "error" } as any).eq("id", analysisId);
+        await supabase
+          .from("analyses")
+          .update({ status: "error" } as any)
+          .eq("id", analysisId);
       }
       setLoading(false);
     }
@@ -514,8 +851,15 @@ export default function NovaAnalise() {
     <div className="min-h-screen bg-background pb-24 sm:pb-8">
       <nav className="border-b bg-primary text-primary-foreground">
         <div className="container flex h-16 items-center gap-4">
-          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
-            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-primary-foreground hover:bg-primary-foreground/10"
+          >
+            <Link to="/dashboard">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
+            </Link>
           </Button>
           <div className="flex items-center gap-2 font-bold">
             <Box className="h-5 w-5" />
@@ -528,12 +872,30 @@ export default function NovaAnalise() {
         {/* Step indicators */}
         <div className="mb-8 flex items-center justify-center gap-4">
           {[0, 1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2"> 
-              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{s + 1}</div>
-              <span className={`text-sm hidden sm:inline ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                  step >= s
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {s + 1}
+              </div>
+              <span
+                className={`text-sm hidden sm:inline ${
+                  step >= s ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
                 {s === 0 ? "Modo" : s === 1 ? "Upload" : "Detalhes"}
               </span>
-              {s < 2 && <div className={`h-px w-8 sm:w-12 ${step > s ? "bg-primary" : "bg-border"}`} />}
+              {s < 2 && (
+                <div
+                  className={`h-px w-8 sm:w-12 ${
+                    step > s ? "bg-primary" : "bg-border"
+                  }`}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -543,12 +905,17 @@ export default function NovaAnalise() {
           <Card>
             <CardHeader>
               <CardTitle>Tipo de Análise</CardTitle>
-              <CardDescription>Escolha como deseja enviar os dados do projeto</CardDescription>
+              <CardDescription>
+                Escolha como deseja enviar os dados do projeto
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
                 <button
-                  onClick={() => { setMode("planta"); setStep(1); }}
+                  onClick={() => {
+                    setMode("planta");
+                    setStep(1);
+                  }}
                   className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border p-6 text-left transition-all hover:border-primary hover:bg-primary/5"
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
@@ -556,11 +923,15 @@ export default function NovaAnalise() {
                   </div>
                   <h3 className="text-base font-semibold">Planta Baixa</h3>
                   <p className="text-sm text-muted-foreground text-center">
-                    Envie plantas baixas, cortes ou projetos técnicos (JPG, PNG, PDF, DWG)
+                    Envie plantas baixas, cortes ou projetos técnicos (JPG, PNG,
+                    PDF, DWG)
                   </p>
                 </button>
                 <button
-                  onClick={() => { setMode("foto_ambiente"); setStep(1); }}
+                  onClick={() => {
+                    setMode("foto_ambiente");
+                    setStep(1);
+                  }}
                   className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border p-6 text-left transition-all hover:border-accent hover:bg-accent/5"
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
@@ -568,9 +939,12 @@ export default function NovaAnalise() {
                   </div>
                   <h3 className="text-base font-semibold">Foto do Ambiente</h3>
                   <p className="text-sm text-muted-foreground text-center">
-                    Envie fotos reais do ambiente para análise de materiais e medidas estimadas
+                    Envie fotos reais do ambiente para análise de materiais e
+                    medidas estimadas
                   </p>
-                  <span className="absolute top-3 right-3 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent uppercase">Novo</span>
+                  <span className="absolute top-3 right-3 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent uppercase">
+                    Novo
+                  </span>
                 </button>
               </div>
             </CardContent>
@@ -587,7 +961,10 @@ export default function NovaAnalise() {
               {files.length > 0 && (
                 <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {files.map((f, i) => (
-                    <div key={i} className="relative rounded-lg border bg-muted/30 p-2 group">
+                    <div
+                      key={i}
+                      className="relative rounded-lg border bg-muted/30 p-2 group"
+                    >
                       <Button
                         variant="destructive"
                         size="icon"
@@ -597,22 +974,32 @@ export default function NovaAnalise() {
                         <X className="h-3 w-3" />
                       </Button>
                       {previews[i] ? (
-                        <img src={previews[i]!} alt={f.name} className="h-24 w-full rounded object-cover" />
+                        <img
+                          src={previews[i]!}
+                          alt={f.name}
+                          className="h-24 w-full rounded object-cover"
+                        />
                       ) : (
                         <div className="flex h-24 items-center justify-center">
                           <FileImage className="h-8 w-8 text-primary" />
                         </div>
                       )}
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{f.name}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {f.name}
+                      </p>
                     </div>
                   ))}
                   {files.length < MAX_FILES && (
                     <div
                       className="flex h-full min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors"
-                      onClick={() => document.getElementById("file-input")?.click()}
+                      onClick={() =>
+                        document.getElementById("file-input")?.click()
+                      }
                     >
                       <Plus className="h-6 w-6 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground mt-1">Adicionar</span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        Adicionar
+                      </span>
                     </div>
                   )}
                 </div>
@@ -623,14 +1010,25 @@ export default function NovaAnalise() {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleFileDrop}
                   className="relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
-                  onClick={() => document.getElementById("file-input")?.click()}
+                  onClick={() =>
+                    document.getElementById("file-input")?.click()
+                  }
                 >
-                  {mode === "foto_ambiente" ? <Camera className="mb-3 h-12 w-12 text-muted-foreground/50" /> : <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />}
-                  <p className="font-medium">{mode ? MODE_CONFIG[mode].dropText : ""}</p>
-                  <p className="text-sm text-muted-foreground text-center px-4">{mode ? MODE_CONFIG[mode].dropSubtext : ""}</p>
+                  {mode === "foto_ambiente" ? (
+                    <Camera className="mb-3 h-12 w-12 text-muted-foreground/50" />
+                  ) : (
+                    <Upload className="mb-3 h-12 w-12 text-muted-foreground/50" />
+                  )}
+                  <p className="font-medium">
+                    {mode ? MODE_CONFIG[mode].dropText : ""}
+                  </p>
+                  <p className="text-sm text-muted-foreground text-center px-4">
+                    {mode ? MODE_CONFIG[mode].dropSubtext : ""}
+                  </p>
                   {mode === "foto_ambiente" && (
                     <div className="mt-4 rounded-lg bg-accent/10 px-4 py-2 text-xs text-accent max-w-sm text-center">
-                      💡 Para medidas mais precisas, coloque uma trena aberta ou folha A4 no chão como referência de escala
+                      💡 Para medidas mais precisas, coloque uma trena aberta
+                      ou folha A4 no chão como referência de escala
                     </div>
                   )}
                 </div>
@@ -639,7 +1037,9 @@ export default function NovaAnalise() {
               <input
                 id="file-input"
                 type="file"
-                accept={mode === "foto_ambiente" ? "image/*" : "image/*,.pdf,.dwg"}
+                accept={
+                  mode === "foto_ambiente" ? "image/*" : "image/*,.pdf,.dwg"
+                }
                 multiple
                 className="hidden"
                 onChange={handleFileInput}
@@ -650,14 +1050,31 @@ export default function NovaAnalise() {
                   <FileImage className="h-5 w-5 text-primary" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{dwgFile.name}</p>
-                    <p className="text-xs text-muted-foreground">Arquivo DWG anexado — envie também imagens ou PDFs para a IA analisar</p>
+                    <p className="text-xs text-muted-foreground">
+                      Arquivo DWG anexado — envie também imagens ou PDFs para a
+                      IA analisar
+                    </p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setDwgFile(null)}>✕</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDwgFile(null)}
+                  >
+                    ✕
+                  </Button>
                 </div>
               )}
 
               <div className="mt-6 flex justify-between">
-                <Button variant="outline" onClick={() => { setStep(0); setFiles([]); setPreviews([]); setDwgFile(null); }}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStep(0);
+                    setFiles([]);
+                    setPreviews([]);
+                    setDwgFile(null);
+                  }}
+                >
                   <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
                 </Button>
                 <Button onClick={() => setStep(2)} disabled={!files.length}>
@@ -672,7 +1089,9 @@ export default function NovaAnalise() {
           <Card>
             <CardContent className="flex items-center gap-3 py-8">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Carregando rascunho do projeto...</p>
+              <p className="text-sm text-muted-foreground">
+                Carregando rascunho do projeto...
+              </p>
             </CardContent>
           </Card>
         )}
@@ -680,11 +1099,19 @@ export default function NovaAnalise() {
         {!hydrating && step === 2 && !showSummary && (
           <Card>
             <CardHeader>
-              <CardTitle>{draftId ? "Continuar Projeto" : "Detalhes do Projeto"}</CardTitle>
+              <CardTitle>
+                {draftId ? "Continuar Projeto" : "Detalhes do Projeto"}
+              </CardTitle>
               <CardDescription>
-                {draftId
-                  ? "Revise os dados salvos e clique em Gerar Orçamento para tentar a análise novamente."
-                  : <>Campos com <span className="text-destructive font-medium">*</span> são obrigatórios</>}
+                {draftId ? (
+                  "Revise os dados salvos e clique em Gerar Orçamento para tentar a análise novamente."
+                ) : (
+                  <>
+                    Campos com{" "}
+                    <span className="text-destructive font-medium">*</span> são
+                    obrigatórios
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -698,68 +1125,123 @@ export default function NovaAnalise() {
                   </div>
                   <ul className="text-xs text-amber-900 space-y-0.5">
                     {existingFiles.slice(0, 5).map((f, i) => (
-                      <li key={i} className="truncate">• {f.name}</li>
+                      <li key={i} className="truncate">
+                        • {f.name}
+                      </li>
                     ))}
-                    {existingFiles.length > 5 && <li>+{existingFiles.length - 5} outro(s)</li>}
+                    {existingFiles.length > 5 && (
+                      <li>+{existingFiles.length - 5} outro(s)</li>
+                    )}
                   </ul>
                   <p className="mt-2 text-xs text-amber-800">
-                    Você pode reutilizar esses arquivos ou anexar novos no passo anterior.
+                    Você pode reutilizar esses arquivos ou anexar novos no passo
+                    anterior.
                   </p>
                 </div>
               )}
-              
+
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Box className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Dados do Projeto</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Dados do Projeto
+                  </h3>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Nome do Projeto <span className="text-destructive">*</span></Label>
-                    <Input 
-                      placeholder="Ex: Casa do João, Projeto Lote 45..." 
-                      value={formData.nome_projeto} 
-                      onChange={(e) => updateField("nome_projeto", e.target.value)} 
-                      className={errors.nome_projeto ? "border-destructive" : ""} 
-                      maxLength={100} 
+                    <Label>
+                      Nome do Projeto{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      placeholder="Ex: Casa do João, Projeto Lote 45..."
+                      value={formData.nome_projeto}
+                      onChange={(e) =>
+                        updateField("nome_projeto", e.target.value)
+                      }
+                      className={
+                        errors.nome_projeto ? "border-destructive" : ""
+                      }
+                      maxLength={100}
                     />
-                    {errors.nome_projeto && <p className="text-xs text-destructive">{errors.nome_projeto}</p>}
+                    {errors.nome_projeto && (
+                      <p className="text-xs text-destructive">
+                        {errors.nome_projeto}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Região / Cidade / UF <span className="text-destructive">*</span></Label>
-                    <LocalidadeAutocomplete 
+                    <Label>
+                      Região / Cidade / UF{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <LocalidadeAutocomplete
                       value={formData.regiao}
                       onChange={(textoFormatado, uf) => {
-                        setFormData(prev => ({ 
-                          ...prev, 
+                        setFormData((prev) => ({
+                          ...prev,
                           regiao: textoFormatado,
-                          sinapi_uf: uf || prev.sinapi_uf 
+                          sinapi_uf: uf || prev.sinapi_uf,
                         }));
-                        if (errors.regiao) setErrors(prev => { const n = {...prev}; delete n.regiao; return n; });
+                        if (errors.regiao)
+                          setErrors((prev) => {
+                            const n = { ...prev };
+                            delete n.regiao;
+                            return n;
+                          });
                       }}
                       placeholder="Ex: São Paulo - SP, Sorocaba - SP..."
                     />
-                    {errors.regiao && <p className="text-xs text-destructive">{errors.regiao}</p>}
-                    <p className="text-xs text-muted-foreground">Usado para referência SINAPI e recomendações de preços regionais</p>
+                    {errors.regiao && (
+                      <p className="text-xs text-destructive">
+                        {errors.regiao}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Usado para referência SINAPI e recomendações de preços
+                      regionais
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-2">
-                      <Label>UF SINAPI <span className="text-destructive">*</span></Label>
-                      <Select value={formData.sinapi_uf} onValueChange={(v) => updateField("sinapi_uf", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      <Label>
+                        UF SINAPI <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.sinapi_uf}
+                        onValueChange={(v) => updateField("sinapi_uf", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
-                          {["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"].map(uf => (
-                            <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                          {[
+                            "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA",
+                            "MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN",
+                            "RO","RR","RS","SC","SE","SP","TO",
+                          ].map((uf) => (
+                            <SelectItem key={uf} value={uf}>
+                              {uf}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Mês / Ano <span className="text-destructive">*</span></Label>
-                      <Select value={formData.sinapi_mes_ano} onValueChange={(v) => updateField("sinapi_mes_ano", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      <Label>
+                        Mês / Ano <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.sinapi_mes_ano}
+                        onValueChange={(v) =>
+                          updateField("sinapi_mes_ano", v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="2026-05">Maio / 2026</SelectItem>
                           <SelectItem value="2026-03">Março / 2026</SelectItem>
@@ -767,9 +1249,18 @@ export default function NovaAnalise() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Regime <span className="text-destructive">*</span></Label>
-                      <Select value={formData.sinapi_desonerado} onValueChange={(v) => updateField("sinapi_desonerado", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      <Label>
+                        Regime <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.sinapi_desonerado}
+                        onValueChange={(v) =>
+                          updateField("sinapi_desonerado", v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="true">Desonerado</SelectItem>
                           <SelectItem value="false">Não Desonerado</SelectItem>
@@ -777,7 +1268,10 @@ export default function NovaAnalise() {
                       </Select>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Filtros aplicados na base oficial SINAPI para precificação automática.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Filtros aplicados na base oficial SINAPI para precificação
+                    automática.
+                  </p>
                 </div>
               </div>
 
@@ -787,17 +1281,26 @@ export default function NovaAnalise() {
                 <div className="flex items-center gap-2 mb-3">
                   <Ruler className="h-4 w-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                    {mode === "foto_ambiente" ? "Dados do Ambiente" : "Dados da Planta"}
+                    {mode === "foto_ambiente"
+                      ? "Dados do Ambiente"
+                      : "Dados da Planta"}
                   </h3>
                 </div>
                 <div className="space-y-4">
                   {mode !== "foto_ambiente" && (
                     <div className="space-y-2">
                       <Label>Escala da Planta</Label>
-                      <Select value={formData.escala} onValueChange={(v) => updateField("escala", v)}>
-                        <SelectTrigger><SelectValue placeholder="Automática (recomendado)" /></SelectTrigger>
+                      <Select
+                        value={formData.escala}
+                        onValueChange={(v) => updateField("escala", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Automática (recomendado)" />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="auto">Automática (recomendado)</SelectItem>
+                          <SelectItem value="auto">
+                            Automática (recomendado)
+                          </SelectItem>
                           <SelectItem value="1:25">1:25</SelectItem>
                           <SelectItem value="1:50">1:50</SelectItem>
                           <SelectItem value="1:75">1:75</SelectItem>
@@ -808,9 +1311,19 @@ export default function NovaAnalise() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label>Tipo de Construção <span className="text-destructive">*</span></Label>
-                    <Select value={formData.tipo_construcao} onValueChange={(v) => updateField("tipo_construcao", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label>
+                      Tipo de Construção{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.tipo_construcao}
+                      onValueChange={(v) =>
+                        updateField("tipo_construcao", v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="casa_terrea">Casa Térrea</SelectItem>
                         <SelectItem value="sobrado">Sobrado</SelectItem>
@@ -821,14 +1334,32 @@ export default function NovaAnalise() {
                   </div>
                   <div className="space-y-2">
                     <Label>Área Total Construída (m²)</Label>
-                    <Input type="number" min="1" max="100000" step="0.01" placeholder="Ex: 120.50" value={formData.area_m2} onChange={(e) => updateField("area_m2", e.target.value)} />
-                    <p className="text-xs text-muted-foreground">Informar a metragem evita que a IA precise estimar — o orçamento fica mais preciso</p>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100000"
+                      step="0.01"
+                      placeholder="Ex: 120.50"
+                      value={formData.area_m2}
+                      onChange={(e) =>
+                        updateField("area_m2", e.target.value)
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Informar a metragem evita que a IA precise estimar — o
+                      orçamento fica mais preciso
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Pé-Direito (m)</Label>
-                      <Select value={formData.pe_direito} onValueChange={(v) => updateField("pe_direito", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      <Select
+                        value={formData.pe_direito}
+                        onValueChange={(v) => updateField("pe_direito", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="2.60">2,60m</SelectItem>
                           <SelectItem value="2.80">2,80m (padrão)</SelectItem>
@@ -840,8 +1371,15 @@ export default function NovaAnalise() {
                     </div>
                     <div className="space-y-2">
                       <Label>Nº de Pavimentos</Label>
-                      <Select value={formData.num_pavimentos} onValueChange={(v) => updateField("num_pavimentos", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      <Select
+                        value={formData.num_pavimentos}
+                        onValueChange={(v) =>
+                          updateField("num_pavimentos", v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="1">1 (Térreo)</SelectItem>
                           <SelectItem value="2">2 (Sobrado)</SelectItem>
@@ -859,60 +1397,128 @@ export default function NovaAnalise() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Home className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Características do Projeto</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Características do Projeto
+                  </h3>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Padrão de Acabamento</Label>
-                    <Select value={formData.padrao_acabamento} onValueChange={(v) => updateField("padrao_acabamento", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select
+                      value={formData.padrao_acabamento}
+                      onValueChange={(v) =>
+                        updateField("padrao_acabamento", v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="popular">Popular — materiais econômicos</SelectItem>
-                        <SelectItem value="medio">Médio — custo-benefício</SelectItem>
-                        <SelectItem value="alto">Alto — marcas premium</SelectItem>
-                        <SelectItem value="luxo">Luxo — materiais importados / top de linha</SelectItem>
+                        <SelectItem value="popular">
+                          Popular — materiais econômicos
+                        </SelectItem>
+                        <SelectItem value="medio">
+                          Médio — custo-benefício
+                        </SelectItem>
+                        <SelectItem value="alto">
+                          Alto — marcas premium
+                        </SelectItem>
+                        <SelectItem value="luxo">
+                          Luxo — materiais importados / top de linha
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label>Quartos</Label>
-                      <Input type="number" min="0" max="20" placeholder="Ex: 3" value={formData.num_quartos} onChange={(e) => updateField("num_quartos", e.target.value)} />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="20"
+                        placeholder="Ex: 3"
+                        value={formData.num_quartos}
+                        onChange={(e) =>
+                          updateField("num_quartos", e.target.value)
+                        }
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Banheiros</Label>
-                      <Input type="number" min="0" max="20" placeholder="Ex: 2" value={formData.num_banheiros} onChange={(e) => updateField("num_banheiros", e.target.value)} />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="20"
+                        placeholder="Ex: 2"
+                        value={formData.num_banheiros}
+                        onChange={(e) =>
+                          updateField("num_banheiros", e.target.value)
+                        }
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Vagas</Label>
-                      <Input type="number" min="0" max="10" placeholder="Ex: 1" value={formData.num_vagas} onChange={(e) => updateField("num_vagas", e.target.value)} />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="10"
+                        placeholder="Ex: 1"
+                        value={formData.num_vagas}
+                        onChange={(e) =>
+                          updateField("num_vagas", e.target.value)
+                        }
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Fundação</Label>
-                    <Select value={formData.tipo_fundacao} onValueChange={(v) => updateField("tipo_fundacao", v)}>
-                      <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                    <Select
+                      value={formData.tipo_fundacao}
+                      onValueChange={(v) =>
+                        updateField("tipo_fundacao", v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione (opcional)" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="sapata">Sapata</SelectItem>
                         <SelectItem value="radier">Radier</SelectItem>
                         <SelectItem value="estaca">Estaca</SelectItem>
                         <SelectItem value="baldrame">Baldrame</SelectItem>
-                        <SelectItem value="nao_sei">Não sei / A definir</SelectItem>
+                        <SelectItem value="nao_sei">
+                          Não sei / A definir
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Cobertura / Telhado</Label>
-                    <Select value={formData.tipo_cobertura} onValueChange={(v) => updateField("tipo_cobertura", v)}>
-                      <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                    <Select
+                      value={formData.tipo_cobertura}
+                      onValueChange={(v) =>
+                        updateField("tipo_cobertura", v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione (opcional)" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ceramica">Telha Cerâmica</SelectItem>
-                        <SelectItem value="fibrocimento">Fibrocimento</SelectItem>
-                        <SelectItem value="metalica">Telha Metálica / Galvanizada</SelectItem>
-                        <SelectItem value="concreto">Laje de Concreto</SelectItem>
+                        <SelectItem value="fibrocimento">
+                          Fibrocimento
+                        </SelectItem>
+                        <SelectItem value="metalica">
+                          Telha Metálica / Galvanizada
+                        </SelectItem>
+                        <SelectItem value="concreto">
+                          Laje de Concreto
+                        </SelectItem>
                         <SelectItem value="colonial">Telha Colonial</SelectItem>
                         <SelectItem value="shingle">Shingle</SelectItem>
-                        <SelectItem value="nao_sei">Não sei / A definir</SelectItem>
+                        <SelectItem value="nao_sei">
+                          Não sei / A definir
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -924,7 +1530,9 @@ export default function NovaAnalise() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <DollarSign className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Financeiro</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Financeiro
+                  </h3>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -936,21 +1544,39 @@ export default function NovaAnalise() {
                       step="0.5"
                       placeholder="25"
                       value={formData.bdi_percentual}
-                      onChange={(e) => updateField("bdi_percentual", e.target.value)}
+                      onChange={(e) =>
+                        updateField("bdi_percentual", e.target.value)
+                      }
                     />
-                    <p className="text-xs text-muted-foreground">Padrão: 25%. Define o percentual aplicado sobre o custo direto para compor o preço final.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Padrão: 25%. Define o percentual aplicado sobre o custo
+                      direto para compor o preço final.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>Modo de Precisão do Orçamento</Label>
-                    <Select value={formData.modo_precisao} onValueChange={(v) => updateField("modo_precisao", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select
+                      value={formData.modo_precisao}
+                      onValueChange={(v) =>
+                        updateField("modo_precisao", v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ia_completa">IA Completa — preços estimados pela IA (rápido)</SelectItem>
-                        <SelectItem value="hibrido_sinapi">Híbrido SINAPI — IA mede, banco calcula (mais preciso)</SelectItem>
+                        <SelectItem value="ia_completa">
+                          IA Completa — preços estimados pela IA (rápido)
+                        </SelectItem>
+                        <SelectItem value="hibrido_sinapi">
+                          Híbrido SINAPI — IA mede, banco calcula (mais preciso)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      No modo Híbrido a IA apenas identifica e mede os itens. Os preços são calculados matematicamente a partir da sua base SINAPI local — sem invenção de valores.
+                      No modo Híbrido a IA apenas identifica e mede os itens.
+                      Os preços são calculados matematicamente a partir da sua
+                      base SINAPI local — sem invenção de valores.
                     </p>
                   </div>
                 </div>
@@ -961,31 +1587,58 @@ export default function NovaAnalise() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Settings2 className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Preferências</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Preferências
+                  </h3>
                 </div>
                 <div className="space-y-2">
                   <Label>Instruções Adicionais</Label>
-                  <Textarea placeholder="Descreva suas preferências para uma análise mais precisa..." value={formData.instrucoes_adicionais} onChange={(e) => updateField("instrucoes_adicionais", e.target.value)} className="min-h-[80px]" maxLength={1000} />
+                  <Textarea
+                    placeholder="Descreva suas preferências para uma análise mais precisa..."
+                    value={formData.instrucoes_adicionais}
+                    onChange={(e) =>
+                      updateField("instrucoes_adicionais", e.target.value)
+                    }
+                    className="min-h-[80px]"
+                    maxLength={1000}
+                  />
                   <div className="rounded-lg border bg-muted/30 p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Lightbulb className="h-4 w-4 text-primary" />
-                      <span className="text-xs font-medium text-foreground">Dicas do que escrever</span>
+                      <span className="text-xs font-medium text-foreground">
+                        Dicas do que escrever
+                      </span>
                     </div>
                     {mode === "foto_ambiente" ? (
                       <ul className="text-xs text-muted-foreground space-y-1">
-                        <li>• Informe medidas conhecidas (ex: "a parede tem 2,5m")</li>
-                        <li>• Diga o que deseja reformar (piso, revestimento, louças...)</li>
-                        <li>• Padrão de acabamento desejado (popular, médio, alto)</li>
+                        <li>
+                          • Informe medidas conhecidas (ex: "a parede tem 2,5m")
+                        </li>
+                        <li>
+                          • Diga o que deseja reformar (piso, revestimento,
+                          louças...)
+                        </li>
+                        <li>
+                          • Padrão de acabamento desejado (popular, médio, alto)
+                        </li>
                         <li>• Marcas que prefere ou quer evitar</li>
-                        <li>• Se quer manter algo existente (ex: "manter o box")</li>
+                        <li>
+                          • Se quer manter algo existente (ex: "manter o box")
+                        </li>
                       </ul>
                     ) : (
                       <ul className="text-xs text-muted-foreground space-y-1">
-                        <li>• Tipo de material preferido (ex: tijolo baiano, bloco cerâmico)</li>
+                        <li>
+                          • Tipo de material preferido (ex: tijolo baiano,
+                          bloco cerâmico)
+                        </li>
                         <li>• Padrão de acabamento (popular, médio, alto)</li>
                         <li>• Incluir estimativa de mão de obra?</li>
                         <li>• Marcas que prefere ou quer evitar</li>
-                        <li>• Detalhes específicos dos cômodos (ex: porcelanato na sala)</li>
+                        <li>
+                          • Detalhes específicos dos cômodos (ex: porcelanato
+                          na sala)
+                        </li>
                         <li>• Percentual de BDI customizado</li>
                       </ul>
                     )}
@@ -995,13 +1648,26 @@ export default function NovaAnalise() {
 
               <div className="hidden sm:flex justify-between pt-4">
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Button>
-                  <Button variant="ghost" onClick={handleSaveDraft} disabled={savingDraft}>
-                    {savingDraft ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleSaveDraft}
+                    disabled={savingDraft}
+                  >
+                    {savingDraft ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-1 h-4 w-4" />
+                    )}
                     Salvar rascunho
                   </Button>
                 </div>
-                <Button onClick={handleNext} disabled={loading}>Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" /></Button>
+                <Button onClick={handleNext} disabled={loading}>
+                  Revisar e Analisar{" "}
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1011,45 +1677,228 @@ export default function NovaAnalise() {
         {step === 2 && showSummary && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-primary" /> Confirme os dados da análise</CardTitle>
-              <CardDescription>Revise as informações antes de iniciar</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" /> Confirme os
+                dados da análise
+              </CardTitle>
+              <CardDescription>
+                Revise as informações antes de iniciar
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Modo</span><span className="text-sm font-medium">{mode === "foto_ambiente" ? "📷 Foto do Ambiente" : "📐 Planta Baixa"}</span></div>
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Projeto</span><span className="text-sm font-medium">{formData.nome_projeto || "Sem título"}</span></div>
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Tipo</span><span className="text-sm font-medium">{TIPO_LABELS[formData.tipo_construcao]}</span></div>
-                {formData.area_m2 && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Área Total</span><span className="text-sm font-medium">{formData.area_m2} m²</span></div></>)}
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Pé-Direito</span><span className="text-sm font-medium">{formData.pe_direito}m</span></div>
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Pavimentos</span><span className="text-sm font-medium">{formData.num_pavimentos}</span></div>
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">Acabamento</span><span className="text-sm font-medium">{{ popular: "Popular", medio: "Médio", alto: "Alto", luxo: "Luxo" }[formData.padrao_acabamento] || formData.padrao_acabamento}</span></div>
-                {(formData.num_quartos || formData.num_banheiros || formData.num_vagas) && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Cômodos</span><span className="text-sm font-medium">{[formData.num_quartos && `${formData.num_quartos} quarto(s)`, formData.num_banheiros && `${formData.num_banheiros} banheiro(s)`, formData.num_vagas && `${formData.num_vagas} vaga(s)`].filter(Boolean).join(", ")}</span></div></>)}
-                {formData.tipo_fundacao && formData.tipo_fundacao !== "nao_sei" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Fundação</span><span className="text-sm font-medium capitalize">{formData.tipo_fundacao}</span></div></>)}
-                {formData.tipo_cobertura && formData.tipo_cobertura !== "nao_sei" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Cobertura</span><span className="text-sm font-medium capitalize">{formData.tipo_cobertura}</span></div></>)}
-                {mode !== "foto_ambiente" && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Escala</span><span className="text-sm font-medium">{!formData.escala || formData.escala === "auto" ? "Detecção automática" : ESCALA_LABELS[formData.escala] || formData.escala}</span></div></>)}
-                {formData.regiao && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">Região</span><span className="text-sm font-medium">{formData.regiao}</span></div></>)}
-                <Separator />
-                <div className="flex justify-between"><span className="text-sm text-muted-foreground">BDI</span><span className="text-sm font-medium">{formData.bdi_percentual || "25"}%</span></div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Modo</span>
+                  <span className="text-sm font-medium">
+                    {mode === "foto_ambiente"
+                      ? "📷 Foto do Ambiente"
+                      : "📐 Planta Baixa"}
+                  </span>
+                </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Arquivos</span>
-                  <span className="text-sm font-medium">{files.length} arquivo(s)</span>
+                  <span className="text-sm text-muted-foreground">Projeto</span>
+                  <span className="text-sm font-medium">
+                    {formData.nome_projeto || "Sem título"}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Tipo</span>
+                  <span className="text-sm font-medium">
+                    {TIPO_LABELS[formData.tipo_construcao]}
+                  </span>
+                </div>
+                {formData.area_m2 && (
+                  <>
+                    <Separator />
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Área Total
+                      </span>
+                      <span className="text-sm font-medium">
+                        {formData.area_m2} m²
+                      </span>
+                    </div>
+                  </>
+                )}
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Pé-Direito
+                  </span>
+                  <span className="text-sm font-medium">
+                    {formData.pe_direito}m
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Pavimentos
+                  </span>
+                  <span className="text-sm font-medium">
+                    {formData.num_pavimentos}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Acabamento
+                  </span>
+                  <span className="text-sm font-medium">
+                    {
+                      {
+                        popular: "Popular",
+                        medio: "Médio",
+                        alto: "Alto",
+                        luxo: "Luxo",
+                      }[formData.padrao_acabamento] ||
+                      formData.padrao_acabamento
+                    }
+                  </span>
+                </div>
+                {(formData.num_quartos ||
+                  formData.num_banheiros ||
+                  formData.num_vagas) && (
+                  <>
+                    <Separator />
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Cômodos
+                      </span>
+                      <span className="text-sm font-medium">
+                        {[
+                          formData.num_quartos &&
+                            `${formData.num_quartos} quarto(s)`,
+                          formData.num_banheiros &&
+                            `${formData.num_banheiros} banheiro(s)`,
+                          formData.num_vagas &&
+                            `${formData.num_vagas} vaga(s)`,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {formData.tipo_fundacao &&
+                  formData.tipo_fundacao !== "nao_sei" && (
+                    <>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Fundação
+                        </span>
+                        <span className="text-sm font-medium capitalize">
+                          {formData.tipo_fundacao}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                {formData.tipo_cobertura &&
+                  formData.tipo_cobertura !== "nao_sei" && (
+                    <>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Cobertura
+                        </span>
+                        <span className="text-sm font-medium capitalize">
+                          {formData.tipo_cobertura}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                {mode !== "foto_ambiente" && (
+                  <>
+                    <Separator />
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Escala
+                      </span>
+                      <span className="text-sm font-medium">
+                        {!formData.escala || formData.escala === "auto"
+                          ? "Detecção automática"
+                          : ESCALA_LABELS[formData.escala] || formData.escala}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {formData.regiao && (
+                  <>
+                    <Separator />
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Região
+                      </span>
+                      <span className="text-sm font-medium">
+                        {formData.regiao}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">BDI</span>
+                  <span className="text-sm font-medium">
+                    {formData.bdi_percentual || "25"}%
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Arquivos
+                  </span>
+                  <span className="text-sm font-medium">
+                    {files.length} arquivo(s)
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-0.5">
-                  {files.map((f, i) => <div key={i}>• {f.name}</div>)}
+                  {files.map((f, i) => (
+                    <div key={i}>• {f.name}</div>
+                  ))}
                 </div>
-                {dwgFile && (<><Separator /><div className="flex justify-between"><span className="text-sm text-muted-foreground">DWG</span><span className="text-sm font-medium">{dwgFile.name}</span></div></>)}
-                {formData.instrucoes_adicionais && (<><Separator /><div><span className="text-sm text-muted-foreground">Instruções</span><p className="text-sm mt-1">{formData.instrucoes_adicionais}</p></div></>)}
+                {dwgFile && (
+                  <>
+                    <Separator />
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">DWG</span>
+                      <span className="text-sm font-medium">
+                        {dwgFile.name}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {formData.instrucoes_adicionais && (
+                  <>
+                    <Separator />
+                    <div>
+                      <span className="text-sm text-muted-foreground">
+                        Instruções
+                      </span>
+                      <p className="text-sm mt-1">
+                        {formData.instrucoes_adicionais}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex justify-between pt-2">
-                <Button variant="outline" onClick={() => setShowSummary(false)}><ArrowLeft className="mr-1 h-4 w-4" /> Editar</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSummary(false)}
+                >
+                  <ArrowLeft className="mr-1 h-4 w-4" /> Editar
+                </Button>
                 <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analisando com IA...</>) : "Iniciar Análise"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analisando com IA...
+                    </>
+                  ) : (
+                    "Iniciar Análise"
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -1060,9 +1909,14 @@ export default function NovaAnalise() {
           <Card className="mt-6">
             <CardContent className="flex flex-col items-center py-12">
               <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-              <h3 className="mb-2 text-lg font-semibold">{mode === "foto_ambiente" ? "Analisando fotos do ambiente..." : "Analisando suas plantas..."}</h3>
+              <h3 className="mb-2 text-lg font-semibold">
+                {mode === "foto_ambiente"
+                  ? "Analisando fotos do ambiente..."
+                  : "Analisando suas plantas..."}
+              </h3>
               <p className="text-center text-muted-foreground">
-                {mode ? MODE_CONFIG[mode].loadingText : ""} Isso pode levar até 60 segundos.
+                {mode ? MODE_CONFIG[mode].loadingText : ""} Isso pode levar até
+                60 segundos.
               </p>
             </CardContent>
           </Card>
@@ -1073,10 +1927,26 @@ export default function NovaAnalise() {
       {step === 2 && !showSummary && !loading && (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-card p-4 sm:hidden z-50">
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleSaveDraft} disabled={savingDraft} className="flex-shrink-0">
-              {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <Button
+              variant="outline"
+              onClick={handleSaveDraft}
+              disabled={savingDraft}
+              className="flex-shrink-0"
+            >
+              {savingDraft ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
             </Button>
-            <Button className="flex-1" onClick={handleNext} disabled={loading}>Revisar e Analisar <ChevronRight className="ml-1 h-4 w-4" /></Button>
+            <Button
+              className="flex-1"
+              onClick={handleNext}
+              disabled={loading}
+            >
+              Revisar e Analisar{" "}
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}

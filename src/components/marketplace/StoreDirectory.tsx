@@ -19,7 +19,7 @@ export function StoreDirectory() {
           .select(
             "id, user_id, nome_loja, logo_url, descricao, categoria, cidade, estado, is_premium"
           )
-          .eq("status", "ativo");
+          .eq("status", "approved");
 
         if (error) throw error;
 
