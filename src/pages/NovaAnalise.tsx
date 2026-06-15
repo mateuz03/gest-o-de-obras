@@ -1233,6 +1233,7 @@ export default function NovaAnalise() {
                     <div className="space-y-2">
                       <Label>
                         Mês / Ano <span className="text-destructive">*</span>
+                        
                       </Label>
                       <Select
                         value={formData.sinapi_mes_ano}
