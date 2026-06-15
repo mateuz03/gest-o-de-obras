@@ -92,8 +92,8 @@ export default function RecursoBloqueado({ slug: slugProp }: RecursoBloqueadoPro
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-sm font-medium text-amber-700">
-              <Lock className="h-4 w-4" /> Recurso exclusivo para membros
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700">
+              <Sparkles className="h-4 w-4" /> Falta só um passo para liberar
             </div>
 
             <h1 className="mb-4 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl">
@@ -113,7 +113,7 @@ export default function RecursoBloqueado({ slug: slugProp }: RecursoBloqueadoPro
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="h-12 bg-emerald-600 px-8 text-base text-white hover:bg-emerald-700">
                 <Link to={signupUrl}>
-                  Criar conta e acessar {name} <ArrowRight className="ml-2 h-5 w-5" />
+                  Liberar {name} agora <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12 border-slate-300 px-8 text-base text-slate-700 hover:bg-slate-50">
@@ -123,7 +123,7 @@ export default function RecursoBloqueado({ slug: slugProp }: RecursoBloqueadoPro
 
 
             <p className="mt-4 text-sm text-slate-400">
-              Primeiras 3 análises grátis • Sem cartão de crédito
+              Leva menos de 1 minuto • 3 primeiras análises grátis • Sem cartão de crédito
             </p>
           </motion.div>
 
