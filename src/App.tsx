@@ -134,78 +134,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-<<<<<<< HEAD
-          <Routes>
-
-            {/* ── Rotas Públicas ───────────────────────────────────── */}
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/blog/:slug" element={<BlogPost />} />
-            <Route path="/documentos" element={<DocumentosDicas />} />
-            <Route path="/sobre-nos" element={<QuemSomos />} />
-            <Route path="/suporte" element={<Suporte />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/loja/:id" element={<LojaPublica />} />
-            <Route path="/vendedor/:id" element={<VendedorPerfil />} />
-            <Route path="/profissionais" element={<Profissionais />} />
-            <Route path="/seja-parceiro" element={<SejaParceiro />} />
-            <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
-            <Route path="/share/:analysisId" element={<ShareAnalise />} />
-            <Route path="/carreira" element={<Carreira />} />
-            <Route path="/termos-de-uso" element={<TermosUso />} />
-            <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
-
-            {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
-            <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
-
-            {/* ── Rotas Protegidas ─────────────────────────────────── */}
-            <Route path="/dashboard"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-
-            <Route path="/nova-analise"
-              element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
-
-            <Route path="/analise/:id"
-              element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
-
-            <Route path="/notas-fiscais"
-              element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
-
-            <Route path="/perfil"
-              element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
-
-            <Route path="/cadastrar-profissional"
-              element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
-
-            {/* ✅ Painel do lojista agora protegido (apenas CNPJ) */}
-            <Route path="/painel-loja"
-              element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
-
-            {/* Gestão de anúncios avulsos (Pessoa Física / CPF) */}
-            <Route path="/meus-anuncios"
-              element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
-
-            {/* ── Rotas Admin ──────────────────────────────────────── */}
-            <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-              <Route index element={<VisaoGeral />} />
-              <Route path="usuarios" element={<UsuariosList />} />
-              <Route path="lojas" element={<LojasPendentes />} /> {/* Moderação de lojas */}
-              <Route path="sinapi" element={<SinapiPage />} />
-              <Route path="logs-ia" element={<LogsIA />} />
-              <Route path="config" element={<Configuracoes />} />
-              <Route path="blog" element={<AdminBlog />} />
-            </Route>
-
-            {/* ── Fallback 404 ─────────────────────────────────────── */}
-            <Route path="*" element={<NotFound />} />
-
-          </Routes>
-=======
           <AppRoutes />
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

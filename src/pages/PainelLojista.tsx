@@ -70,17 +70,14 @@ export default function PainelLojista() {
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
-<<<<<<< HEAD
   // Controle de moderação: pending (em análise), approved (ativa), rejected (recusada)
   const [lojaExiste, setLojaExiste] = useState(false);
   const [statusLoja, setStatusLoja] = useState<"pending" | "approved" | "rejected" | "">("");
   const [motivoRejeicao, setMotivoRejeicao] = useState("");
   const [modoEdicao, setModoEdicao] = useState(false);
-=======
   // Imagens novas selecionadas (data URL base64) enviadas ao Storage no save.
   const [logoFile, setLogoFile] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<string | null>(null);
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
@@ -144,32 +141,6 @@ export default function PainelLojista() {
     e.preventDefault();
     if (!user) return;
     setSalvandoPerfil(true);
-<<<<<<< HEAD
-    
-    try {
-      // Loja nova ou reenvio após recusa volta para análise (pending).
-      // Loja já aprovada continua aprovada ao editar.
-      const novoStatus = statusLoja === "approved" ? "approved" : "pending";
-
-      const { error } = await supabase.from("perfil_lojista").upsert({
-          user_id: user.id,
-          ...perfil,
-          status: novoStatus,
-          motivo_rejeicao: novoStatus === "pending" ? null : motivoRejeicao,
-        }, { onConflict: "user_id" });
-
-      if (error) throw error;
-
-      setLojaExiste(true);
-      setStatusLoja(novoStatus as any);
-      setModoEdicao(false);
-      if (novoStatus === "pending") {
-        setMotivoRejeicao("");
-        toast.success("Loja enviada para análise da nossa equipe!");
-      } else {
-        toast.success("Alterações salvas com sucesso!");
-      }
-=======
 
     try {
       // O endpoint valida o escopo CNPJ no servidor (retorna 403 para CPF),
@@ -213,8 +184,19 @@ export default function PainelLojista() {
       }
       setLogoFile(null);
       setBannerFile(null);
-      toast.success("Vitrine salva com sucesso!");
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
+
+      // Loja nova ou reenvio após recusa volta para análise (pending).
+      // Loja já aprovada continua aprovada ao editar.
+      const novoStatus = statusLoja === "approved" ? "approved" : "pending";
+      setLojaExiste(true);
+      setStatusLoja(novoStatus as any);
+      setModoEdicao(false);
+      if (novoStatus === "pending") {
+        setMotivoRejeicao("");
+        toast.success("Loja enviada para análise da nossa equipe!");
+      } else {
+        toast.success("Alterações salvas com sucesso!");
+      }
     } catch (error) {
       toast.error("Erro ao atualizar os dados.");
     } finally {

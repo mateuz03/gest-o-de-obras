@@ -1146,6 +1146,7 @@ export type Database = {
       }
       profissionais: {
         Row: {
+          avatar_url: string | null
           created_at: string
           especialidade: string
           id: string
@@ -1157,6 +1158,7 @@ export type Database = {
           valor_diaria: number
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           especialidade: string
           id?: string
@@ -1168,6 +1170,7 @@ export type Database = {
           valor_diaria?: number
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           especialidade?: string
           id?: string
