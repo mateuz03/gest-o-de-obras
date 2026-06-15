@@ -88,9 +88,9 @@ export default function Navbar() {
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Soluções</h4>
             <div className="flex flex-col gap-3 pl-2">
               <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="text-sm font-medium text-slate-700">Gestão de Projetos</Link>
-              <Link to="/marketplace" className="text-sm font-medium text-slate-700">Marketplace</Link>
-              <Link to="/profissionais" className="text-sm font-medium text-slate-700">Prestar Serviços</Link>
-              {podeCriarLoja && <Link to="/seja-parceiro" className="text-sm font-medium text-slate-700">Crie sua Loja</Link>}
+              <Link to={user ? "/marketplace" : "/solucoes/marketplace"} className="text-sm font-medium text-slate-700">Marketplace</Link>
+              <Link to={user ? "/profissionais" : "/solucoes/prestar-servico"} className="text-sm font-medium text-slate-700">Prestar Serviços</Link>
+              {podeCriarLoja && <Link to={user ? "/seja-parceiro" : "/solucoes/criar-loja"} className="text-sm font-medium text-slate-700">Crie sua Loja</Link>}
             </div>
           </div>
           <div>
