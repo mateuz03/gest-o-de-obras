@@ -539,9 +539,9 @@ export default function Index() {
         <div className="container">
           <motion.div {...fadeInUp} className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              Funcionalidades de Gestão Profissional
+              Tudo o que você precisa para orçar e gerir obras
             </h2>
-            <p className="text-lg text-slate-500">Tudo que você precisa para orçar, planejar e gerir suas obras.</p>
+            <p className="text-lg text-slate-500">Da planta ao fechamento: ferramentas que economizam seu tempo e protegem sua margem.</p>
           </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
