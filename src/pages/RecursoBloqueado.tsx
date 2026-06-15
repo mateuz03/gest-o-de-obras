@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useParams, useLocation, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Box, CheckCircle2, Lock, ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowRight, Box, CheckCircle2, ArrowLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSolutionBySlug } from "@/config/solutions";
 import { saveIntendedRoute, authUrlWithRedirect } from "@/lib/intendedRoute";
@@ -142,11 +142,11 @@ export default function RecursoBloqueado({ slug: slugProp }: RecursoBloqueadoPro
                 </div>
                 <h3 className="mb-2 text-xl font-bold text-slate-900">{name}</h3>
                 <p className="mb-6 text-sm text-slate-500">
-                  Desbloqueie esta e todas as outras soluções do Obra Link criando sua conta.
+                  Com uma conta gratuita você libera este recurso e todas as outras soluções do Obra Link.
                 </p>
                 <div className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-emerald-400">
                   <Sparkles className="h-4 w-4" />
-                  Acesso imediato após o cadastro
+                  Acesso liberado na hora, sem espera
                 </div>
               </div>
             </div>
