@@ -169,10 +169,10 @@ export default function Index() {
               // Se não estiver logado, mostramos os botões padrão de B2B
               <>
                 <Link to="/auth" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">
-                  Login
+                  Entrar
                 </Link>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                  <Link to="/auth">Criar Conta</Link>
+                  <Link to="/solicitar-acesso">Solicitar Acesso Imediato</Link>
                 </Button>
               </>
             )}
@@ -187,28 +187,30 @@ export default function Index() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <motion.div {...fadeInUp}>
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700">
-                <Zap className="h-4 w-4" /> Inteligência Artificial Multimodal
+                <Zap className="h-4 w-4" /> Orçamentos com Inteligência Artificial
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold leading-tight tracking-tight text-slate-900 mb-6">
-                De <span className="text-emerald-600">3 dias</span> para{" "}
-                <span className="text-emerald-600">5 minutos</span> no levantamento de quantitativos
+                Seu orçamento de obra pronto em{" "}
+                <span className="text-emerald-600">minutos</span>, não em{" "}
+                <span className="text-emerald-600">dias</span>
               </h1>
               <p className="text-lg text-slate-500 mb-8 max-w-xl leading-relaxed">
-                Nossa IA usa Gemini 2.5 Pro para interpretar suas plantas, cruza automaticamente com a
-                tabela SINAPI regional, aplica BDI configurável e gera orçamento completo + cronograma Gantt.
+                Envie a planta e receba um orçamento completo, com preços oficiais atualizados da
+                sua região, memorial descritivo e cronograma. Menos planilha, menos retrabalho e
+                mais tempo para fechar negócios.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white text-base px-8 h-12" asChild>
                   <Link to={user ? "/nova-analise" : "/solicitar-acesso"}>
-                    Analisar minha primeira planta agora <ArrowRight className="ml-2 h-5 w-5" />
+                    Orçar minha primeira planta grátis <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" className="text-base px-8 h-12 border-slate-300 text-slate-700 hover:bg-slate-50">
-                  Ver exemplo real PDF/Excel
+                  Ver um orçamento de exemplo
                 </Button>
               </div>
               <p className="text-sm text-slate-400">
-                Primeiras 3 análises grátis • Sem cartão de crédito
+                3 primeiras análises gratuitas • Sem cartão de crédito • Cancele quando quiser
               </p>
             </motion.div>
 
