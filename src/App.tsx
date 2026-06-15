@@ -98,6 +98,9 @@ function AppRoutes() {
         {/* Tela de bloqueio acessível por link direto */}
         <Route path="/recurso/:slug" element={<RecursoBloqueado />} />
 
+        {/* Landing Pages Dinâmicas de Conversão (captura de visitantes) */}
+        <Route path="/solucoes/:slug" element={<SolucaoLanding />} />
+
         {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
         <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
 
