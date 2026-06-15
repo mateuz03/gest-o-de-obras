@@ -169,10 +169,10 @@ export default function Index() {
               // Se não estiver logado, mostramos os botões padrão de B2B
               <>
                 <Link to="/auth" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">
-                  Login
+                  Entrar
                 </Link>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                  <Link to="/auth">Criar Conta</Link>
+                  <Link to="/solicitar-acesso">Solicitar Acesso Imediato</Link>
                 </Button>
               </>
             )}
@@ -187,28 +187,30 @@ export default function Index() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <motion.div {...fadeInUp}>
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700">
-                <Zap className="h-4 w-4" /> Inteligência Artificial Multimodal
+                <Zap className="h-4 w-4" /> Orçamentos com Inteligência Artificial
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold leading-tight tracking-tight text-slate-900 mb-6">
-                De <span className="text-emerald-600">3 dias</span> para{" "}
-                <span className="text-emerald-600">5 minutos</span> no levantamento de quantitativos
+                Seu orçamento de obra pronto em{" "}
+                <span className="text-emerald-600">minutos</span>, não em{" "}
+                <span className="text-emerald-600">dias</span>
               </h1>
               <p className="text-lg text-slate-500 mb-8 max-w-xl leading-relaxed">
-                Nossa IA usa Gemini 2.5 Pro para interpretar suas plantas, cruza automaticamente com a
-                tabela SINAPI regional, aplica BDI configurável e gera orçamento completo + cronograma Gantt.
+                Envie a planta e receba um orçamento completo, com preços oficiais atualizados da
+                sua região, memorial descritivo e cronograma. Menos planilha, menos retrabalho e
+                mais tempo para fechar negócios.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white text-base px-8 h-12" asChild>
                   <Link to={user ? "/nova-analise" : "/solicitar-acesso"}>
-                    Analisar minha primeira planta agora <ArrowRight className="ml-2 h-5 w-5" />
+                    Orçar minha primeira planta grátis <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" className="text-base px-8 h-12 border-slate-300 text-slate-700 hover:bg-slate-50">
-                  Ver exemplo real PDF/Excel
+                  Ver um orçamento de exemplo
                 </Button>
               </div>
               <p className="text-sm text-slate-400">
-                Primeiras 3 análises grátis • Sem cartão de crédito
+                3 primeiras análises gratuitas • Sem cartão de crédito • Cancele quando quiser
               </p>
             </motion.div>
 
@@ -289,14 +291,14 @@ export default function Index() {
               <div className="relative flex flex-col items-center justify-between gap-8 lg:flex-row lg:text-left">
                 <div className="max-w-xl text-center lg:text-left">
                   <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
-                    <Sparkles className="h-4 w-4" /> Comece agora, é grátis
+                    <Sparkles className="h-4 w-4" /> Comece hoje, sem custo
                   </div>
                   <h2 className="mb-3 text-3xl font-bold text-white sm:text-4xl">
-                    Desbloqueie todas as soluções do Obra Link
+                    Tenha o Obra Link trabalhando por você
                   </h2>
                   <p className="text-lg text-slate-300">
-                    Crie sua conta e tenha acesso à análise de plantas com IA, gestão de
-                    projetos, marketplace e muito mais. Suas 3 primeiras análises são grátis.
+                    Crie sua conta e ganhe acesso à análise de plantas, gestão de obras e
+                    ao marketplace de materiais e serviços. As 3 primeiras análises são por nossa conta.
                   </p>
                 </div>
                 <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -306,7 +308,7 @@ export default function Index() {
                     className="h-12 bg-emerald-500 px-8 text-base font-semibold text-white hover:bg-emerald-600"
                   >
                     <Link to="/auth?tab=signup">
-                      Criar conta gratuita <ArrowRight className="ml-2 h-5 w-5" />
+                      Solicitar Acesso Imediato <ArrowRight className="ml-2 h-5 w-5" />
                     </Link>
                   </Button>
                   <Button
@@ -315,7 +317,7 @@ export default function Index() {
                     variant="outline"
                     className="h-12 border-slate-600 bg-transparent px-8 text-base text-white hover:bg-white/10 hover:text-white"
                   >
-                    <Link to="/auth">Fazer login</Link>
+                    <Link to="/auth">Já sou cliente</Link>
                   </Button>
                 </div>
               </div>
@@ -537,9 +539,9 @@ export default function Index() {
         <div className="container">
           <motion.div {...fadeInUp} className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              Funcionalidades de Gestão Profissional
+              Tudo o que você precisa para orçar e gerir obras
             </h2>
-            <p className="text-lg text-slate-500">Tudo que você precisa para orçar, planejar e gerir suas obras.</p>
+            <p className="text-lg text-slate-500">Da planta ao fechamento: ferramentas que economizam seu tempo e protegem sua margem.</p>
           </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">

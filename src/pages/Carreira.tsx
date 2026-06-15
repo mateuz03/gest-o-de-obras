@@ -26,9 +26,9 @@ const vagas: Vaga[] = [
 ];
 
 const valores = [
-  { icon: Heart, titulo: "Propósito", desc: "Construímos tecnologia para destravar o setor que mais movimenta o Brasil." },
-  { icon: Zap, titulo: "Velocidade com qualidade", desc: "Time pequeno, ciclos curtos e alto padrão técnico." },
-  { icon: Sparkles, titulo: "Aprendizado contínuo", desc: "Orçamento individual de educação e cultura de feedback aberto." },
+  { icon: Heart, titulo: "Propósito de verdade", desc: "Cada entrega destrava produtividade para o setor que mais move a economia do país." },
+  { icon: Zap, titulo: "Autonomia e ritmo", desc: "Time enxuto, decisões rápidas e a liberdade de ser dono do que você faz." },
+  { icon: Sparkles, titulo: "Crescimento contínuo", desc: "Verba de educação, feedback aberto e espaço para aprender e evoluir todo dia." },
 ];
 
 const alocacaoColor: Record<Vaga["alocacao"], string> = {
@@ -45,14 +45,14 @@ export default function Carreira() {
       {/* Hero */}
       <section className="border-b border-slate-200 bg-white">
         <div className="container max-w-4xl py-16 text-center">
-          <Badge className="mb-4 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">Trabalhe Conosco</Badge>
+          <Badge className="mb-4 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">Faça parte do time</Badge>
           <h1 className="text-4xl font-bold text-slate-900 sm:text-5xl">
-            Vamos reconstruir o setor da construção, juntos.
+            Ajude a construir o futuro de quem constrói o Brasil
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
-            No Obra Link, unimos engenharia, design e inteligência artificial para entregar produtividade
-            real a quem constrói o Brasil. Buscamos pessoas curiosas, donas do que fazem e que prezam
-            por simplicidade.
+            No Obra Link, tecnologia e engenharia se encontram para resolver problemas reais do
+            canteiro de obras. Aqui você trabalha com autonomia, vê seu impacto rápido e cresce
+            ao lado de gente que gosta de fazer simples o que parecia complicado.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg" className="bg-emerald-600 text-white hover:bg-emerald-700">

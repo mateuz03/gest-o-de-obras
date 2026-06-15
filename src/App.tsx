@@ -29,6 +29,7 @@ import Carreira from "./pages/Carreira";
 import TermosUso from "./pages/TermosUso";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import RecursoBloqueado from "./pages/RecursoBloqueado";
+import SolucaoLanding from "./pages/SolucaoLanding";
 import NotFound from "./pages/NotFound";
 
 // ── Páginas Privadas e Funcionais ─────────────────────────────────────────
@@ -105,7 +106,17 @@ function AppRoutes() {
         <Route path="/share/:analysisId" element={<ShareAnalise />} />
         <Route path="/recurso/:slug" element={<RecursoBloqueado />} />
 
+<<<<<<< HEAD
         {/* ── Soluções Internas Condicionais (Route Guard do Lovable) ── */}
+=======
+        {/* Landing Pages Dinâmicas de Conversão (captura de visitantes) */}
+        <Route path="/solucoes/:slug" element={<SolucaoLanding />} />
+
+        {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
+        <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
+
+        {/* ── Soluções Internas (Route Guard condicional) ────────── */}
+>>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
         {SOLUTION_ROUTES.map(({ slug, path, component: Component }) => (
           <Route
             key={slug}
@@ -149,7 +160,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+<<<<<<< HEAD
           <AppRoutes /> {/* ✅ Apenas UMA chamada para o mapa de rotas oficial */}
+=======
+          <AppRoutes />
+>>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

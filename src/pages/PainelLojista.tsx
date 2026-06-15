@@ -138,6 +138,7 @@ export default function PainelLojista() {
 
   // ─── SALVAR PERFIL (via endpoint de onboarding com RBAC + Storage) ───
   const handleSalvarPerfil = async (e: React.FormEvent) => {
+<<<<<<< HEAD
   e.preventDefault();
   if (!user) return;
   setSalvandoPerfil(true);
@@ -168,6 +169,16 @@ export default function PainelLojista() {
     // Chama o endpoint de onboarding para gravar logo/banner no Storage
     try {
       const { data, error: fnError } = await supabase.functions.invoke("store-onboarding", {
+=======
+    e.preventDefault();
+    if (!user) return;
+    setSalvandoPerfil(true);
+
+    try {
+      // O endpoint valida o escopo CNPJ no servidor (retorna 403 para CPF),
+      // grava o logotipo/banner no Storage e parametriza a vitrine.
+      const { data, error } = await supabase.functions.invoke("store-onboarding", {
+>>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
         body: {
           nome_loja: perfil.nome_loja,
           categoria: perfil.categoria,
@@ -205,10 +216,30 @@ export default function PainelLojista() {
       }
       setLogoFile(null);
       setBannerFile(null);
+<<<<<<< HEAD
       toast.success("Vitrine salva com sucesso!");
 
     } catch (fnErr) {
       toast.error("Erro ao atualizar os dados da vitrine.");
+=======
+
+      // Loja nova ou reenvio após recusa volta para análise (pending).
+      // Loja já aprovada continua aprovada ao editar.
+      const novoStatus = statusLoja === "approved" ? "approved" : "pending";
+      setLojaExiste(true);
+      setStatusLoja(novoStatus as any);
+      setModoEdicao(false);
+      if (novoStatus === "pending") {
+        setMotivoRejeicao("");
+        toast.success("Loja enviada para análise da nossa equipe!");
+      } else {
+        toast.success("Alterações salvas com sucesso!");
+      }
+    } catch (error) {
+      toast.error("Erro ao atualizar os dados.");
+    } finally {
+      setSalvandoPerfil(false);
+>>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
     }
 
   } catch (err) {
