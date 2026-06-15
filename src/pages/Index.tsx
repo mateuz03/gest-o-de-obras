@@ -291,14 +291,14 @@ export default function Index() {
               <div className="relative flex flex-col items-center justify-between gap-8 lg:flex-row lg:text-left">
                 <div className="max-w-xl text-center lg:text-left">
                   <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
-                    <Sparkles className="h-4 w-4" /> Comece agora, é grátis
+                    <Sparkles className="h-4 w-4" /> Comece hoje, sem custo
                   </div>
                   <h2 className="mb-3 text-3xl font-bold text-white sm:text-4xl">
-                    Desbloqueie todas as soluções do Obra Link
+                    Tenha o Obra Link trabalhando por você
                   </h2>
                   <p className="text-lg text-slate-300">
-                    Crie sua conta e tenha acesso à análise de plantas com IA, gestão de
-                    projetos, marketplace e muito mais. Suas 3 primeiras análises são grátis.
+                    Crie sua conta e ganhe acesso à análise de plantas, gestão de obras e
+                    ao marketplace de materiais e serviços. As 3 primeiras análises são por nossa conta.
                   </p>
                 </div>
                 <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -308,7 +308,7 @@ export default function Index() {
                     className="h-12 bg-emerald-500 px-8 text-base font-semibold text-white hover:bg-emerald-600"
                   >
                     <Link to="/auth?tab=signup">
-                      Criar conta gratuita <ArrowRight className="ml-2 h-5 w-5" />
+                      Solicitar Acesso Imediato <ArrowRight className="ml-2 h-5 w-5" />
                     </Link>
                   </Button>
                   <Button
@@ -317,7 +317,7 @@ export default function Index() {
                     variant="outline"
                     className="h-12 border-slate-600 bg-transparent px-8 text-base text-white hover:bg-white/10 hover:text-white"
                   >
-                    <Link to="/auth">Fazer login</Link>
+                    <Link to="/auth">Já sou cliente</Link>
                   </Button>
                 </div>
               </div>
