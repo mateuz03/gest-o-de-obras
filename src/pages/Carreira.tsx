@@ -26,9 +26,9 @@ const vagas: Vaga[] = [
 ];
 
 const valores = [
-  { icon: Heart, titulo: "Propósito", desc: "Construímos tecnologia para destravar o setor que mais movimenta o Brasil." },
-  { icon: Zap, titulo: "Velocidade com qualidade", desc: "Time pequeno, ciclos curtos e alto padrão técnico." },
-  { icon: Sparkles, titulo: "Aprendizado contínuo", desc: "Orçamento individual de educação e cultura de feedback aberto." },
+  { icon: Heart, titulo: "Propósito de verdade", desc: "Cada entrega destrava produtividade para o setor que mais move a economia do país." },
+  { icon: Zap, titulo: "Autonomia e ritmo", desc: "Time enxuto, decisões rápidas e a liberdade de ser dono do que você faz." },
+  { icon: Sparkles, titulo: "Crescimento contínuo", desc: "Verba de educação, feedback aberto e espaço para aprender e evoluir todo dia." },
 ];
 
 const alocacaoColor: Record<Vaga["alocacao"], string> = {
