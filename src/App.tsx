@@ -29,6 +29,7 @@ import Carreira from "./pages/Carreira";
 import TermosUso from "./pages/TermosUso";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import RecursoBloqueado from "./pages/RecursoBloqueado";
+import SolucaoLanding from "./pages/SolucaoLanding";
 import NotFound from "./pages/NotFound";
 
 // ── Páginas Admin (não alteradas — fluxo de admin permanece o mesmo) ───────
@@ -96,6 +97,9 @@ function AppRoutes() {
 
         {/* Tela de bloqueio acessível por link direto */}
         <Route path="/recurso/:slug" element={<RecursoBloqueado />} />
+
+        {/* Landing Pages Dinâmicas de Conversão (captura de visitantes) */}
+        <Route path="/solucoes/:slug" element={<SolucaoLanding />} />
 
         {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
         <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
