@@ -28,10 +28,10 @@ export default function QuemSomos() {
             <Building className="w-4 h-4" /> Sobre o Obra Link
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight leading-tight">
-            A tecnologia construindo a <span className="text-emerald-600">previsibilidade</span> do amanhã
+            Mais <span className="text-emerald-600">previsibilidade</span> para quem constrói
           </h1>
           <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Nascemos para resolver uma das maiores dores do mercado: o abismo entre quem planeja a obra, quem executa e quem fornece os materiais. Trazemos dados, conexão e eficiência para o canteiro.
+            Nascemos para acabar com o desencontro entre quem planeja a obra, quem executa e quem fornece os materiais. Reunimos dados confiáveis, conexões certas e eficiência em um só lugar, do orçamento ao canteiro.
           </p>
         </div>
       </section>
