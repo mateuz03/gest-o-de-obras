@@ -29,6 +29,7 @@ import Carreira from "./pages/Carreira";
 import TermosUso from "./pages/TermosUso";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import RecursoBloqueado from "./pages/RecursoBloqueado";
+import SolucaoLanding from "./pages/SolucaoLanding";
 import NotFound from "./pages/NotFound";
 
 // ── Páginas Admin (não alteradas — fluxo de admin permanece o mesmo) ───────
