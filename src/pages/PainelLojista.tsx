@@ -70,17 +70,14 @@ export default function PainelLojista() {
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
-<<<<<<< HEAD
   // Controle de moderação: pending (em análise), approved (ativa), rejected (recusada)
   const [lojaExiste, setLojaExiste] = useState(false);
   const [statusLoja, setStatusLoja] = useState<"pending" | "approved" | "rejected" | "">("");
   const [motivoRejeicao, setMotivoRejeicao] = useState("");
   const [modoEdicao, setModoEdicao] = useState(false);
-=======
   // Imagens novas selecionadas (data URL base64) enviadas ao Storage no save.
   const [logoFile, setLogoFile] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<string | null>(null);
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
