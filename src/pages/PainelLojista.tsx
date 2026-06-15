@@ -70,17 +70,14 @@ export default function PainelLojista() {
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
-<<<<<<< HEAD
   // Controle de moderação: pending (em análise), approved (ativa), rejected (recusada)
   const [lojaExiste, setLojaExiste] = useState(false);
   const [statusLoja, setStatusLoja] = useState<"pending" | "approved" | "rejected" | "">("");
   const [motivoRejeicao, setMotivoRejeicao] = useState("");
   const [modoEdicao, setModoEdicao] = useState(false);
-=======
   // Imagens novas selecionadas (data URL base64) enviadas ao Storage no save.
   const [logoFile, setLogoFile] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<string | null>(null);
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
   const [perfil, setPerfil] = useState({
     nome_loja: "",
     cnpj: "",
@@ -141,40 +138,36 @@ export default function PainelLojista() {
 
   // ─── SALVAR PERFIL (via endpoint de onboarding com RBAC + Storage) ───
   const handleSalvarPerfil = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setSalvandoPerfil(true);
-<<<<<<< HEAD
-    
+  e.preventDefault();
+  if (!user) return;
+  setSalvandoPerfil(true);
+
+  try {
+    const novoStatus = statusLoja === "approved" ? "approved" : "pending";
+
+    const { error } = await supabase.from("perfil_lojista").upsert({
+      user_id: user.id,
+      ...perfil,
+      status: novoStatus,
+      motivo_rejeicao: novoStatus === "pending" ? null : motivoRejeicao,
+    }, { onConflict: "user_id" });
+
+    if (error) throw error;
+
+    setLojaExiste(true);
+    setStatusLoja(novoStatus as any);
+    setModoEdicao(false);
+
+    if (novoStatus === "pending") {
+      setMotivoRejeicao("");
+      toast.success("Loja enviada para análise da nossa equipe!");
+    } else {
+      toast.success("Alterações salvas com sucesso!");
+    }
+
+    // Chama o endpoint de onboarding para gravar logo/banner no Storage
     try {
-      // Loja nova ou reenvio após recusa volta para análise (pending).
-      // Loja já aprovada continua aprovada ao editar.
-      const novoStatus = statusLoja === "approved" ? "approved" : "pending";
-
-      const { error } = await supabase.from("perfil_lojista").upsert({
-          user_id: user.id,
-          ...perfil,
-          status: novoStatus,
-          motivo_rejeicao: novoStatus === "pending" ? null : motivoRejeicao,
-        }, { onConflict: "user_id" });
-
-      if (error) throw error;
-
-      setLojaExiste(true);
-      setStatusLoja(novoStatus as any);
-      setModoEdicao(false);
-      if (novoStatus === "pending") {
-        setMotivoRejeicao("");
-        toast.success("Loja enviada para análise da nossa equipe!");
-      } else {
-        toast.success("Alterações salvas com sucesso!");
-      }
-=======
-
-    try {
-      // O endpoint valida o escopo CNPJ no servidor (retorna 403 para CPF),
-      // grava o logotipo/banner no Storage e parametriza a vitrine.
-      const { data, error } = await supabase.functions.invoke("store-onboarding", {
+      const { data, error: fnError } = await supabase.functions.invoke("store-onboarding", {
         body: {
           nome_loja: perfil.nome_loja,
           categoria: perfil.categoria,
@@ -192,15 +185,14 @@ export default function PainelLojista() {
         },
       });
 
-      if (error) {
-        // FunctionsHttpError expõe o status via context.
-        const status = (error as { context?: { status?: number } }).context?.status;
+      if (fnError) {
+        const status = (fnError as { context?: { status?: number } }).context?.status;
         if (status === 403) {
           toast.error("Acesso restrito a contas Pessoa Jurídica (CNPJ).");
           navigate("/meus-anuncios", { replace: true });
           return;
         }
-        throw error;
+        throw fnError;
       }
 
       const saved = (data as { perfil?: typeof perfil & { banner_url?: string } })?.perfil;
@@ -214,13 +206,17 @@ export default function PainelLojista() {
       setLogoFile(null);
       setBannerFile(null);
       toast.success("Vitrine salva com sucesso!");
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
-    } catch (error) {
-      toast.error("Erro ao atualizar os dados.");
-    } finally {
-      setSalvandoPerfil(false);
+
+    } catch (fnErr) {
+      toast.error("Erro ao atualizar os dados da vitrine.");
     }
-  };
+
+  } catch (err) {
+    toast.error("Erro ao salvar o perfil.");
+  } finally {
+    setSalvandoPerfil(false);
+  }
+};
 
   // Converte um arquivo selecionado em data URL (base64) para envio ao Storage.
   const handlePickImage = (

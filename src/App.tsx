@@ -8,7 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SOLUTION_ROUTES } from "@/config/solutions";
 
-// ── Páginas Públicas (sempre carregadas) ──────────────────────────────────
+// ── Páginas Públicas ──────────────────────────────────────────────────────
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import EsqueciSenha from "./pages/EsqueciSenha";
@@ -31,7 +31,17 @@ import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import RecursoBloqueado from "./pages/RecursoBloqueado";
 import NotFound from "./pages/NotFound";
 
-// ── Páginas Admin (não alteradas — fluxo de admin permanece o mesmo) ───────
+// ── Páginas Privadas e Funcionais ─────────────────────────────────────────
+import Dashboard from "./pages/Dashboard";
+import NovaAnalise from "./pages/NovaAnalise";
+import AnaliseResultado from "./pages/AnaliseResultado";
+import NotasFiscais from "./pages/NotasFiscais";
+import Perfil from "./pages/Perfil";
+import CadastrarProfissional from "./pages/CadastrarProfissional";
+import PainelLojista from "./pages/PainelLojista";
+import MeusAnuncios from "./pages/MeusAnuncios";
+
+// ── Páginas Admin ─────────────────────────────────────────────────────────
 import AdminLayout from "./pages/Admin/AdminLayout";
 import VisaoGeral from "./pages/Admin/VisaoGeral";
 import UsuariosList from "./pages/Admin/UsuariosList";
@@ -41,11 +51,11 @@ import Configuracoes from "./pages/Admin/Configuracoes";
 import LojasPendentes from "./pages/Admin/LojasPendentes";
 import AdminBlog from "./pages/Admin/AdminBlog";
 
-// ✅ QueryClient instanciado fora do componente (evita recriação a cada render)
+// Instância do QueryClient fora do componente para não recriar a cada render
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutos de cache padrão
+      staleTime: 1000 * 60 * 5, // 5 minutos de cache
       retry: 1, // Tenta 1 vez antes de falhar
     },
   },
@@ -58,13 +68,7 @@ const RouteFallback = () => (
 );
 
 /**
- * Mapa de rotas dinâmico baseado no estado de autenticação.
- *
- * - Visitante (não logado): as Soluções Internas NÃO são renderizadas. Cada
- *   tentativa de acesso cai na Tela de Bloqueio explicativa daquela solução.
- * - Usuário logado: o código das telas privadas é carregado (lazy) e exibido.
- *
- * O fluxo de Admin é mantido separado e inalterado.
+ * AppRoutes: O gerente central das rotas da plataforma
  */
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -74,53 +78,64 @@ function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        {/* ── Rotas Públicas (Área Pública) ──────────────────────── */}
+        {/* ── Rotas Públicas Principais ─────────────────────────────── */}
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/esqueci-senha" element={<EsqueciSenha />} />
         <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+        
+        {/* ── Conteúdo e Institucional ──────────────────────────────── */}
         <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
         <Route path="/documentos" element={<DocumentosDicas />} />
         <Route path="/sobre-nos" element={<QuemSomos />} />
         <Route path="/suporte" element={<Suporte />} />
+        <Route path="/carreira" element={<Carreira />} />
+        <Route path="/termos-de-uso" element={<TermosUso />} />
+        <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
+        <Route path="/seja-parceiro" element={<SejaParceiro />} />
+        <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
+        
+        {/* ── Diretório, Lojas e Compartilhamento ───────────────────── */}
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/loja/:id" element={<LojaPublica />} />
         <Route path="/vendedor/:id" element={<VendedorPerfil />} />
         <Route path="/profissionais" element={<Profissionais />} />
-        <Route path="/seja-parceiro" element={<SejaParceiro />} />
-        <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
+        <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
         <Route path="/share/:analysisId" element={<ShareAnalise />} />
-        <Route path="/carreira" element={<Carreira />} />
-        <Route path="/termos-de-uso" element={<TermosUso />} />
-        <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
-
-        {/* Tela de bloqueio acessível por link direto */}
         <Route path="/recurso/:slug" element={<RecursoBloqueado />} />
 
-        {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
-        <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
-
-        {/* ── Soluções Internas (Route Guard condicional) ────────── */}
+        {/* ── Soluções Internas Condicionais (Route Guard do Lovable) ── */}
         {SOLUTION_ROUTES.map(({ slug, path, component: Component }) => (
           <Route
             key={slug}
             path={path}
-            element={
-              user ? <Component /> : <RecursoBloqueado slug={slug} />
-            }
+            element={user ? <Component /> : <RecursoBloqueado slug={slug} />}
           />
         ))}
 
-        {/* ── Rotas Admin (fluxo separado e inalterado) ──────────── */}
+        {/* ── Telas Privadas Core (Atrás do ProtectedRoute) ─────────── */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
+        <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
+        <Route path="/notas-fiscais" element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
+        <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
+        <Route path="/cadastrar-profissional" element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
+        <Route path="/painel-loja" element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
+        <Route path="/meus-anuncios" element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
+
+        {/* ── Painel Admin (Atrás do ProtectedRoute) ────────────────── */}
         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route index element={<VisaoGeral />} />
           <Route path="usuarios" element={<UsuariosList />} />
+          <Route path="lojas" element={<LojasPendentes />} />
           <Route path="sinapi" element={<SinapiPage />} />
           <Route path="logs-ia" element={<LogsIA />} />
           <Route path="config" element={<Configuracoes />} />
+          <Route path="blog" element={<AdminBlog />} />
         </Route>
 
-        {/* ── Fallback 404 ───────────────────────────────────────── */}
+        {/* ── Fallback Universal ────────────────────────────────────── */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
@@ -134,78 +149,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-<<<<<<< HEAD
-          <Routes>
-
-            {/* ── Rotas Públicas ───────────────────────────────────── */}
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/blog/:slug" element={<BlogPost />} />
-            <Route path="/documentos" element={<DocumentosDicas />} />
-            <Route path="/sobre-nos" element={<QuemSomos />} />
-            <Route path="/suporte" element={<Suporte />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/loja/:id" element={<LojaPublica />} />
-            <Route path="/vendedor/:id" element={<VendedorPerfil />} />
-            <Route path="/profissionais" element={<Profissionais />} />
-            <Route path="/seja-parceiro" element={<SejaParceiro />} />
-            <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
-            <Route path="/share/:analysisId" element={<ShareAnalise />} />
-            <Route path="/carreira" element={<Carreira />} />
-            <Route path="/termos-de-uso" element={<TermosUso />} />
-            <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
-
-            {/* ✅ /servicos redireciona para /profissionais (evita conteúdo duplicado) */}
-            <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
-
-            {/* ── Rotas Protegidas ─────────────────────────────────── */}
-            <Route path="/dashboard"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-
-            <Route path="/nova-analise"
-              element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
-
-            <Route path="/analise/:id"
-              element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
-
-            <Route path="/notas-fiscais"
-              element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
-
-            <Route path="/perfil"
-              element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
-
-            <Route path="/cadastrar-profissional"
-              element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
-
-            {/* ✅ Painel do lojista agora protegido (apenas CNPJ) */}
-            <Route path="/painel-loja"
-              element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
-
-            {/* Gestão de anúncios avulsos (Pessoa Física / CPF) */}
-            <Route path="/meus-anuncios"
-              element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
-
-            {/* ── Rotas Admin ──────────────────────────────────────── */}
-            <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-              <Route index element={<VisaoGeral />} />
-              <Route path="usuarios" element={<UsuariosList />} />
-              <Route path="lojas" element={<LojasPendentes />} /> {/* Moderação de lojas */}
-              <Route path="sinapi" element={<SinapiPage />} />
-              <Route path="logs-ia" element={<LogsIA />} />
-              <Route path="config" element={<Configuracoes />} />
-              <Route path="blog" element={<AdminBlog />} />
-            </Route>
-
-            {/* ── Fallback 404 ─────────────────────────────────────── */}
-            <Route path="*" element={<NotFound />} />
-
-          </Routes>
-=======
-          <AppRoutes />
->>>>>>> 2b523dbe5991a6d8599b8218cb72a7d08c04ea1e
+          <AppRoutes /> {/* ✅ Apenas UMA chamada para o mapa de rotas oficial */}
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

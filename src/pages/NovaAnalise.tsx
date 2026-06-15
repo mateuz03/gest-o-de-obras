@@ -24,8 +24,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Upload,
-  ArrowLeft,
+  Upload, 
+  ArrowLeft, 
   Box,
   Loader2,
   FileImage,
@@ -43,13 +43,14 @@ import {
   Home,
 } from "lucide-react";
 import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // ─── CORREÇÃO: Worker local (pdfjs-dist@3.11.174) ────────────────────────────
 // NÃO use unpkg nem CDN — aponte sempre para o arquivo local do pacote.
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.js",
-  import.meta.url
-).href;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TIPO_LABELS: Record<string, string> = {
