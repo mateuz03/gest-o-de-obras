@@ -32,9 +32,9 @@ export default function Navbar() {
             </button>
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white border border-slate-100 shadow-xl rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 flex flex-col p-2">
               <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Gestão de Projetos</Link>
-              <Link to="/marketplace" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Marketplace</Link>
-              <Link to="/profissionais" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Prestar Serviços</Link>
-              {podeCriarLoja && <Link to="/seja-parceiro" className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Crie sua Loja</Link>}
+              <Link to={user ? "/marketplace" : "/solucoes/marketplace"} className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Marketplace</Link>
+              <Link to={user ? "/profissionais" : "/solucoes/prestar-servico"} className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Prestar Serviços</Link>
+              {podeCriarLoja && <Link to={user ? "/seja-parceiro" : "/solucoes/criar-loja"} className="px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors">Crie sua Loja</Link>}
             </div>
           </div>
 
