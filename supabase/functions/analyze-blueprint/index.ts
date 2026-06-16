@@ -530,14 +530,42 @@ async function generateWithOpenAI(opts: {
 
   const content: any[] = [{ type: "text", text: opts.userText }];
   for (const img of opts.images) {
-    content.push({
-      type: "image_url",
-      image_url: {
-        url: `data:${img.mime_type || "image/jpeg"};base64,${img.base64}`,
-        detail: "low",
-      },
-    });
+  const rawBase64 = img.base64 ?? "";
+
+  // Bloco 1: rejeita PDF cru enviado pelo frontend por engano
+  if (
+    rawBase64.startsWith("data:application/pdf") ||
+    rawBase64.startsWith("JVBERi") // magic bytes do PDF em base64
+  ) {
+    throw new Error(
+      "O frontend enviou um PDF em base64 em vez da imagem renderizada pelo canvas. " +
+      "Verifique a conversão no pdf.js antes de enviar."
+    );
   }
+
+  // Bloco 2: remove prefixo data:... se vier embutido no base64 (evita double-prefix)
+  const cleanBase64 = rawBase64.startsWith("data:")
+    ? rawBase64.replace(/^data:[^;]+;base64,/, "")
+    : rawBase64;
+
+  // Bloco 3: valida que o resultado ainda tem conteúdo após limpeza
+  if (!cleanBase64 || cleanBase64.length < 100) {
+    throw new Error(
+      "Uma imagem chegou com base64 vazio ou inválido após sanitização. " +
+      "Verifique o pipeline de conversão no frontend."
+    );
+  }
+
+  const safeMime = normalizeMimeType(img.mime_type); // função já existe no código
+
+  content.push({
+    type: "image_url",
+    image_url: {
+      url: `data:${safeMime};base64,${cleanBase64}`, // prefixo montado aqui, uma única vez
+      detail: "low",
+    },
+  });
+}
 
   // 1. GARANTA QUE O TEMPO SEJA ALTO (60 ou 90 segundos)
   const AI_TIMEOUT_MS = 120000; // 120.000 milissegundos = 120 segundos
