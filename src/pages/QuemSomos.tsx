@@ -78,7 +78,6 @@ export default function QuemSomos() {
             <Building className="w-4 h-4" /> Sobre o Obra Link
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight leading-tight">
-<<<<<<< HEAD
             A tecnologia construindo a{" "}
             <span className="text-emerald-600">previsibilidade</span> do amanhã
           </h1>
@@ -86,12 +85,6 @@ export default function QuemSomos() {
             Nascemos para resolver uma das maiores dores do mercado: o abismo entre quem planeja
             a obra, quem executa e quem fornece os materiais. Trazemos dados, conexão e
             eficiência para o canteiro.
-=======
-            Mais <span className="text-emerald-600">previsibilidade</span> para quem constrói
-          </h1>
-          <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Nascemos para acabar com o desencontro entre quem planeja a obra, quem executa e quem fornece os materiais. Reunimos dados confiáveis, conexões certas e eficiência em um só lugar, do orçamento ao canteiro.
->>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button
@@ -144,7 +137,6 @@ export default function QuemSomos() {
               <h2 className="text-3xl font-bold text-slate-900 mb-6">Por que existimos?</h2>
               <div className="space-y-4 text-slate-600 leading-relaxed text-base">
                 <p>
-<<<<<<< HEAD
                   Observando o mercado em Sorocaba, Votorantim e região, percebemos que a
                   construção civil ainda perde muito tempo e dinheiro com processos manuais.
                   Orçamentos desatualizados, planilhas quebradas e dificuldade em encontrar os
@@ -160,15 +152,6 @@ export default function QuemSomos() {
                 <p>
                   Não somos apenas uma ferramenta de gestão. Somos o elo digital que conecta
                   engenheiros confiantes a fornecedores preparados.
-=======
-                  Acompanhando obras em Sorocaba, Votorantim e região, vimos o mesmo problema se repetir: muito tempo e dinheiro perdidos em processos manuais. Orçamentos desatualizados, planilhas que quebram e a dificuldade de achar o fornecedor certo na hora certa.
-                </p>
-                <p>
-                  Criamos o Obra Link para tornar isso simples. A plataforma cruza automaticamente suas listas de materiais com os preços oficiais do SINAPI e entrega resultados rápidos, seguros e fáceis de confiar, sem você virar refém de planilhas.
-                </p>
-                <p>
-                  Mais do que uma ferramenta de gestão, somos o elo que conecta profissionais seguros das suas contas a fornecedores prontos para atender.
->>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
                 </p>
               </div>
 
