@@ -100,6 +100,7 @@ export default function MeusAnuncios() {
 
   const abrirDestaque = (a: any) => {
     setPlanoDestaque(DESTAQUE_PLANS[0]);
+    setDestaqueConfirmado(false);
     setDestaqueProduto(a);
   };
 
@@ -371,7 +372,7 @@ export default function MeusAnuncios() {
       {destaqueProduto && destaqueConfirmado && (
         <PixCheckoutDialog
           open
-          onOpenChange={(v) => { if (!v) { setDestaqueProduto(null); setPlanoDestaque(DESTAQUE_PLANS[0]); } }}
+          onOpenChange={(v) => { if (!v) { setDestaqueProduto(null); setDestaqueConfirmado(false); setPlanoDestaque(DESTAQUE_PLANS[0]); } }}
           purpose="destaque_produto"
           plan={planoDestaque}
           targetId={destaqueProduto.id}
