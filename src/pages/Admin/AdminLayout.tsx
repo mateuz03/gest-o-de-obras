@@ -7,21 +7,20 @@ import {
   TerminalSquare,
   Activity,
   Store,
-<<<<<<< HEAD
   Box,
-  BookOpen
-=======
+  BookOpen,
   Sparkles,
-  Box
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-// 4. Lista de itens de navegação extraída para facilitar manutenção
+// Lista de itens de navegação extraída para facilitar manutenção
 const NAV_ITEMS = [
   { to: "/admin", icon: Box, label: "Visão Geral", exact: true },
   { to: "/admin/usuarios", icon: Users, label: "Usuários & Assinaturas" },
   { to: "/admin/lojas", icon: Store, label: "Aprovação de Lojas" },
+  { to: "/admin/destaques", icon: Sparkles, label: "Destaques (Premium)" },
+  { to: "/admin/analytics", icon: BarChart3, label: "Analytics de Anúncios" },
   { to: "/admin/sinapi", icon: Database, label: "Base de Dados (SINAPI)" },
   { to: "/admin/logs-ia", icon: TerminalSquare, label: "Logs de IA" },
   { to: "/admin/config", icon: Settings, label: "Configurações do Sistema" },
@@ -31,10 +30,9 @@ const NAV_ITEMS = [
 export default function AdminLayout() {
   const location = useLocation();
   const path = location.pathname;
-  const { user } = useAuth(); // Assumindo que seu contexto expõe o usuário atual
+  const { user } = useAuth();
 
-  // 5. Guard de role de admin corrigido
-  // Verifica se a role está no metadata ou usa o seu email como "Chave Mestra"
+  // Guard de role de admin (metadata ou e-mail chave-mestra)
   const isAdmin = user?.user_metadata?.role === "admin" || user?.email === "mateusdiasteus03@gmail.com";
 
   if (user && !isAdmin) {
@@ -43,7 +41,6 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen flex bg-slate-50 font-sans text-slate-900">
-      
       {/* ─── SIDEBAR (MENU LATERAL FIXO) ─── */}
       <aside className="w-64 bg-[#0f172a] text-slate-300 flex flex-col min-h-screen z-10 sticky top-0">
         <div className="p-6 flex items-center gap-3">
@@ -58,50 +55,20 @@ export default function AdminLayout() {
 
         <nav className="flex-1 px-4 py-4 space-y-1">
           {NAV_ITEMS.map(({ to, icon: Icon, label, exact }) => {
-            // 2. Troca do path.includes() por path.startsWith() (e path === to para a raiz)
             const isActive = exact ? path === to : path.startsWith(to);
-
-<<<<<<< HEAD
             return (
               <Link
                 key={to}
                 to={to}
-                // 3. Adição do aria-current para acessibilidade
                 aria-current={isActive ? "page" : undefined}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${
-                  isActive
-                    ? "bg-slate-800 text-white"
-                    : "hover:bg-slate-800/50 hover:text-white"
+                  isActive ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"
                 }`}
               >
                 <Icon className="w-5 h-5" /> {label}
               </Link>
             );
           })}
-=======
-          <Link to="/admin/lojas" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/lojas") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Store className="w-5 h-5" /> Aprovação de Lojas
-          </Link>
-
-          <Link to="/admin/destaques" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/destaques") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Sparkles className="w-5 h-5" /> Destaques (Premium)
-          </Link>
-          
-          {/* Botões provisórios sem link ainda */}
-          <Link to="/admin/sinapi" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/sinapi") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-  <Database className="w-5 h-5" /> Base de Dados (SINAPI)
-</Link>
-          {/* Menu de Logs de IA */}
-          <Link to="/admin/logs-ia" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/logs-ia") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <TerminalSquare className="w-5 h-5" /> Logs de IA
-          </Link>
-
-          {/* Menu de Configurações */}
-          <Link to="/admin/config" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/config") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Settings className="w-5 h-5" /> Configurações do Sistema
-          </Link>
-          
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
         </nav>
 
         <div className="p-4 m-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
@@ -115,9 +82,8 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* ─── CONTEÚDO DINÂMICO (ONDE AS TELAS FILHAS APARECEM) ─── */}
+      {/* ─── CONTEÚDO DINÂMICO ─── */}
       <main className="flex-1 p-8 overflow-y-auto">
-        {/* O <Outlet /> pega a tela filha e "injeta" aqui dentro */}
         <Outlet />
       </main>
     </div>
