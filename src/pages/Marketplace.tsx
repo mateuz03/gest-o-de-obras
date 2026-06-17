@@ -477,6 +477,16 @@ export default function Marketplace() {
     });
   }, [filtrados]);
 
+  // Telemetria de impressões em LOTE (destacados vs orgânicos), sem sobrecarregar o banco.
+  useEffect(() => {
+    if (viewMode !== "produtos" || loading) return;
+    queueImpressions(destacados.map((p) => ({ id: p.id })), "featured");
+    const organicos = filtradosOrdenados.filter(
+      (p) => !isHighlightActive(p.is_featured, p.featured_until),
+    );
+    queueImpressions(organicos.map((p) => ({ id: p.id })), "organic");
+  }, [destacados, filtradosOrdenados, viewMode, loading]);
+
   const filtrosAtivos = useMemo(() => {
     const ativos: { label: string; onRemove: () => void }[] = [];
 
