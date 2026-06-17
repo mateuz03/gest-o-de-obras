@@ -7,13 +7,9 @@ import {
   TerminalSquare,
   Activity,
   Store,
-<<<<<<< HEAD
   Box,
-  BookOpen
-=======
-  Sparkles,
-  Box
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
+  BookOpen,
+  Star // ✅ Ícone importado para a tela de Destaques
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -22,10 +18,11 @@ const NAV_ITEMS = [
   { to: "/admin", icon: Box, label: "Visão Geral", exact: true },
   { to: "/admin/usuarios", icon: Users, label: "Usuários & Assinaturas" },
   { to: "/admin/lojas", icon: Store, label: "Aprovação de Lojas" },
+  { to: "/admin/destaques", icon: Star, label: "Gestão de Destaques" }, // ✅ Botão de destaques adicionado
+  { to: "/admin/blog", icon: BookOpen, label: "Gestão do Blog" },
   { to: "/admin/sinapi", icon: Database, label: "Base de Dados (SINAPI)" },
   { to: "/admin/logs-ia", icon: TerminalSquare, label: "Logs de IA" },
   { to: "/admin/config", icon: Settings, label: "Configurações do Sistema" },
-  { to: "/admin/blog", icon: BookOpen, label: "Gestão do Blog" },
 ];
 
 export default function AdminLayout() {
@@ -61,7 +58,6 @@ export default function AdminLayout() {
             // 2. Troca do path.includes() por path.startsWith() (e path === to para a raiz)
             const isActive = exact ? path === to : path.startsWith(to);
 
-<<<<<<< HEAD
             return (
               <Link
                 key={to}
@@ -78,30 +74,6 @@ export default function AdminLayout() {
               </Link>
             );
           })}
-=======
-          <Link to="/admin/lojas" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/lojas") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Store className="w-5 h-5" /> Aprovação de Lojas
-          </Link>
-
-          <Link to="/admin/destaques" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/destaques") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Sparkles className="w-5 h-5" /> Destaques (Premium)
-          </Link>
-          
-          {/* Botões provisórios sem link ainda */}
-          <Link to="/admin/sinapi" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/sinapi") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-  <Database className="w-5 h-5" /> Base de Dados (SINAPI)
-</Link>
-          {/* Menu de Logs de IA */}
-          <Link to="/admin/logs-ia" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/logs-ia") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <TerminalSquare className="w-5 h-5" /> Logs de IA
-          </Link>
-
-          {/* Menu de Configurações */}
-          <Link to="/admin/config" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/config") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
-            <Settings className="w-5 h-5" /> Configurações do Sistema
-          </Link>
-          
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
         </nav>
 
         <div className="p-4 m-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
