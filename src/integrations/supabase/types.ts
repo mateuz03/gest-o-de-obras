@@ -971,8 +971,6 @@ export type Database = {
         }
         Relationships: []
       }
-<<<<<<< HEAD
-=======
       marketplace_events: {
         Row: {
           created_at: string
@@ -1006,7 +1004,6 @@ export type Database = {
         }
         Relationships: []
       }
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
       password_reset_attempts: {
         Row: {
           created_at: string
