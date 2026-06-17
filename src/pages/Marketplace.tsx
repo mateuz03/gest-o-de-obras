@@ -62,6 +62,7 @@ interface Produto {
   preco: number;
   unidade_medida: string;
   foto_url?: string;
+  created_at?: string | null;
   is_featured?: boolean | null;
   featured_until?: string | null;
   perfil_lojista?: {
