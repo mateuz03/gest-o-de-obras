@@ -7,6 +7,7 @@ import {
   TerminalSquare,
   Activity,
   Store,
+  Sparkles,
   Box
 } from "lucide-react";
 
@@ -40,6 +41,10 @@ export default function AdminLayout() {
 
           <Link to="/admin/lojas" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/lojas") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
             <Store className="w-5 h-5" /> Aprovação de Lojas
+          </Link>
+
+          <Link to="/admin/destaques" className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium ${path.includes("/admin/destaques") ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}>
+            <Sparkles className="w-5 h-5" /> Destaques (Premium)
           </Link>
           
           {/* Botões provisórios sem link ainda */}

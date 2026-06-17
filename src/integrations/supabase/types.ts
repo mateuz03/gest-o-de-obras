@@ -789,6 +789,51 @@ export type Database = {
           },
         ]
       }
+      featured_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          justificativa: string | null
+          new_featured_until: string | null
+          new_is_featured: boolean | null
+          old_featured_until: string | null
+          old_is_featured: boolean | null
+          source: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          justificativa?: string | null
+          new_featured_until?: string | null
+          new_is_featured?: boolean | null
+          old_featured_until?: string | null
+          old_is_featured?: boolean | null
+          source: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          justificativa?: string | null
+          new_featured_until?: string | null
+          new_is_featured?: boolean | null
+          old_featured_until?: string | null
+          old_is_featured?: boolean | null
+          source?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       financeiro_fluxo: {
         Row: {
           analysis_id: string
@@ -926,6 +971,39 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          is_featured: boolean
+          metadata: Json
+          target_id: string | null
+          target_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          is_featured?: boolean
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          is_featured?: boolean
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       password_reset_attempts: {
         Row: {
           created_at: string
@@ -1013,6 +1091,63 @@ export type Database = {
         }
         Relationships: []
       }
+      pix_payments: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          gateway: string
+          gateway_payment_id: string | null
+          id: string
+          paid_at: string | null
+          plano_dias: number
+          purpose: string
+          qr_code: string | null
+          qr_code_base64: string | null
+          status: string
+          target_id: string | null
+          ticket_url: string | null
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          gateway?: string
+          gateway_payment_id?: string | null
+          id?: string
+          paid_at?: string | null
+          plano_dias?: number
+          purpose: string
+          qr_code?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          target_id?: string | null
+          ticket_url?: string | null
+          updated_at?: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          gateway?: string
+          gateway_payment_id?: string | null
+          id?: string
+          paid_at?: string | null
+          plano_dias?: number
+          purpose?: string
+          qr_code?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          target_id?: string | null
+          ticket_url?: string | null
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       produtos_loja: {
         Row: {
           categoria: string
@@ -1084,6 +1219,8 @@ export type Database = {
           nome: string | null
           nome_completo: string | null
           nome_empresa: string | null
+          plano_marketplace: string
+          plano_marketplace_until: string | null
           qtd_funcionarios: string | null
           qtd_obras_atual: number | null
           telefone_comercial: string | null
@@ -1110,6 +1247,8 @@ export type Database = {
           nome?: string | null
           nome_completo?: string | null
           nome_empresa?: string | null
+          plano_marketplace?: string
+          plano_marketplace_until?: string | null
           qtd_funcionarios?: string | null
           qtd_obras_atual?: number | null
           telefone_comercial?: string | null
@@ -1136,6 +1275,8 @@ export type Database = {
           nome?: string | null
           nome_completo?: string | null
           nome_empresa?: string | null
+          plano_marketplace?: string
+          plano_marketplace_until?: string | null
           qtd_funcionarios?: string | null
           qtd_obras_atual?: number | null
           telefone_comercial?: string | null
@@ -1471,6 +1612,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_override_featured: {
+        Args: {
+          _featured_until: string
+          _is_featured: boolean
+          _justificativa: string
+          _target_id: string
+          _target_type: string
+        }
+        Returns: undefined
+      }
+      can_user_publish: { Args: { _user_id: string }; Returns: boolean }
+      confirm_pix_payment: {
+        Args: { _gateway_payment_id: string }
+        Returns: Json
+      }
+      expire_features: { Args: never; Returns: undefined }
       get_public_seller: {
         Args: { p_user_id: string }
         Returns: {
@@ -1478,6 +1635,15 @@ export type Database = {
           avatar_url: string
           nome: string
           user_id: string
+        }[]
+      }
+      get_publish_status: {
+        Args: { _user_id: string }
+        Returns: {
+          active_count: number
+          can_publish: boolean
+          free_limit: number
+          is_pro: boolean
         }[]
       }
       has_role: {
