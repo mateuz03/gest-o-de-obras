@@ -39,6 +39,7 @@ import Navbar from "@/components/Navbar";
 import { StoreDirectory } from "@/components/marketplace/StoreDirectory";
 import { ProductCard } from "@/components/marketplace/ProductCard";
 import { isHighlightActive } from "@/lib/featured";
+import { queueImpressions, trackItemClick } from "@/lib/marketplaceAnalytics";
 
 const categorias = [
   "Todos",
