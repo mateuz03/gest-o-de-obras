@@ -529,6 +529,8 @@ export default function Marketplace() {
   }, [categoria, marcasSelecionadas, precoMin, precoMax, busca]);
 
   const adicionarAoProjeto = (p: Produto) => {
+    // Telemetria de clique separada por tipo de listagem (featured vs organic)
+    void trackItemClick(p.id, isHighlightActive(p.is_featured, p.featured_until) ? "featured" : "organic");
     setItens((prev) => {
       const existe = prev.find((i) => i.produto.id === p.id);
       if (existe) {
