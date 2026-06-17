@@ -461,12 +461,18 @@ export default function Marketplace() {
     [filtrados]
   );
 
-  // Feed geral com os destaques priorizados no topo
+  // Feed geral com os destaques priorizados no topo de forma DETERMINÍSTICA.
+  // Critérios: 1) destaque ativo primeiro; 2) mais recentes; 3) desempate por id.
+  // Garante ranking idêntico entre refreshes (sem flutuação na paginação).
   const filtradosOrdenados = useMemo(() => {
+    const ts = (p: Produto) => (p.created_at ? new Date(p.created_at).getTime() : 0);
     return [...filtrados].sort((a, b) => {
       const fa = isHighlightActive(a.is_featured, a.featured_until) ? 1 : 0;
       const fb = isHighlightActive(b.is_featured, b.featured_until) ? 1 : 0;
-      return fb - fa;
+      if (fa !== fb) return fb - fa;
+      const dt = ts(b) - ts(a);
+      if (dt !== 0) return dt;
+      return a.id.localeCompare(b.id);
     });
   }, [filtrados]);
 
