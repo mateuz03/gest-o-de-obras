@@ -46,6 +46,7 @@ export default function MeusAnuncios() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [destaqueProduto, setDestaqueProduto] = useState<any | null>(null);
   const [planoDestaque, setPlanoDestaque] = useState(DESTAQUE_PLANS[0]);
+  const [destaqueConfirmado, setDestaqueConfirmado] = useState(false);
 
   const [status, setStatus] = useState({ active_count: 0, free_limit: LIMITE_GRATIS, is_pro: false, can_publish: true });
 
@@ -342,7 +343,7 @@ export default function MeusAnuncios() {
 
       {/* Checkout de destaque por produto */}
       {destaqueProduto && (
-        <Dialog open={!!destaqueProduto && !planoDestaque.confirmado} onOpenChange={(v) => !v && setDestaqueProduto(null)}>
+        <Dialog open={!!destaqueProduto && !destaqueConfirmado} onOpenChange={(v) => !v && setDestaqueProduto(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Destacar anúncio</DialogTitle>
@@ -352,7 +353,7 @@ export default function MeusAnuncios() {
               {DESTAQUE_PLANS.map((p) => (
                 <button
                   key={p.key}
-                  onClick={() => setPlanoDestaque({ ...p, confirmado: true } as any)}
+                  onClick={() => { setPlanoDestaque(p); setDestaqueConfirmado(true); }}
                   className="w-full flex items-center justify-between rounded-lg border border-slate-200 p-4 text-left hover:border-emerald-400 transition-colors"
                 >
                   <div>
@@ -367,7 +368,7 @@ export default function MeusAnuncios() {
         </Dialog>
       )}
 
-      {destaqueProduto && (planoDestaque as any).confirmado && (
+      {destaqueProduto && destaqueConfirmado && (
         <PixCheckoutDialog
           open
           onOpenChange={(v) => { if (!v) { setDestaqueProduto(null); setPlanoDestaque(DESTAQUE_PLANS[0]); } }}
