@@ -926,14 +926,37 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
       perfil_lojista: {
         Row: {
+          banner_url: string | null
           categoria: string | null
           cidade: string
           cnpj: string
           created_at: string
           descricao: string | null
           estado: string | null
+          featured_until: string | null
           horario_atendimento: string | null
           id: string
           instagram: string | null
@@ -947,12 +970,14 @@ export type Database = {
           whatsapp: string
         }
         Insert: {
+          banner_url?: string | null
           categoria?: string | null
           cidade: string
           cnpj: string
           created_at?: string
           descricao?: string | null
           estado?: string | null
+          featured_until?: string | null
           horario_atendimento?: string | null
           id?: string
           instagram?: string | null
@@ -966,12 +991,14 @@ export type Database = {
           whatsapp: string
         }
         Update: {
+          banner_url?: string | null
           categoria?: string | null
           cidade?: string
           cnpj?: string
           created_at?: string
           descricao?: string | null
           estado?: string | null
+          featured_until?: string | null
           horario_atendimento?: string | null
           id?: string
           instagram?: string | null
@@ -990,8 +1017,10 @@ export type Database = {
         Row: {
           categoria: string
           created_at: string
+          featured_until: string | null
           foto_url: string | null
           id: string
+          is_featured: boolean
           nome_produto: string
           preco: number
           status: string
@@ -1001,8 +1030,10 @@ export type Database = {
         Insert: {
           categoria: string
           created_at?: string
+          featured_until?: string | null
           foto_url?: string | null
           id?: string
+          is_featured?: boolean
           nome_produto: string
           preco: number
           status?: string
@@ -1012,8 +1043,10 @@ export type Database = {
         Update: {
           categoria?: string
           created_at?: string
+          featured_until?: string | null
           foto_url?: string | null
           id?: string
+          is_featured?: boolean
           nome_produto?: string
           preco?: number
           status?: string
@@ -1113,6 +1146,7 @@ export type Database = {
       }
       profissionais: {
         Row: {
+          avatar_url: string | null
           created_at: string
           especialidade: string
           id: string
@@ -1124,6 +1158,7 @@ export type Database = {
           valor_diaria: number
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           especialidade: string
           id?: string
@@ -1135,6 +1170,7 @@ export type Database = {
           valor_diaria?: number
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           especialidade?: string
           id?: string
