@@ -43,13 +43,11 @@ import {
   Home,
 } from "lucide-react";
 import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
+// ✅ Importação corrigida do worker
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-// ─── CORREÇÃO: Worker local (pdfjs-dist@3.11.174) ────────────────────────────
-// NÃO use unpkg nem CDN — aponte sempre para o arquivo local do pacote.
+// ✅ Configuração do worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,7 +70,7 @@ const MAX_FILES = 5;
 const ANALYSIS_IMAGE_MAX_SIDE = 1600;
 const ANALYSIS_IMAGE_QUALITY = 0.78;
 const PDF_SCALE = 1.2;
-const JPEG_QUALITY = 0.65;    // Aumentado de 0.6 → 0.75 para melhor qualidade
+const JPEG_QUALITY = 0.65;
 const MAX_PAGES_PER_PDF = 5;
 
 type AnalysisMode = "planta" | "foto_ambiente";
@@ -100,16 +98,11 @@ const MODE_CONFIG = {
 // FUNÇÕES AUXILIARES PARA CONVERSÃO DE PDF
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Converte um PDF em array de imagens base64 comprimidas.
- * Compatível com pdfjs-dist@3.11.174.
- */
 const pdfToCompressedImages = async (
   file: File
 ): Promise<{ base64: string; mime_type: string }[]> => {
   const arrayBuffer = await file.arrayBuffer();
 
-  // getDocument aceita ArrayBuffer diretamente na v3
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
   const pdf = await loadingTask.promise;
 
@@ -141,7 +134,6 @@ const pdfToCompressedImages = async (
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
 
-      // Na v3 o render recebe apenas { canvasContext, viewport }
       await page.render({ canvasContext: context, viewport }).promise;
 
       let dataUrl: string;
@@ -149,6 +141,20 @@ const pdfToCompressedImages = async (
         dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
       } catch {
         dataUrl = canvas.toDataURL("image/png");
+      }
+
+      // ✅ ADICIONADO: Validação rigorosa que detecta se o canvas falhou ou cuspiu PDF cru
+      if (
+        !dataUrl ||
+        dataUrl === "data:," ||
+        dataUrl.startsWith("data:application/pdf") ||
+        dataUrl.startsWith("data:application/octet")
+      ) {
+        console.error(`⚠️ Página ${pageNum}: canvas retornou dado inválido:`, dataUrl?.slice(0, 50));
+        toast.error(
+          `Falha ao renderizar página ${pageNum} do PDF. O worker do pdf.js pode não estar carregado corretamente.`
+        );
+        continue; // pula esta página para não enviar lixo para a API
       }
 
       const base64Data = dataUrl.split(",")[1];
@@ -163,14 +169,12 @@ const pdfToCompressedImages = async (
       );
     } catch (pageErr) {
       console.warn(`⚠️ Erro na página ${pageNum}:`, pageErr);
-      // Continua tentando as demais páginas
     }
   }
 
   if (images.length === 0) {
     throw new Error(
-      `Nenhuma página válida convertida do PDF "${file.name}". ` +
-      `O arquivo pode estar corrompido, protegido por senha ou vazio.`
+      `Nenhuma página válida convertida do PDF "${file.name}". O arquivo pode estar corrompido, protegido por senha ou vazio.`
     );
   }
 
@@ -178,16 +182,10 @@ const pdfToCompressedImages = async (
   return images;
 };
 
-/**
- * Calcula o tamanho total em bytes de um array de base64.
- */
 const calculateBase64TotalSize = (
   images: { base64: string; mime_type: string }[]
 ): number => images.reduce((total, img) => total + img.base64.length, 0);
 
-/**
- * Formata bytes para formato legível (KB, MB).
- */
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)}KB`;
@@ -593,19 +591,16 @@ export default function NovaAnalise() {
 
     let analysisId: string | undefined = draftId;
     try {
-      // Separar imagens e PDFs
       const imageFiles = files.filter((f) => f.type.startsWith("image/"));
       const pdfFiles = files.filter((f) => f.type === "application/pdf");
 
       let images: { base64: string; mime_type: string }[] = [];
 
-      // ── Processar imagens normalmente
       if (imageFiles.length > 0) {
         toast.info(`Processando ${imageFiles.length} imagem(ns)...`);
         images = await Promise.all(imageFiles.map(imageToOptimizedBase64));
       }
 
-      // ── Processar PDFs
       if (pdfFiles.length > 0) {
         for (const pdfFile of pdfFiles) {
           try {
@@ -638,7 +633,6 @@ export default function NovaAnalise() {
         }
       }
 
-      // ── Processar imagens existentes (rascunho)
       if (!images.length && existingFiles.length) {
         toast.info("Reprocessando arquivos existentes...");
         const fetched = await Promise.all(
@@ -654,12 +648,10 @@ export default function NovaAnalise() {
         }
       }
 
-      // Validar se há imagens
       if (!images.length) {
         throw new Error("Nenhuma imagem foi processada. Tente novamente.");
       }
 
-      // Log de debug
       const totalSize = calculateBase64TotalSize(images);
       console.log(
         `Total de imagens: ${images.length} | Tamanho total: ${formatBytes(totalSize)}`
@@ -674,9 +666,16 @@ export default function NovaAnalise() {
         );
       }
 
+      // ✅ ADICIONADO: Log temporário para validar o base64 no Console do Navegador antes do envio
+      console.log("🔍 Diagnóstico de imagens:");
+      images.forEach((img, i) => {
+        const prefix = img.base64.slice(0, 20);
+        const isValid = !prefix.startsWith("JVBER") && !prefix.startsWith("data:");
+        console.log(`  Imagem ${i + 1}: ${img.mime_type} | ${img.base64.length} bytes | válida: ${isValid} | início: ${prefix}`);
+      });
+
       const bdiValue = parseFloat(formData.bdi_percentual) || 25;
 
-      // ── Criar ou atualizar análise no banco
       if (analysisId) {
         const { error: updErr } = await supabase
           .from("analyses")
@@ -710,7 +709,6 @@ export default function NovaAnalise() {
         analysisId = (analysis as any).id;
       }
 
-      // ── Upload de arquivos para storage (apenas os novos)
       const newFiles = [...files, ...(dwgFile ? [dwgFile] : [])];
       if (newFiles.length) {
         const uploaded = await uploadAllFiles(analysisId!, newFiles);
@@ -724,7 +722,6 @@ export default function NovaAnalise() {
 
       const isHybrid = formData.modo_precisao === "hibrido_sinapi";
 
-      // ── ETAPA 1: A IA LÊ E EXTRAI (O "Estagiário")
       toast.info("1/3: IA extraindo o escopo do projeto...");
       const { data: resultIA, error: fnErr } = await supabase.functions.invoke(
         "analyze-blueprint",
@@ -763,7 +760,6 @@ export default function NovaAnalise() {
 
       let finalResult = resultIA;
 
-      // ── ETAPA 2 & 3: Modo Híbrido (se selecionado)
       if (isHybrid && resultIA?.servicos?.length) {
         toast.info(
           `2/3: Calculando materiais exatos para ${resultIA.servicos.length} serviços...`
@@ -818,7 +814,6 @@ export default function NovaAnalise() {
         ? parseFloat(String(finalResult.resumo_final.total_geral))
         : null;
 
-      // ── SALVAR RESULTADO
       await supabase
         .from("analyses")
         .update({
@@ -870,7 +865,6 @@ export default function NovaAnalise() {
       </nav>
 
       <div className="container max-w-2xl py-8">
-        {/* Step indicators */}
         <div className="mb-8 flex items-center justify-center gap-4">
           {[0, 1, 2].map((s) => (
             <div key={s} className="flex items-center gap-2">
@@ -901,7 +895,6 @@ export default function NovaAnalise() {
           ))}
         </div>
 
-        {/* Step 0: Mode Selection */}
         {step === 0 && (
           <Card>
             <CardHeader>

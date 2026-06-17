@@ -18,4 +18,20 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // ✅ Garante que o worker do pdf.js seja tratado como asset
+  assetsInclude: ["**/*.worker.min.js"],
+  optimizeDeps: {
+    // ✅ Exclui pdfjs do pre-bundle do Vite (evita conflito de módulo)
+    exclude: ["pdfjs-dist"],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // ✅ Mantém o worker como chunk separado com nome previsível
+        manualChunks: {
+          "pdf-worker": ["pdfjs-dist/build/pdf.worker.min.js"],
+        },
+      },
+    },
+  },
 }));

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 project_id = "wunghdnjiqlkuotenoip"
 [functions.vetorizar-sinapi]
 enabled = true
@@ -20,3 +21,8 @@ entrypoint = "./functions/calcular-quantitativos/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/calcular-quantitativos/*.html" ]
+=======
+project_id = "cjnzvydtaygtvpmlfcjd"
+[functions.mercadopago-webhook]
+verify_jwt = false
+>>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
