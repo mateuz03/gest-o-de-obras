@@ -1,12 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-<<<<<<< HEAD
   Box, ArrowLeft, Plus, Loader2, Trash2, Pencil, Megaphone, PackageOpen, Eye, Info,
   Sparkles, Rocket, PartyPopper,
-=======
-  Box, ArrowLeft, Plus, Loader2, Trash2, Pencil, Megaphone, PackageOpen, Eye, Info, Sparkles,
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,18 +19,12 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-<<<<<<< HEAD
-import { UpgradeDialog } from "@/components/marketplace/UpgradeDialog";
-import { isHighlightActive, highlightDaysLeft } from "@/lib/featured";
-
-// Limite de anúncios gratuitos para Pessoa Física
-const LIMITE_GRATIS = 10;
-=======
 import { PaywallDialog } from "@/components/marketplace/PaywallDialog";
 import { PixCheckoutDialog } from "@/components/marketplace/PixCheckoutDialog";
 import { DESTAQUE_PLANS, LIMITE_GRATIS, formatBRL } from "@/config/marketplacePlans";
 import { trackMarketplaceEvent } from "@/lib/marketplaceAnalytics";
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
+import { computePublishStatus, PaywallError, assertCanPublish } from "@/lib/publishLimit";
+import { isHighlightActive, highlightDaysLeft } from "@/lib/featured";
 
 const CATEGORIAS = [
   "Cimento e Argamassa", "Aço e Ferragens", "Tijolos e Blocos", "Areia e Pedra",
@@ -45,9 +35,6 @@ const UNIDADES = ["un", "m", "m²", "m³", "kg", "saco", "caixa", "pç", "L"];
 const fallbackImage =
   "https://images.unsplash.com/photo-1541888081622-132d718b52f6?q=80&w=400&auto=format&fit=crop";
 
-const isAtivoDestaque = (a: any) =>
-  a.is_featured && a.featured_until && new Date(a.featured_until) > new Date();
-
 export default function MeusAnuncios() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -56,36 +43,25 @@ export default function MeusAnuncios() {
   const [loading, setLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
-<<<<<<< HEAD
-  // Destaque (upgrade)
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeNome, setUpgradeNome] = useState("");
-  // Tela de sucesso pós-publicação
-  const [sucessoOpen, setSucessoOpen] = useState(false);
-  const [sucessoNome, setSucessoNome] = useState("");
-=======
+
+  // Paywall + Checkout de destaque (Pix)
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [destaqueProduto, setDestaqueProduto] = useState<any | null>(null);
   const [planoDestaque, setPlanoDestaque] = useState(DESTAQUE_PLANS[0]);
   const [destaqueConfirmado, setDestaqueConfirmado] = useState(false);
 
-  const [status, setStatus] = useState({ active_count: 0, free_limit: LIMITE_GRATIS, is_pro: false, can_publish: true });
+  // Tela de sucesso pós-publicação (oferta de destaque)
+  const [sucessoProduto, setSucessoProduto] = useState<any | null>(null);
 
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
+  const [status, setStatus] = useState({
+    active_count: 0, free_limit: LIMITE_GRATIS, is_pro: false, can_publish: true,
+  });
+
   const [form, setForm] = useState({
     id: "", nome_produto: "", categoria: CATEGORIAS[0], preco: "", unidade_medida: "un", foto_url: "",
   });
 
-<<<<<<< HEAD
-  const abrirUpgrade = (nome: string) => {
-    setUpgradeNome(nome);
-    setUpgradeOpen(true);
-  };
-
-  useEffect(() => {
-=======
   const carregar = useCallback(async () => {
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
     if (!user) return;
     try {
       const [{ data: prods, error }, { data: st }] = await Promise.all([
@@ -94,7 +70,13 @@ export default function MeusAnuncios() {
       ]);
       if (error) throw error;
       setAnuncios(prods || []);
-      if (st && st[0]) setStatus(st[0] as typeof status);
+      if (st && st[0]) {
+        setStatus(st[0] as typeof status);
+      } else {
+        // Fallback resiliente: recalcula localmente a partir da lista
+        const local = computePublishStatus(prods || [], false);
+        setStatus({ active_count: local.active_count, free_limit: local.free_limit, is_pro: local.is_pro, can_publish: local.can_publish });
+      }
     } catch {
       toast.error("Não foi possível carregar seus anúncios.");
     } finally {
@@ -105,7 +87,6 @@ export default function MeusAnuncios() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const restantes = Math.max(0, status.free_limit - status.active_count);
-  const podePublicar = status.is_pro || status.can_publish;
 
   const abrirNovo = async () => {
     if (!user) return;
@@ -113,10 +94,18 @@ export default function MeusAnuncios() {
     const { data } = await supabase.rpc("get_publish_status", { _user_id: user.id });
     const fresh = data?.[0];
     if (fresh) setStatus(fresh as typeof status);
-    if (fresh && !fresh.is_pro && !fresh.can_publish) {
-      setPaywallOpen(true);
-      return;
+
+    try {
+      // Regra de negócio centralizada: lança PaywallError quando bloqueado
+      assertCanPublish(anuncios, fresh?.is_pro ?? status.is_pro);
+    } catch (e) {
+      if (e instanceof PaywallError) {
+        setPaywallOpen(true);
+        return;
+      }
+      throw e;
     }
+
     setForm({ id: "", nome_produto: "", categoria: CATEGORIAS[0], preco: "", unidade_medida: "un", foto_url: "" });
     setModalAberto(true);
   };
@@ -157,21 +146,19 @@ export default function MeusAnuncios() {
         if (error) throw error;
         setAnuncios((prev) => prev.map((a) => (a.id === form.id ? { ...a, ...payload } : a)));
         toast.success("Anúncio atualizado!");
+        setModalAberto(false);
       } else {
         const { data, error } = await supabase
           .from("produtos_loja").insert([{ user_id: user.id, status: "ativo", ...payload }]).select();
         if (error) throw error;
-        if (data) setAnuncios((prev) => [data[0], ...prev]);
+        const novo = data?.[0];
+        if (novo) setAnuncios((prev) => [novo, ...prev]);
         toast.success("Anúncio publicado!");
-<<<<<<< HEAD
+        setModalAberto(false);
+        await carregar();
         // Oferece o destaque logo após a publicação
-        setSucessoNome(payload.nome_produto);
-        setSucessoOpen(true);
-=======
-        carregar();
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
+        if (novo) setSucessoProduto(novo);
       }
-      setModalAberto(false);
     } catch {
       toast.error("Erro ao salvar o anúncio.");
     } finally {
@@ -286,73 +273,25 @@ export default function MeusAnuncios() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {anuncios.map((a) => {
-<<<<<<< HEAD
               const destacado = isHighlightActive(a.is_featured, a.featured_until);
               const diasRestantes = highlightDaysLeft(a.featured_until);
               return (
-              <Card
-                key={a.id}
-                className={`overflow-hidden bg-white transition-all ${
-                  destacado
-                    ? "border-amber-300 ring-1 ring-amber-200 shadow-md"
-                    : "border-slate-200"
-                }`}
-              >
-                <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
-                  <img
-                    src={a.foto_url || fallbackImage}
-                    alt={a.nome_produto}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                  {destacado && (
-                    <Badge className="absolute left-2 top-2 gap-1 border-0 bg-amber-500 text-white shadow-sm hover:bg-amber-500">
-                      <Sparkles className="h-3 w-3" /> Em destaque
-                    </Badge>
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <Badge variant="outline" className="mb-2 text-xs text-slate-500">{a.categoria}</Badge>
-                  <h3 className="font-semibold text-slate-900 leading-tight line-clamp-2">{a.nome_produto}</h3>
-                  <p className="mt-1 text-emerald-600 font-bold">
-                    {formatCurrency(Number(a.preco))} <span className="text-xs font-normal text-slate-400">/ {a.unidade_medida}</span>
-                  </p>
-
-                  {destacado ? (
-                    <p className="mt-2 text-xs font-medium text-amber-600">
-                      {diasRestantes > 0
-                        ? `Destaque ativo • ${diasRestantes} ${diasRestantes === 1 ? "dia restante" : "dias restantes"}`
-                        : "Destaque ativo"}
-                    </p>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="mt-3 w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm hover:from-amber-600 hover:to-amber-700"
-                      onClick={() => abrirUpgrade(a.nome_produto)}
-                    >
-                      <Rocket className="mr-1.5 h-3.5 w-3.5" /> Destacar anúncio
-                    </Button>
-                  )}
-
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 border-slate-200" onClick={() => abrirEdicao(a)}>
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
-                    </Button>
-                    <Button size="icon" variant="outline" className="border-slate-200 text-red-500 hover:bg-red-50" onClick={() => handleDeletar(a.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-=======
-              const destacado = isAtivoDestaque(a);
-              return (
-                <Card key={a.id} className={`overflow-hidden bg-white ${destacado ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-200"}`}>
-                  <div className="aspect-[4/3] overflow-hidden bg-slate-100 relative">
-                    <img src={a.foto_url || fallbackImage} alt={a.nome_produto} loading="lazy" className="h-full w-full object-cover" />
+                <Card
+                  key={a.id}
+                  className={`overflow-hidden bg-white transition-all ${
+                    destacado ? "border-amber-300 ring-1 ring-amber-200 shadow-md" : "border-slate-200"
+                  }`}
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                    <img
+                      src={a.foto_url || fallbackImage}
+                      alt={a.nome_produto}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
                     {destacado && (
-                      <Badge className="absolute top-2 left-2 bg-amber-500 text-white hover:bg-amber-500">
-                        <Sparkles className="h-3 w-3 mr-1" /> Destaque
+                      <Badge className="absolute left-2 top-2 gap-1 border-0 bg-amber-500 text-white shadow-sm hover:bg-amber-500">
+                        <Sparkles className="h-3 w-3" /> Em destaque
                       </Badge>
                     )}
                   </div>
@@ -362,11 +301,23 @@ export default function MeusAnuncios() {
                     <p className="mt-1 text-emerald-600 font-bold">
                       {formatBRL(Number(a.preco))} <span className="text-xs font-normal text-slate-400">/ {a.unidade_medida}</span>
                     </p>
-                    {destacado && (
-                      <p className="mt-1 text-xs text-amber-600">
-                        Destaque até {new Date(a.featured_until).toLocaleDateString("pt-BR")}
+
+                    {destacado ? (
+                      <p className="mt-2 text-xs font-medium text-amber-600">
+                        {diasRestantes > 0
+                          ? `Destaque ativo • ${diasRestantes} ${diasRestantes === 1 ? "dia restante" : "dias restantes"}`
+                          : "Destaque ativo"}
                       </p>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="mt-3 w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm hover:from-amber-600 hover:to-amber-700"
+                        onClick={() => abrirDestaque(a)}
+                      >
+                        <Rocket className="mr-1.5 h-3.5 w-3.5" /> Destacar anúncio
+                      </Button>
                     )}
+
                     <div className="mt-3 flex gap-2">
                       <Button size="sm" variant="outline" className="flex-1 border-slate-200" onClick={() => abrirEdicao(a)}>
                         <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
@@ -375,14 +326,8 @@ export default function MeusAnuncios() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    {!destacado && (
-                      <Button size="sm" className="mt-2 w-full bg-amber-500 text-white hover:bg-amber-600" onClick={() => abrirDestaque(a)}>
-                        <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Destacar anúncio
-                      </Button>
-                    )}
                   </CardContent>
                 </Card>
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
               );
             })}
           </div>
@@ -390,7 +335,7 @@ export default function MeusAnuncios() {
       </main>
 
       {/* Tela de sucesso pós-publicação com oferta de destaque */}
-      <Dialog open={sucessoOpen} onOpenChange={setSucessoOpen}>
+      <Dialog open={!!sucessoProduto} onOpenChange={(v) => !v && setSucessoProduto(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader className="items-center text-center">
             <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
@@ -398,7 +343,7 @@ export default function MeusAnuncios() {
             </div>
             <DialogTitle className="text-xl">Anúncio publicado!</DialogTitle>
             <DialogDescription>
-              "{sucessoNome}" já está no Marketplace. Que tal turbinar a visibilidade?
+              "{sucessoProduto?.nome_produto}" já está no Marketplace. Que tal turbinar a visibilidade?
             </DialogDescription>
           </DialogHeader>
 
@@ -422,27 +367,19 @@ export default function MeusAnuncios() {
             <Button
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
               onClick={() => {
-                setSucessoOpen(false);
-                abrirUpgrade(sucessoNome);
+                const alvo = sucessoProduto;
+                setSucessoProduto(null);
+                if (alvo) abrirDestaque(alvo);
               }}
             >
               <Rocket className="mr-2 h-4 w-4" /> Destacar agora
             </Button>
-            <Button variant="ghost" className="w-full text-slate-500" onClick={() => setSucessoOpen(false)}>
+            <Button variant="ghost" className="w-full text-slate-500" onClick={() => setSucessoProduto(null)}>
               Agora não
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Modal de upgrade / destaque */}
-      <UpgradeDialog
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        variant="anuncio"
-        itemNome={upgradeNome}
-      />
-
 
       {/* Modal de anúncio */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
@@ -494,7 +431,7 @@ export default function MeusAnuncios() {
       {/* Paywall (upgrade para Pro) */}
       <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} onUpgraded={carregar} />
 
-      {/* Checkout de destaque por produto */}
+      {/* Seleção de plano de destaque */}
       {destaqueProduto && (
         <Dialog open={!!destaqueProduto && !destaqueConfirmado} onOpenChange={(v) => !v && setDestaqueProduto(null)}>
           <DialogContent className="max-w-md">
@@ -521,6 +458,7 @@ export default function MeusAnuncios() {
         </Dialog>
       )}
 
+      {/* Checkout Pix de destaque por produto */}
       {destaqueProduto && destaqueConfirmado && (
         <PixCheckoutDialog
           open

@@ -971,8 +971,6 @@ export type Database = {
         }
         Relationships: []
       }
-<<<<<<< HEAD
-=======
       marketplace_events: {
         Row: {
           created_at: string
@@ -1006,7 +1004,6 @@ export type Database = {
         }
         Relationships: []
       }
->>>>>>> 0b92b3fef5819b9c19df96d714879fab267c73c4
       password_reset_attempts: {
         Row: {
           created_at: string
@@ -1610,6 +1607,42 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          event_id: string
+          gateway: string
+          id: string
+          last_error: string | null
+          status: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event_id: string
+          gateway?: string
+          id?: string
+          last_error?: string | null
+          status?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event_id?: string
+          gateway?: string
+          id?: string
+          last_error?: string | null
+          status?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1626,11 +1659,24 @@ export type Database = {
         Returns: undefined
       }
       can_user_publish: { Args: { _user_id: string }; Returns: boolean }
+      claim_webhook_event: {
+        Args: { _event_id: string; _gateway: string; _topic: string }
+        Returns: string
+      }
       confirm_pix_payment: {
         Args: { _gateway_payment_id: string }
         Returns: Json
       }
       expire_features: { Args: never; Returns: undefined }
+      get_marketplace_ctr: {
+        Args: { _days?: number }
+        Returns: {
+          clicks: number
+          ctr: number
+          impressions: number
+          listing: string
+        }[]
+      }
       get_public_seller: {
         Args: { p_user_id: string }
         Returns: {
@@ -1655,6 +1701,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      mark_webhook_event: {
+        Args: {
+          _error?: string
+          _event_id: string
+          _gateway: string
+          _status: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

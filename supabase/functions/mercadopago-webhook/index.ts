@@ -1,18 +1,20 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// Webhook público (sem verify_jwt). A segurança é feita por validação de assinatura
-// HMAC do Mercado Pago e por reconsulta do pagamento na API oficial.
+// Webhook público (sem verify_jwt). Segurança: validação de assinatura HMAC do
+// Mercado Pago + reconsulta do pagamento na API oficial. Confiabilidade:
+// trava de idempotência por ID do evento + retentativa com backoff exponencial.
 
-function log(event: string, data: Record<string, unknown>) {
-  console.log(JSON.stringify({ fn: "mercadopago-webhook", event, ...data, ts: new Date().toISOString() }));
+function log(level: "info" | "warn" | "error", event: string, data: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ fn: "mercadopago-webhook", level, event, ...data, ts: new Date().toISOString() }));
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function validateSignature(req: Request, dataId: string, secret: string): Promise<boolean> {
   const xSignature = req.headers.get("x-signature");
   const xRequestId = req.headers.get("x-request-id");
   if (!xSignature || !xRequestId) return false;
 
-  // x-signature: "ts=1700000000,v1=hexhash"
   const parts = Object.fromEntries(
     xSignature.split(",").map((p) => p.split("=").map((s) => s.trim()) as [string, string]),
   );
@@ -38,22 +40,23 @@ async function validateSignature(req: Request, dataId: string, secret: string): 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok");
 
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const MP_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+  const WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
+
+  if (!MP_TOKEN) {
+    log("error", "config_error", { reason: "missing_mp_token" });
+    return new Response("ok"); // 200 evita retries infinitos do gateway
+  }
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const MP_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-    const WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
-
-    if (!MP_TOKEN) {
-      log("config_error", { reason: "missing_mp_token" });
-      return new Response("ok"); // responde 200 para evitar retries infinitos
-    }
-
     const url = new URL(req.url);
     let dataId = url.searchParams.get("data.id") || url.searchParams.get("id");
     let type = url.searchParams.get("type") || url.searchParams.get("topic");
 
-    // Corpo pode trazer { type, data: { id } }
     let body: any = {};
     try {
       body = await req.json();
@@ -63,22 +66,45 @@ Deno.serve(async (req) => {
     dataId = dataId || body?.data?.id || body?.resource;
     type = type || body?.type || body?.action;
 
-    log("received", { type, dataId, hasSig: !!req.headers.get("x-signature") });
+    // ── ID único do evento (notification.id) para a trava de idempotência ──
+    const eventId = String(body?.id ?? url.searchParams.get("id") ?? dataId ?? "");
 
-    if (!dataId) return new Response("ok"); // nada a processar
+    log("info", "received", { type, dataId, eventId, hasSig: !!req.headers.get("x-signature") });
+
+    if (!dataId || !eventId) {
+      log("warn", "malformed_payload", { type, dataId, eventId });
+      return new Response("ok"); // payload malformado: nada a processar
+    }
 
     if (type && !String(type).includes("payment")) {
-      log("ignored", { type });
+      log("info", "ignored_topic", { type });
       return new Response("ok");
     }
 
-    // ── Validação de assinatura (quando há secret e cabeçalho) ──
-    if (WEBHOOK_SECRET) {
+    // ── Validação de assinatura ──
+    if (WEBHOOK_SECRET && req.headers.get("x-signature")) {
       const valid = await validateSignature(req, String(dataId), WEBHOOK_SECRET);
-      if (!valid && req.headers.get("x-signature")) {
-        log("invalid_signature", { dataId });
+      if (!valid) {
+        log("error", "invalid_signature", { dataId, eventId });
         return new Response("invalid signature", { status: 401 });
       }
+    }
+
+    // ── Trava de idempotência estrita (ID do evento) ──
+    const { data: claim, error: claimErr } = await admin.rpc("claim_webhook_event", {
+      _gateway: "mercadopago",
+      _event_id: eventId,
+      _topic: type ?? null,
+    });
+    if (claimErr) {
+      log("error", "claim_failed", { eventId, message: claimErr.message });
+      return new Response("error", { status: 500 }); // gateway irá retentar
+    }
+    if (claim === "duplicate") {
+      log("info", "duplicate_ignored", { eventId });
+      return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // ── Reconsulta o pagamento na API do Mercado Pago ──
@@ -87,36 +113,47 @@ Deno.serve(async (req) => {
     });
     const payment = await mpResp.json();
     if (!mpResp.ok) {
-      log("mp_lookup_failed", { status: mpResp.status, dataId });
+      log("error", "mp_lookup_failed", { status: mpResp.status, dataId, eventId });
+      await admin.rpc("mark_webhook_event", { _gateway: "mercadopago", _event_id: eventId, _status: "failed", _error: `mp_lookup_${mpResp.status}` });
       return new Response("ok");
     }
 
     const status = payment?.status;
     const gatewayPaymentId = String(payment?.id ?? dataId);
-    log("payment_status", { gatewayPaymentId, status });
+    log("info", "payment_status", { gatewayPaymentId, status, eventId });
 
     if (status !== "approved") {
-      // mantém pendente/expira via lógica própria; só registramos estado
+      await admin.rpc("mark_webhook_event", { _gateway: "mercadopago", _event_id: eventId, _status: "done" });
       return new Response("ok");
     }
 
-    // ── Ativação idempotente no banco ──
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: result, error } = await admin.rpc("confirm_pix_payment", {
-      _gateway_payment_id: gatewayPaymentId,
-    });
-
-    if (error) {
-      log("confirm_error", { gatewayPaymentId, message: error.message });
-      return new Response("error", { status: 500 });
+    // ── Ativação idempotente com RETENTATIVA + backoff exponencial ──
+    const MAX_ATTEMPTS = 4;
+    let lastError = "";
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const { data: result, error } = await admin.rpc("confirm_pix_payment", {
+        _gateway_payment_id: gatewayPaymentId,
+      });
+      if (!error) {
+        await admin.rpc("mark_webhook_event", { _gateway: "mercadopago", _event_id: eventId, _status: "done" });
+        log("info", "processed", { gatewayPaymentId, eventId, attempt, result });
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      lastError = error.message;
+      log("warn", "confirm_retry", { gatewayPaymentId, eventId, attempt, message: error.message });
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(250 * 2 ** (attempt - 1)); // 250ms, 500ms, 1000ms
+      }
     }
 
-    log("processed", { gatewayPaymentId, result });
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    // Esgotou as tentativas: marca falha e devolve 500 para o gateway reentregar.
+    await admin.rpc("mark_webhook_event", { _gateway: "mercadopago", _event_id: eventId, _status: "failed", _error: lastError });
+    log("error", "confirm_exhausted", { gatewayPaymentId, eventId, message: lastError });
+    return new Response("error", { status: 500 });
   } catch (err) {
-    log("unhandled_error", { message: String(err) });
+    log("error", "unhandled_error", { message: String(err) });
     return new Response("error", { status: 500 });
   }
 });

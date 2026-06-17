@@ -39,6 +39,7 @@ import Navbar from "@/components/Navbar";
 import { StoreDirectory } from "@/components/marketplace/StoreDirectory";
 import { ProductCard } from "@/components/marketplace/ProductCard";
 import { isHighlightActive } from "@/lib/featured";
+import { queueImpressions, trackItemClick } from "@/lib/marketplaceAnalytics";
 
 const categorias = [
   "Todos",
@@ -62,6 +63,7 @@ interface Produto {
   preco: number;
   unidade_medida: string;
   foto_url?: string;
+  created_at?: string | null;
   is_featured?: boolean | null;
   featured_until?: string | null;
   perfil_lojista?: {
@@ -373,20 +375,16 @@ export default function Marketplace() {
             preco,
             unidade_medida,
             foto_url,
-<<<<<<< HEAD
-            perfil_lojista!inner(nome_loja, whatsapp, status)
-            is_featured,
-            featured_until,
-            perfil_lojista(nome_loja, whatsapp)
-=======
+            created_at,
             is_featured,
             featured_until,
             perfil_lojista!inner(nome_loja, whatsapp, status)
->>>>>>> 204edfb8ed222bbb1bcfd303100c9db278bb1ae9
           `)
           .eq("status", "ativo")
           .eq("perfil_lojista.status", "approved")
-          .order("created_at", { ascending: false });
+          .order("is_featured", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true });
 
         if (error) throw error;
         if (data) setProdutosDB(data as unknown as Produto[]);
@@ -464,14 +462,30 @@ export default function Marketplace() {
     [filtrados]
   );
 
-  // Feed geral com os destaques priorizados no topo
+  // Feed geral com os destaques priorizados no topo de forma DETERMINÍSTICA.
+  // Critérios: 1) destaque ativo primeiro; 2) mais recentes; 3) desempate por id.
+  // Garante ranking idêntico entre refreshes (sem flutuação na paginação).
   const filtradosOrdenados = useMemo(() => {
+    const ts = (p: Produto) => (p.created_at ? new Date(p.created_at).getTime() : 0);
     return [...filtrados].sort((a, b) => {
       const fa = isHighlightActive(a.is_featured, a.featured_until) ? 1 : 0;
       const fb = isHighlightActive(b.is_featured, b.featured_until) ? 1 : 0;
-      return fb - fa;
+      if (fa !== fb) return fb - fa;
+      const dt = ts(b) - ts(a);
+      if (dt !== 0) return dt;
+      return a.id.localeCompare(b.id);
     });
   }, [filtrados]);
+
+  // Telemetria de impressões em LOTE (destacados vs orgânicos), sem sobrecarregar o banco.
+  useEffect(() => {
+    if (viewMode !== "produtos" || loading) return;
+    queueImpressions(destacados.map((p) => ({ id: p.id })), "featured");
+    const organicos = filtradosOrdenados.filter(
+      (p) => !isHighlightActive(p.is_featured, p.featured_until),
+    );
+    queueImpressions(organicos.map((p) => ({ id: p.id })), "organic");
+  }, [destacados, filtradosOrdenados, viewMode, loading]);
 
   const filtrosAtivos = useMemo(() => {
     const ativos: { label: string; onRemove: () => void }[] = [];
@@ -515,6 +529,8 @@ export default function Marketplace() {
   }, [categoria, marcasSelecionadas, precoMin, precoMax, busca]);
 
   const adicionarAoProjeto = (p: Produto) => {
+    // Telemetria de clique separada por tipo de listagem (featured vs organic)
+    void trackItemClick(p.id, isHighlightActive(p.is_featured, p.featured_until) ? "featured" : "organic");
     setItens((prev) => {
       const existe = prev.find((i) => i.produto.id === p.id);
       if (existe) {
