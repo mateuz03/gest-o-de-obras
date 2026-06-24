@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import * as pdfjsLib from "pdfjs-dist";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import PdfJsWorker from "pdfjs-dist/legacy/build/pdf.worker.min.js?worker";
 import {
   Upload, 
   ArrowLeft, 
@@ -44,10 +45,8 @@ import {
 } from "lucide-react";
 import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
 // ✅ Importação corrigida do worker
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
 
 // ✅ Configuração do worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -67,11 +66,66 @@ const ESCALA_LABELS: Record<string, string> = {
 };
 
 const MAX_FILES = 5;
-const ANALYSIS_IMAGE_MAX_SIDE = 1600;
-const ANALYSIS_IMAGE_QUALITY = 0.78;
-const PDF_SCALE = 1.2;
-const JPEG_QUALITY = 0.65;
-const MAX_PAGES_PER_PDF = 5;
+const ANALYSIS_IMAGE_MAX_SIDE = 1400;
+const ANALYSIS_IMAGE_QUALITY = 0.68;
+const PDF_SCALE = 1.0;
+const JPEG_QUALITY = 0.55;
+const MAX_PAGES_PER_PDF = 3;
+const MAX_AI_IMAGES_PLANT = 3;
+const MAX_AI_IMAGES_PHOTO = 4;
+
+type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.js");
+type PdfJsLike = PdfJsModule & {
+  GlobalWorkerOptions?: { workerPort?: Worker | null; workerSrc?: string };
+  getDocument?: (src: unknown) => { promise: Promise<any> };
+};
+
+let pdfJsLoader:
+  | Promise<PdfJsLike>
+  | null = null;
+let pdfJsWorkerPort: Worker | null = null;
+
+function resolvePdfJsLibrary(moduleValue: unknown): PdfJsLike {
+  const candidates = [
+    moduleValue,
+    (moduleValue as { default?: unknown } | undefined)?.default,
+    (moduleValue as { pdfjsLib?: unknown } | undefined)?.pdfjsLib,
+    (moduleValue as { default?: { default?: unknown } } | undefined)?.default?.default,
+    (moduleValue as { default?: { pdfjsLib?: unknown } } | undefined)?.default?.pdfjsLib,
+    (globalThis as { pdfjsLib?: unknown }).pdfjsLib,
+  ];
+
+  const resolved = candidates.find(
+    (candidate) => typeof (candidate as PdfJsLike | undefined)?.getDocument === "function",
+  ) as PdfJsLike | undefined;
+
+  if (!resolved) {
+    throw new Error("Falha ao inicializar o pdf.js: getDocument indisponivel.");
+  }
+
+  return resolved;
+}
+
+async function loadPdfJs() {
+  if (!pdfJsLoader) {
+    pdfJsLoader = import("pdfjs-dist/legacy/build/pdf.js").then((pdfjsModule) => {
+      const pdfjsLib = resolvePdfJsLibrary(pdfjsModule);
+
+      if (pdfjsLib.GlobalWorkerOptions) {
+        if (!pdfJsWorkerPort) {
+          pdfJsWorkerPort = new PdfJsWorker();
+        }
+
+        pdfjsLib.GlobalWorkerOptions.workerPort = pdfJsWorkerPort;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+      }
+
+      return pdfjsLib;
+    });
+  }
+
+  return pdfJsLoader;
+}
 
 type AnalysisMode = "planta" | "foto_ambiente";
 
@@ -101,6 +155,7 @@ const MODE_CONFIG = {
 const pdfToCompressedImages = async (
   file: File
 ): Promise<{ base64: string; mime_type: string }[]> => {
+  const pdfjsLib = await loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
 
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
@@ -190,6 +245,75 @@ const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+};
+
+const getRepresentativeImageIndices = (total: number, limit: number): number[] => {
+  if (total <= 0) return [];
+  if (total <= limit) return Array.from({ length: total }, (_, index) => index);
+  if (limit <= 1) return [0];
+
+  return Array.from(
+    new Set(
+      Array.from({ length: limit }, (_, index) =>
+        Math.round((index * (total - 1)) / (limit - 1))
+      )
+    )
+  ).sort((a, b) => a - b);
+};
+
+const selectRepresentativeImages = (
+  items: { base64: string; mime_type: string }[],
+  currentMode: AnalysisMode
+): { images: { base64: string; mime_type: string }[]; indices: number[]; applied: boolean } => {
+  const limit = currentMode === "foto_ambiente" ? MAX_AI_IMAGES_PHOTO : MAX_AI_IMAGES_PLANT;
+
+  if (items.length <= limit) {
+    return {
+      images: items,
+      indices: Array.from({ length: items.length }, (_, index) => index),
+      applied: false,
+    };
+  }
+
+  const indices = getRepresentativeImageIndices(items.length, limit);
+  return {
+    images: indices.map((index) => items[index]).filter(Boolean),
+    indices,
+    applied: true,
+  };
+};
+
+const extractFunctionErrorMessage = async (
+  error: unknown,
+  fallback = "Erro ao processar análise"
+): Promise<string> => {
+  if (error instanceof FunctionsHttpError) {
+    const response = error.context as Response | undefined;
+
+    if (response) {
+      try {
+        const payload = await response.clone().json();
+        if (typeof payload?.error === "string" && payload.error.trim()) {
+          return payload.error;
+        }
+      } catch {
+        // noop
+      }
+
+      try {
+        const text = await response.clone().text();
+        if (text?.trim()) return text.trim();
+      } catch {
+        // noop
+      }
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -652,6 +776,17 @@ export default function NovaAnalise() {
         throw new Error("Nenhuma imagem foi processada. Tente novamente.");
       }
 
+      const representativeSelection = selectRepresentativeImages(
+        images,
+        mode === "foto_ambiente" ? "foto_ambiente" : "planta"
+      );
+      if (representativeSelection.applied) {
+        images = representativeSelection.images;
+        toast.info(
+          `Para manter a análise estável, usamos ${images.length} imagens representativas nesta etapa.`
+        );
+      }
+
       const totalSize = calculateBase64TotalSize(images);
       console.log(
         `Total de imagens: ${images.length} | Tamanho total: ${formatBytes(totalSize)}`
@@ -756,7 +891,14 @@ export default function NovaAnalise() {
         }
       );
 
-      if (fnErr) throw fnErr;
+      if (fnErr) {
+        throw new Error(
+          await extractFunctionErrorMessage(
+            fnErr,
+            "Não foi possível processar a análise agora."
+          )
+        );
+      }
 
       let finalResult = resultIA;
 
@@ -827,7 +969,8 @@ export default function NovaAnalise() {
       navigate(`/analise/${analysisId}`);
     } catch (err: any) {
       console.error("Erro:", err);
-      toast.error(err.message || "Erro ao processar análise");
+      const message = await extractFunctionErrorMessage(err);
+      toast.error(message);
       if (analysisId) {
         await supabase
           .from("analyses")
@@ -1911,7 +2054,7 @@ export default function NovaAnalise() {
               </h3>
               <p className="text-center text-muted-foreground">
                 {mode ? MODE_CONFIG[mode].loadingText : ""} Isso pode levar até
-                60 segundos.
+                2 minutos em arquivos maiores.
               </p>
             </CardContent>
           </Card>

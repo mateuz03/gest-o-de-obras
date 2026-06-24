@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { jsonrepair } from "npm:jsonrepair@^3.13.0";
+import { HttpError, getAuthenticatedContext, toErrorResponse } from "../_shared/security.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,9 +8,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_TIMEOUT_MS = 90000;
+const AI_TIMEOUT_MS = 120000;
 const MAX_IMAGES_STANDARD = 5;
 const MAX_IMAGES_HYBRID = 5;
+const OPENAI_MAX_IMAGES_STANDARD = 3;
+const OPENAI_MAX_IMAGES_HYBRID = 3;
+const OPENAI_MAX_IMAGES_PHOTO = 4;
 const MAX_IMAGE_BASE64_LENGTH = 9_500_000;  // ~1.1MB por imagem
 const MAX_TOTAL_BASE64_LENGTH = 9_000_000;
 
@@ -144,6 +148,48 @@ function validateImages(images: unknown, maxAllowed: number): ValidationResult {
   }
 
   return { ok: errors.filter((e) => !e.includes("apenas")).length === 0, errors };
+}
+
+function getRepresentativeImageIndices(total: number, limit: number): number[] {
+  if (total <= 0) return [];
+  if (total <= limit) return Array.from({ length: total }, (_, index) => index);
+  if (limit <= 1) return [0];
+
+  const sampledIndices = Array.from({ length: limit }, (_, index) =>
+    Math.round((index * (total - 1)) / (limit - 1))
+  );
+
+  return Array.from(new Set(sampledIndices)).sort((a, b) => a - b);
+}
+
+function selectImagesForOpenAI(
+  images: IncomingImage[],
+  mode: { isPhotoMode: boolean; isHybrid: boolean }
+): { selectedImages: IncomingImage[]; selectedIndices: number[]; warning: string | null } {
+  const limit = mode.isPhotoMode
+    ? OPENAI_MAX_IMAGES_PHOTO
+    : mode.isHybrid
+    ? OPENAI_MAX_IMAGES_HYBRID
+    : OPENAI_MAX_IMAGES_STANDARD;
+
+  if (images.length <= limit) {
+    return {
+      selectedImages: images,
+      selectedIndices: Array.from({ length: images.length }, (_, index) => index),
+      warning: null,
+    };
+  }
+
+  const selectedIndices = getRepresentativeImageIndices(images.length, limit);
+  const selectedImages = selectedIndices.map((index) => images[index]).filter(Boolean);
+
+  return {
+    selectedImages,
+    selectedIndices,
+    warning:
+      `Para manter a análise estável, a IA considerou ${selectedImages.length} imagem(ns) ` +
+      `representativa(s) desta solicitação.`,
+  };
 }
 
 function stripMarkdownAndExtractJson(text: string): string {
@@ -519,12 +565,6 @@ async function generateWithOpenAI(opts: {
   images: Array<{ mime_type?: string; base64: string }>;
 }): Promise<string> {
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  
-  console.log("=== generateWithOpenAI iniciado ===");
-  console.log("API KEY existe:", !!OPENAI_API_KEY);
-  console.log("API KEY prefixo:", OPENAI_API_KEY?.slice(0, 7));
-  console.log("Imagens para enviar:", opts.images.length);
-  console.log("Total base64:", opts.images.reduce((s, i) => s + i.base64.length, 0));
 
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
@@ -567,15 +607,10 @@ async function generateWithOpenAI(opts: {
   });
 }
 
-  // 1. GARANTA QUE O TEMPO SEJA ALTO (60 ou 90 segundos)
-  const AI_TIMEOUT_MS = 120000; // 120.000 milissegundos = 120 segundos
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
   try {
-    console.log("Chamando OpenAI fetch...");
-    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -595,13 +630,9 @@ async function generateWithOpenAI(opts: {
       }),
     });
 
-    // 2. LIMPE O TIMEOUT SE A RESPOSTA CHEGAR ANTES DOS 60s
     clearTimeout(timeout);
-
-    console.log("OpenAI HTTP status:", response.status);
     
     const rawBody = await response.text();
-    console.log("OpenAI raw body (primeiros 500 chars):", rawBody.slice(0, 500));
 
     if (!response.ok) {
       let errorData: any = {};
@@ -612,30 +643,20 @@ async function generateWithOpenAI(opts: {
       if (response.status === 413) throw new Error("As imagens enviadas estão grandes demais para processamento.");
       if (response.status >= 500) throw new Error("O provedor de IA está indisponível no momento.");
 
-      throw new Error(`OpenAI Erro: ${response.status} - ${errorData?.error?.message || rawBody}`);
+      throw new Error(errorData?.error?.message || `Falha do provedor de IA (${response.status}).`);
     }
 
     const data = JSON.parse(rawBody);
-    const finishReason = data?.choices?.[0]?.finish_reason;
     const contentText = data?.choices?.[0]?.message?.content;
-    
-    console.log("finish_reason:", finishReason);
-    console.log("content length:", contentText?.length ?? "VAZIO/NULL");
-    console.log("usage:", JSON.stringify(data?.usage ?? null));
 
     return contentText ?? "";
     
   } catch (error: any) {
-    // 3. BOA PRÁTICA: Limpar o timeout também no catch, caso ocorra erro de rede antes de abortar
     clearTimeout(timeout);
-    
-    // 4. TRATAMENTO ESPECÍFICO DO ERRO DE TIMEOUT
     if (error.name === 'AbortError') {
-      console.error("OpenAI error: A análise demorou mais que 60 segundos.");
+      console.error("OpenAI timeout during analyze-blueprint");
       throw new Error("A análise excedeu o tempo seguro de processamento. A planta pode ser muito complexa.");
     }
-    
-    // Se for outro erro, repassa pra frente
     throw error;
   }
 }
@@ -749,6 +770,7 @@ serve(async (req) => {
   }
 
   try {
+    const ctx = await getAuthenticatedContext(req);
     const body = await req.json();
 
     const {
@@ -800,11 +822,19 @@ serve(async (req) => {
         base64: String(img?.base64 || ""),
       }));
 
+    const {
+      selectedImages: aiImages,
+      selectedIndices: aiImageIndices,
+      warning: aiSelectionWarning,
+    } = selectImagesForOpenAI(analysisImages, mode);
     const totalBase64Length = analysisImages.reduce((sum, img) => sum + img.base64.length, 0);
+    const totalBase64LengthForAi = aiImages.reduce((sum, img) => sum + img.base64.length, 0);
     console.log("analyze-blueprint payload stats:", {
       imagens_recebidas: Array.isArray(images) ? images.length : 0,
       imagens_processadas: analysisImages.length,
+      imagens_enviadas_ia: aiImages.length,
       totalBase64Length,
+      totalBase64LengthForAi,
       modo: modeLabel,
     });
 
@@ -852,10 +882,17 @@ serve(async (req) => {
       content = await generateWithOpenAI({
         systemPrompt,
         userText: userPrompt,
-        images: analysisImages,
+        images: aiImages,
       });
     } catch (err: any) {
-      console.error("OpenAI error:", err?.message || err);
+      console.error("OpenAI error during analyze-blueprint:", err?.message || err);
+      if (err instanceof Error && err.message.includes("tempo seguro de processamento")) {
+        throw new HttpError(
+          504,
+          "A analise demorou mais do que o permitido para esta etapa sincrona. Podemos processar arquivos maiores, mas o ideal agora e migrar esta analise para o pipeline assincrono de documentos.",
+          "AI_TIMEOUT"
+        );
+      }
       throw err;
     }
 
@@ -886,7 +923,10 @@ serve(async (req) => {
         throw new Error(`A resposta da IA ficou incompleta: ${finalValidation.errors.join(" ")}`);
       }
     } catch (parseErr: any) {
-      console.error("Raw AI Response que falhou no parse:", rawText);
+      console.error("Falha ao parsear resposta da IA em analyze-blueprint:", {
+        length: rawText?.length ?? 0,
+        message: parseErr?.message || String(parseErr),
+      });
       throw new Error(`Falha ao converter resposta da IA em JSON. Erro: ${parseErr?.message || parseErr}`);
     }
 
@@ -915,7 +955,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              Authorization: ctx.authHeader,
             },
             body: JSON.stringify({ items: itemsToMatch }),
           }
@@ -923,7 +963,6 @@ serve(async (req) => {
 
         if (matchResponse.ok) {
           matchSinapiResult = await matchResponse.json();
-          console.log("match-sinapi respondeu com sucesso:", matchSinapiResult);
         } else {
           const errorText = await matchResponse.text();
           console.error("match-sinapi erro:", matchResponse.status, errorText);
@@ -939,6 +978,7 @@ serve(async (req) => {
     const responseWarnings = [
       ...(Array.isArray(parsed?.warnings) ? parsed.warnings.filter((w: unknown) => typeof w === "string") : []),
       ...imageValidation.errors.filter((e) => e.includes("apenas")),
+      ...(aiSelectionWarning ? [aiSelectionWarning] : []),
     ];
 
     const responsePayload = {
@@ -948,6 +988,8 @@ serve(async (req) => {
         modo_analise: modeLabel,
         imagens_recebidas: Array.isArray(images) ? images.length : 0,
         imagens_processadas: analysisImages.length,
+        imagens_enviadas_ia: aiImages.length,
+        imagens_indices_ia: aiImageIndices.map((index) => index + 1),
         reparo_json_aplicado: repaired,
         prompt_documento_tipo: safeTipoDocumento || "auto",
       },
@@ -959,12 +1001,6 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("analyze-blueprint error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return toErrorResponse(error, "Não foi possível processar a análise agora.");
   }
 });

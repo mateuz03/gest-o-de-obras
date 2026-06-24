@@ -1,6 +1,5 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { AnalysisResult, BudgetItem, ResumoFinal } from "./types";
+import { loadPdfExportDeps } from "./lazyDeps";
 
 function fmt(v: number | string) {
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -20,7 +19,8 @@ function flatten(result: AnalysisResult): { etapa: string; item: BudgetItem }[] 
   return rows;
 }
 
-export function exportOrcaLinkPDF(projectName: string, result: AnalysisResult, resumo: ResumoFinal) {
+export async function exportOrcaLinkPDF(projectName: string, result: AnalysisResult, resumo: ResumoFinal) {
+  const { jsPDF, autoTable } = await loadPdfExportDeps();
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();

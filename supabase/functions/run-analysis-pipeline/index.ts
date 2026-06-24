@@ -1,15 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { assertAnalysisAccess, assertOwnedStoragePath, corsHeaders, getAuthenticatedContext, HttpError, json, toErrorResponse } from "../_shared/security.ts";
 
 interface RunAnalysisPipelineRequest {
   analysis_id: string;
-  user_id?: string;
   file_name: string;
   mime_type: string;
   storage_path: string;
@@ -17,23 +9,17 @@ interface RunAnalysisPipelineRequest {
   persist_result?: boolean;
 }
 
-type StageStatus =
-  | "pending"
-  | "completed"
-  | "failed"
-  | "skipped";
+type StageStatus = "pending" | "completed" | "failed" | "skipped";
 
 async function invokeStage(
   supabase: any,
   authHeader: string,
   functionName: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
 ) {
   const { data, error } = await supabase.functions.invoke(functionName, {
     body,
-    headers: {
-      Authorization: authHeader,
-    },
+    headers: { Authorization: authHeader },
   });
 
   if (error) {
@@ -51,7 +37,7 @@ async function logRun(
     stage: string;
     status: string;
     payload_json?: Record<string, unknown>;
-  }
+  },
 ) {
   const { error } = await supabase.from("analysis_extraction_runs").insert({
     analysis_id: payload.analysis_id ?? null,
@@ -66,14 +52,12 @@ async function logRun(
   }
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let analysisId = "";
+  let documentId: string | null = null;
   let supabase: any = null;
-  let analysis_id = "";
-  let document_id: string | null = null;
 
   const stages: Record<string, StageStatus> = {
     ingestion: "pending",
@@ -86,34 +70,12 @@ serve(async (req) => {
   };
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(
-        JSON.stringify({ error: "Supabase environment variables are not configured" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    supabase = createClient(supabaseUrl, serviceRoleKey);
+    const ctx = await getAuthenticatedContext(req);
+    supabase = ctx.adminClient;
 
     const body: RunAnalysisPipelineRequest = await req.json();
-
     const {
-      analysis_id: incomingAnalysisId,
-      user_id,
+      analysis_id,
       file_name,
       mime_type,
       storage_path,
@@ -121,32 +83,23 @@ serve(async (req) => {
       persist_result = true,
     } = body;
 
-    analysis_id = incomingAnalysisId;
-
     if (!analysis_id || !file_name || !mime_type || !storage_path) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new HttpError(400, "Campos obrigatórios ausentes.", "INVALID_INPUT");
     }
+
+    analysisId = analysis_id;
+    await assertAnalysisAccess(supabase, ctx.user.id, analysis_id);
+    assertOwnedStoragePath(ctx.user.id, analysis_id, storage_path);
 
     await logRun(supabase, {
       analysis_id,
       stage: "pipeline_orchestration_started",
       status: "started",
-      payload_json: {
-        file_name,
-        mime_type,
-        storage_path,
-        storage_bucket,
-        persist_result,
-      },
+      payload_json: { file_name, mime_type, storage_path, storage_bucket, persist_result },
     });
 
-    // 1. Ingestion
-    const ingestData = await invokeStage(supabase, authHeader, "ingest-document", {
+    const ingestData = await invokeStage(supabase, ctx.authHeader, "ingest-document", {
       analysis_id,
-      user_id,
       file_name,
       mime_type,
       storage_path,
@@ -155,253 +108,167 @@ serve(async (req) => {
     });
 
     stages.ingestion = "completed";
-    document_id = ingestData?.document_id ?? null;
-
-    if (!document_id) {
+    documentId = ingestData?.document_id ?? null;
+    if (!documentId) {
       throw new Error("ingest-document did not return document_id");
     }
 
     await logRun(supabase, {
       analysis_id,
-      document_id,
+      document_id: documentId,
       stage: "ingestion",
       status: "completed",
-      payload_json: {
-        ingestData,
-      },
+      payload_json: { ingestData },
     });
 
-    // 2. Render document pages
     try {
-      const renderData = await invokeStage(supabase, authHeader, "render-document-pages", {
+      const renderData = await invokeStage(supabase, ctx.authHeader, "render-document-pages", {
         analysis_id,
-        document_id,
+        document_id: documentId,
         source_bucket: storage_bucket,
         target_bucket: "document-pages",
       });
-
       stages.page_rendering = "completed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "page_rendering",
         status: "completed",
-        payload_json: {
-          renderData,
-        },
+        payload_json: { renderData },
       });
-    } catch (err: any) {
+    } catch (error: any) {
       stages.page_rendering = "failed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "page_rendering",
         status: "failed",
-        payload_json: {
-          error: err?.message || String(err),
-        },
+        payload_json: { error: error?.message || String(error) },
       });
-
-      console.warn("page rendering skipped/failed:", err);
     }
 
-    // 3. OCR
     try {
-      const ocrData = await invokeStage(supabase, authHeader, "ocr-document-pages", {
+      const ocrData = await invokeStage(supabase, ctx.authHeader, "ocr-document-pages", {
         analysis_id,
-        document_id,
+        document_id: documentId,
+        target_bucket: "document-pages",
+        only_missing: true,
       });
-
       stages.ocr = "completed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "ocr",
         status: "completed",
-        payload_json: {
-          ocrData,
-        },
+        payload_json: { ocrData },
       });
-    } catch (err: any) {
+    } catch (error: any) {
       stages.ocr = "failed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "ocr",
         status: "failed",
-        payload_json: {
-          error: err?.message || String(err),
-        },
+        payload_json: { error: error?.message || String(error) },
       });
-
-      console.warn("ocr skipped/failed:", err);
     }
 
-    // 4. Classification
-    const classificationData = await invokeStage(supabase, authHeader, "classify-document-pages", {
+    const classificationData = await invokeStage(supabase, ctx.authHeader, "classify-document-pages", {
       analysis_id,
-      document_id,
+      document_id: documentId,
     });
-
     stages.classification = "completed";
-
     await logRun(supabase, {
       analysis_id,
-      document_id,
+      document_id: documentId,
       stage: "classification",
       status: "completed",
-      payload_json: {
-        classificationData,
-      },
+      payload_json: { classificationData },
     });
 
-    // 5. Architectural extraction
     try {
-      const architecturalData = await invokeStage(
-        supabase,
-        authHeader,
-        "extract-architectural-signals",
-        {
-          analysis_id,
-          document_id,
-        }
-      );
-
+      const architecturalData = await invokeStage(supabase, ctx.authHeader, "extract-architectural-signals", {
+        analysis_id,
+        document_id: documentId,
+      });
       stages.architectural_extraction = "completed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "architectural_extraction",
         status: "completed",
-        payload_json: {
-          architecturalData,
-        },
+        payload_json: { architecturalData },
       });
-    } catch (err: any) {
+    } catch (error: any) {
       stages.architectural_extraction = "failed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "architectural_extraction",
         status: "failed",
-        payload_json: {
-          error: err?.message || String(err),
-        },
+        payload_json: { error: error?.message || String(error) },
       });
-
-      console.warn("architectural extraction skipped/failed:", err);
     }
 
-    // 6. Electrical extraction
     try {
-      const electricalData = await invokeStage(
-        supabase,
-        authHeader,
-        "extract-electrical-signals",
-        {
-          analysis_id,
-          document_id,
-        }
-      );
-
+      const electricalData = await invokeStage(supabase, ctx.authHeader, "extract-electrical-signals", {
+        analysis_id,
+        document_id: documentId,
+      });
       stages.electrical_extraction = "completed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "electrical_extraction",
         status: "completed",
-        payload_json: {
-          electricalData,
-        },
+        payload_json: { electricalData },
       });
-    } catch (err: any) {
+    } catch (error: any) {
       stages.electrical_extraction = "failed";
-
       await logRun(supabase, {
         analysis_id,
-        document_id,
+        document_id: documentId,
         stage: "electrical_extraction",
         status: "failed",
-        payload_json: {
-          error: err?.message || String(err),
-        },
+        payload_json: { error: error?.message || String(error) },
       });
-
-      console.warn("electrical extraction skipped/failed:", err);
     }
 
-    // 7. Quantity generation
-    const quantityData = await invokeStage(supabase, authHeader, "generate-quantity-items", {
+    const quantityData = await invokeStage(supabase, ctx.authHeader, "generate-quantity-items", {
       analysis_id,
-      document_id,
+      document_id: documentId,
     });
-
     stages.quantity_generation = "completed";
-
     const resultado_json = quantityData?.quantitativo ?? null;
 
-    await logRun(supabase, {
-      analysis_id,
-      document_id,
-      stage: "quantity_generation",
-      status: "completed",
-      payload_json: {
-        quantityData,
-      },
-    });
-
     if (persist_result && resultado_json) {
-      await logRun(supabase, {
-        analysis_id,
-        document_id,
-        stage: "final_result",
-        status: "completed",
-        payload_json: {
-          resultado_json,
-        },
-      });
+      await supabase
+        .from("analyses")
+        .update({ resultado_json, status: "completed" })
+        .eq("id", analysis_id)
+        .eq("user_id", ctx.user.id);
     }
 
     await logRun(supabase, {
       analysis_id,
-      document_id,
+      document_id: documentId,
       stage: "pipeline_orchestration",
       status: "completed",
-      payload_json: {
-        file_name,
-        mime_type,
-        storage_path,
-        storage_bucket,
-        stages,
-      },
+      payload_json: { file_name, mime_type, storage_path, storage_bucket, stages },
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        analysis_id,
-        document_id,
-        stages,
-        resultado_json,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json({
+      success: true,
+      analysis_id,
+      document_id: documentId,
+      stages,
+      resultado_json,
+    });
   } catch (error: any) {
-    console.error("run-analysis-pipeline error:", error);
-
-    if (supabase && analysis_id) {
+    if (supabase && analysisId) {
       await logRun(supabase, {
-        analysis_id,
-        document_id: document_id ?? undefined,
+        analysis_id: analysisId,
+        document_id: documentId ?? undefined,
         stage: "pipeline_orchestration",
         status: "failed",
         payload_json: {
@@ -411,17 +278,6 @@ serve(async (req) => {
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-        analysis_id,
-        document_id,
-        stages,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return toErrorResponse(error, "Não foi possível executar o pipeline da análise.");
   }
 });

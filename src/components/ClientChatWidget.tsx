@@ -10,9 +10,10 @@ interface ChatMessage {
 
 interface ClientChatWidgetProps {
   analysisId: string;
+  shareToken?: string | null;
 }
 
-export function ClientChatWidget({ analysisId }: ClientChatWidgetProps) {
+export function ClientChatWidget({ analysisId, shareToken }: ClientChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -46,6 +47,7 @@ export function ClientChatWidget({ analysisId }: ClientChatWidgetProps) {
       const { data, error } = await supabase.functions.invoke("client-chat", {
         body: {
           analysis_id: analysisId,
+          share_token: shareToken ?? null,
           message: trimmed,
           history: messages.filter((m) => m !== messages[0]), // exclude greeting
         },

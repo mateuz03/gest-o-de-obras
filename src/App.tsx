@@ -1,65 +1,57 @@
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ClientErrorMonitor } from "@/components/ClientErrorMonitor";
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PublicOnlyRoute } from "@/components/PublicOnlyRoute";
+import { AppShell } from "@/components/shell/AppShell";
+import { SolutionEntryRoute } from "@/components/SolutionEntryRoute";
+import { landingPath } from "@/config/landingSolutions";
 import { SOLUTION_ROUTES } from "@/config/solutions";
-
-// ── Páginas Públicas ──────────────────────────────────────────────────────
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import EsqueciSenha from "./pages/EsqueciSenha";
-import RedefinirSenha from "./pages/RedefinirSenha";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
-import DocumentosDicas from "./pages/DocumentosDicas";
-import QuemSomos from "./pages/QuemSomos";
-import Suporte from "./pages/Suporte";
-import ShareAnalise from "./pages/ShareAnalise";
-import SolicitarAcesso from "./pages/SolicitarAcesso";
-import Marketplace from "./pages/Marketplace";
-import LojaPublica from "./pages/LojaPublica";
-import VendedorPerfil from "./pages/VendedorPerfil";
-import Profissionais from "./pages/Profissionais";
-import SejaParceiro from "./pages/SejaParceiro";
-import Carreira from "./pages/Carreira";
-import TermosUso from "./pages/TermosUso";
-import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import RecursoBloqueado from "./pages/RecursoBloqueado";
-import SolucaoLanding from "./pages/SolucaoLanding";
-import NotFound from "./pages/NotFound";
 
-// ── Páginas Privadas e Funcionais ─────────────────────────────────────────
-import Dashboard from "./pages/Dashboard";
-import NovaAnalise from "./pages/NovaAnalise";
-import AnaliseResultado from "./pages/AnaliseResultado";
-import NotasFiscais from "./pages/NotasFiscais";
-import Perfil from "./pages/Perfil";
-import CadastrarProfissional from "./pages/CadastrarProfissional";
-import PainelLojista from "./pages/PainelLojista";
-import MeusAnuncios from "./pages/MeusAnuncios";
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const EsqueciSenha = lazy(() => import("./pages/EsqueciSenha"));
+const RedefinirSenha = lazy(() => import("./pages/RedefinirSenha"));
+const Blog = lazy(() => import("./pages/Blog"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
+const DocumentosDicas = lazy(() => import("./pages/DocumentosDicas"));
+const QuemSomos = lazy(() => import("./pages/QuemSomos"));
+const Suporte = lazy(() => import("./pages/Suporte"));
+const ShareAnalise = lazy(() => import("./pages/ShareAnalise"));
+const SolicitarAcesso = lazy(() => import("./pages/SolicitarAcesso"));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const LojaPublica = lazy(() => import("./pages/LojaPublica"));
+const VendedorPerfil = lazy(() => import("./pages/VendedorPerfil"));
+const Profissionais = lazy(() => import("./pages/Profissionais"));
+const Inicio = lazy(() => import("./pages/Inicio"));
+const Carreira = lazy(() => import("./pages/Carreira"));
+const SinapiUpload = lazy(() => import("./pages/SinapiUpload"));
+const TermosUso = lazy(() => import("./pages/TermosUso"));
+const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
-// ── Páginas Admin ─────────────────────────────────────────────────────────
-import AdminLayout from "./pages/Admin/AdminLayout";
-import VisaoGeral from "./pages/Admin/VisaoGeral";
-import UsuariosList from "./pages/Admin/UsuariosList";
-import SinapiPage from "./pages/Admin/SinapiPage";
-import LogsIA from "./pages/Admin/LogsIA";
-import Configuracoes from "./pages/Admin/Configuracoes";
-import LojasPendentes from "./pages/Admin/LojasPendentes";
-// ✅ As duas telas foram mantidas pacificamente lado a lado
-import AdminBlog from "./pages/Admin/AdminBlog";
-import Destaques from "./pages/Admin/Destaques";
+const AdminLayout = lazy(() => import("./pages/Admin/AdminLayout"));
+const VisaoGeral = lazy(() => import("./pages/Admin/VisaoGeral"));
+const UsuariosList = lazy(() => import("./pages/Admin/UsuariosList"));
+const SinapiPage = lazy(() => import("./pages/Admin/SinapiPage"));
+const LogsIA = lazy(() => import("./pages/Admin/LogsIA"));
+const Configuracoes = lazy(() => import("./pages/Admin/Configuracoes"));
+const LojasPendentes = lazy(() => import("./pages/Admin/LojasPendentes"));
+const AdminBlog = lazy(() => import("./pages/Admin/AdminBlog"));
+const Destaques = lazy(() => import("./pages/Admin/Destaques"));
 
-// Instância do QueryClient fora do componente para não recriar a cada render
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutos de cache
-      retry: 1, // Tenta 1 vez antes de falhar
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
     },
   },
 });
@@ -70,24 +62,13 @@ const RouteFallback = () => (
   </div>
 );
 
-/**
- * AppRoutes: O gerente central das rotas da plataforma
- */
-function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  if (loading) return <RouteFallback />;
-
+function PublicAreaRoutes() {
   return (
-    <Suspense fallback={<RouteFallback />}>
-      <Routes>
-        {/* ── Rotas Públicas Principais ─────────────────────────────── */}
+    <>
+      <Route
+        element={<AppShell />}
+      >
         <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-        
-        {/* ── Conteúdo e Institucional ──────────────────────────────── */}
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
         <Route path="/documentos" element={<DocumentosDicas />} />
@@ -96,69 +77,143 @@ function AppRoutes() {
         <Route path="/carreira" element={<Carreira />} />
         <Route path="/termos-de-uso" element={<TermosUso />} />
         <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
-        <Route path="/seja-parceiro" element={<SejaParceiro />} />
-        <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
-        
-        {/* ── Diretório, Lojas e Compartilhamento ───────────────────── */}
-        <Route path="/marketplace" element={<Marketplace />} />
+        <Route
+          path="/solicitar-acesso"
+          element={(
+            <PublicOnlyRoute>
+              <SolicitarAcesso />
+            </PublicOnlyRoute>
+          )}
+        />
+
         <Route path="/loja/:id" element={<LojaPublica />} />
         <Route path="/vendedor/:id" element={<VendedorPerfil />} />
-        <Route path="/profissionais" element={<Profissionais />} />
-        <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
         <Route path="/share/:analysisId" element={<ShareAnalise />} />
-        <Route path="/recurso/:slug" element={<RecursoBloqueado />} />
+        <Route path="/solucoes/:slug" element={<SolutionEntryRoute mode="landing" />} />
+        <Route path="/recurso/:slug" element={<SolutionEntryRoute mode="private" />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </>
+  );
+}
 
-        {/* ── Soluções Internas Condicionais (Route Guard do Lovable) ── */}
+function AppAreaRoutes() {
+  return (
+    <>
+      <Route element={<AppShell />}>
+        <Route
+          path="/inicio"
+          element={(
+            <ProtectedRoute>
+              <Inicio />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/marketplace"
+          element={(
+            <ProtectedRoute
+              unauthenticatedFallback={<Navigate to={landingPath("marketplace")} replace />}
+            >
+              <Marketplace />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/profissionais"
+          element={(
+            <ProtectedRoute
+              unauthenticatedFallback={<Navigate to={landingPath("prestar-servico")} replace />}
+            >
+              <Profissionais />
+            </ProtectedRoute>
+          )}
+        />
+        <Route path="/servicos" element={<Navigate to="/profissionais" replace />} />
+        <Route
+          path="/seja-parceiro"
+          element={(
+            <ProtectedRoute
+              unauthenticatedFallback={<Navigate to={landingPath("criar-loja")} replace />}
+            >
+              <Navigate to="/painel-loja" replace />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/sinapi"
+          element={(
+            <ProtectedRoute unauthenticatedFallback={<RecursoBloqueado slug="gestao-de-projetos" />}>
+              <SinapiUpload />
+            </ProtectedRoute>
+          )}
+        />
+
         {SOLUTION_ROUTES.map(({ slug, path, component: Component }) => (
           <Route
             key={slug}
             path={path}
-            element={user ? <Component /> : <RecursoBloqueado slug={slug} />}
+            element={(
+              <ProtectedRoute unauthenticatedFallback={<RecursoBloqueado slug={slug} />}>
+                <Component />
+              </ProtectedRoute>
+            )}
           />
         ))}
 
-        {/* ── Telas Privadas Core (Atrás do ProtectedRoute) ─────────── */}
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/nova-analise" element={<ProtectedRoute><NovaAnalise /></ProtectedRoute>} />
-        <Route path="/analise/:id" element={<ProtectedRoute><AnaliseResultado /></ProtectedRoute>} />
-        <Route path="/notas-fiscais" element={<ProtectedRoute><NotasFiscais /></ProtectedRoute>} />
-        <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
-        <Route path="/cadastrar-profissional" element={<ProtectedRoute><CadastrarProfissional /></ProtectedRoute>} />
-        <Route path="/painel-loja" element={<ProtectedRoute><PainelLojista /></ProtectedRoute>} />
-        <Route path="/meus-anuncios" element={<ProtectedRoute><MeusAnuncios /></ProtectedRoute>} />
-
-        {/* ── Painel Admin (Atrás do ProtectedRoute) ────────────────── */}
         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route index element={<VisaoGeral />} />
           <Route path="usuarios" element={<UsuariosList />} />
           <Route path="lojas" element={<LojasPendentes />} />
-          {/* ✅ Ambas as rotas do conflito foram incluídas perfeitamente aqui */}
           <Route path="destaques" element={<Destaques />} />
           <Route path="blog" element={<AdminBlog />} />
           <Route path="sinapi" element={<SinapiPage />} />
           <Route path="logs-ia" element={<LogsIA />} />
           <Route path="config" element={<Configuracoes />} />
         </Route>
+      </Route>
+    </>
+  );
+}
 
-        {/* ── Fallback Universal ────────────────────────────────────── */}
-        <Route path="*" element={<NotFound />} />
+function AppRoutes() {
+  const { loading } = useAuth();
+
+  if (loading) return <RouteFallback />;
+
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route
+          path="/esqueci-senha"
+          element={(
+            <PublicOnlyRoute>
+              <EsqueciSenha />
+            </PublicOnlyRoute>
+          )}
+        />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+        {PublicAreaRoutes()}
+        {AppAreaRoutes()}
       </Routes>
     </Suspense>
   );
 }
 
-// ✅ Conflito grave resolvido: Todo aquele lixo de setas e códigos duplicados 
-// foi removido. Mantemos apenas a chamada limpa do sistema principal!
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
+      <GlobalErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <ClientErrorMonitor />
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </GlobalErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );

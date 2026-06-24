@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Analysis } from "@/lib/types";
 import {
-  Plus, LogOut, Box, Search, AlertCircle, RefreshCw, Database, User, ShieldCheck,
+  Plus, Search, AlertCircle, RefreshCw, Database,
   FolderOpen, FolderKanban, DollarSign, TrendingUp, Users, LayoutGrid, List,
   Store, Megaphone,
 } from "lucide-react";
@@ -31,7 +31,7 @@ const formatCurrencyShort = (v: number) => {
 type ViewMode = "grid" | "list";
 
 export default function Dashboard() {
-  const { user, signOut, accountType } = useAuth();
+  const { user, accountType } = useAuth();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -109,28 +109,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <nav className="border-b border-slate-800/20 bg-slate-900 text-white">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-xl font-bold text-white">
-            <Box className="h-6 w-6" />
-            Obra Link
-          </Link>
-          <div className="flex items-center gap-2">
-            <span className="hidden text-sm text-white/70 sm:block">{user?.email}</span>
-            <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10">
-              <Link to="/perfil"><User className="h-4 w-4" /></Link>
-            </Button>
-            <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10">
-              <Link to="/admin"><ShieldCheck className="h-4 w-4" /></Link>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={signOut} className="text-white hover:bg-white/10">
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </nav>
-
       <div className="container py-8">
         {/* Title */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

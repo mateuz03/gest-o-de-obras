@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { loadXlsx } from "@/lib/lazyDeps";
 import { toast } from "sonner";
-import { ArrowLeft, Box, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, FileText } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { SinapiPdfUpload } from "@/components/SinapiPdfUpload";
 import { SinapiUploadHistory } from "@/components/SinapiUploadHistory";
 import { SinapiUploader } from "@/components/SinapiUploader";
@@ -43,6 +42,7 @@ export default function SinapiUpload() {
     setLoading(true);
 
     try {
+      const XLSX = await loadXlsx();
       const data = await f.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -124,19 +124,20 @@ export default function SinapiUpload() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-primary text-primary-foreground">
-        <div className="container flex h-16 items-center gap-4">
-          <Button variant="ghost" size="sm" asChild className="text-primary-foreground hover:bg-primary-foreground/10">
-            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Dashboard</Link>
-          </Button>
-          <div className="flex items-center gap-2 font-bold">
-            <Box className="h-5 w-5" />
-            Base SINAPI
-          </div>
-        </div>
-      </nav>
-
       <div className="container max-w-5xl py-8 space-y-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
+              Base de referencia
+            </p>
+            <h1 className="mt-2 text-3xl font-bold text-slate-900">Gestao da base SINAPI</h1>
+            <p className="mt-3 text-sm text-slate-500 sm:text-base">
+              Importe planilhas ou PDFs oficiais, mantenha o historico de cargas e alimente as
+              analises com uma base de custos consistente.
+            </p>
+          </div>
+        </section>
+
         <Tabs defaultValue="csv" className="w-full">
           <TabsList className="grid w-full grid-cols-3 max-w-2xl">
             <TabsTrigger value="csv" className="gap-2"><FileSpreadsheet className="h-4 w-4" /> CSV / XLSX (recomendado)</TabsTrigger>

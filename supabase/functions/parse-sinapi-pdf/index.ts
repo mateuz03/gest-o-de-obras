@@ -4,6 +4,8 @@
 // (auto-resume): o frontend reinvoca com { resume_job_id } se o job parar.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { HttpError, toErrorResponse } from "../_shared/security.ts";
+import { validateBinaryUpload } from "../_shared/upload-validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +17,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
 // Limites por invocação para evitar "CPU Time exceeded".
 // PDFs longos serão retomados em invocações subsequentes via resume_job_id.
@@ -332,6 +335,9 @@ Deno.serve(async (req) => {
     if (contentType.includes("application/json")) {
       const body = await req.json();
       const resumeId = body?.resume_job_id;
+      if (resumeId && !/^[0-9a-f-]{36}$/i.test(String(resumeId))) {
+        throw new HttpError(400, "resume_job_id invalido", "INVALID_JOB_ID");
+      }
       if (!resumeId) {
         return new Response(JSON.stringify({ error: "resume_job_id obrigatório" }), {
           status: 400,
@@ -375,6 +381,14 @@ Deno.serve(async (req) => {
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
+    const mimeType = file.type || (String(file.name || "").toLowerCase().endsWith(".pdf") ? "application/pdf" : "");
+    validateBinaryUpload({
+      allowedMimeTypes: ["application/pdf"],
+      bytes,
+      fileName: file.name,
+      maxBytes: MAX_PDF_BYTES,
+      mimeType,
+    });
     console.log(`PDF recebido: ${file.name}, ${bytes.length} bytes, tipo=${tipo}`);
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -406,12 +420,10 @@ Deno.serve(async (req) => {
     });
   } catch (err: any) {
     console.error("parse-sinapi-pdf error:", err);
-    return new Response(
-      JSON.stringify({ error: err.message || "Falha ao processar PDF" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return await toErrorResponse(err, "Falha ao processar PDF", {
+      functionName: "parse-sinapi-pdf",
+      request: req,
+      source: "edge",
+    });
   }
 });

@@ -327,6 +327,153 @@ export type Database = {
           },
         ]
       }
+      app_error_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          error_code: string | null
+          function_name: string
+          id: string
+          message: string
+          metadata: Json
+          request_method: string | null
+          request_path: string | null
+          severity: string
+          source: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          function_name: string
+          id?: string
+          message: string
+          metadata?: Json
+          request_method?: string | null
+          request_path?: string | null
+          severity?: string
+          source: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          function_name?: string
+          id?: string
+          message?: string
+          metadata?: Json
+          request_method?: string | null
+          request_path?: string | null
+          severity?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      auth_rate_limit_attempts: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          identifier_hash: string
+          ip_hash: string
+          metadata: Json
+          succeeded: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          identifier_hash: string
+          ip_hash: string
+          metadata?: Json
+          succeeded?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          identifier_hash?: string
+          ip_hash?: string
+          metadata?: Json
+          succeeded?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      admin_action_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          reason: string | null
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
+      security_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          identifier_hash: string | null
+          ip_hash: string | null
+          message: string
+          metadata: Json
+          severity: string
+          source: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          identifier_hash?: string | null
+          ip_hash?: string | null
+          message: string
+          metadata?: Json
+          severity?: string
+          source: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          identifier_hash?: string | null
+          ip_hash?: string | null
+          message?: string
+          metadata?: Json
+          severity?: string
+          source?: string
+        }
+        Relationships: []
+      }
       blog_favorites: {
         Row: {
           created_at: string
@@ -1004,6 +1151,48 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_reports: {
+        Row: {
+          created_at: string
+          decision_reason: string | null
+          details: string | null
+          id: string
+          reason: string
+          reporter_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          decision_reason?: string | null
+          details?: string | null
+          id?: string
+          reason: string
+          reporter_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          decision_reason?: string | null
+          details?: string | null
+          id?: string
+          reason?: string
+          reporter_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       password_reset_attempts: {
         Row: {
           created_at: string
@@ -1027,6 +1216,9 @@ export type Database = {
       }
       perfil_lojista: {
         Row: {
+          admin_hidden: boolean
+          approved_at: string | null
+          approved_by: string | null
           banner_url: string | null
           categoria: string | null
           cidade: string
@@ -1043,11 +1235,16 @@ export type Database = {
           motivo_rejeicao: string | null
           nome_loja: string
           plano_atual: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
           user_id: string
           whatsapp: string
         }
         Insert: {
+          admin_hidden?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           banner_url?: string | null
           categoria?: string | null
           cidade: string
@@ -1064,11 +1261,16 @@ export type Database = {
           motivo_rejeicao?: string | null
           nome_loja: string
           plano_atual?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           user_id: string
           whatsapp: string
         }
         Update: {
+          admin_hidden?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           banner_url?: string | null
           categoria?: string | null
           cidade?: string
@@ -1085,6 +1287,8 @@ export type Database = {
           motivo_rejeicao?: string | null
           nome_loja?: string
           plano_atual?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           user_id?: string
           whatsapp?: string
@@ -1150,6 +1354,7 @@ export type Database = {
       }
       produtos_loja: {
         Row: {
+          admin_hidden: boolean
           categoria: string
           created_at: string
           featured_until: string | null
@@ -1163,6 +1368,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_hidden?: boolean
           categoria: string
           created_at?: string
           featured_until?: string | null
@@ -1176,6 +1382,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_hidden?: boolean
           categoria?: string
           created_at?: string
           featured_until?: string | null
@@ -1200,6 +1407,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string
           account_type: string | null
           ano_criacao_negocio: number | null
           area_atuacao: string | null
@@ -1223,11 +1431,15 @@ export type Database = {
           plano_marketplace_until: string | null
           qtd_funcionarios: string | null
           qtd_obras_atual: number | null
+          suspended_at: string | null
+          suspended_by: string | null
+          suspension_reason: string | null
           telefone_comercial: string | null
           tipo_empresa: string | null
           user_id: string
         }
         Insert: {
+          account_status?: string
           account_type?: string | null
           ano_criacao_negocio?: number | null
           area_atuacao?: string | null
@@ -1251,11 +1463,15 @@ export type Database = {
           plano_marketplace_until?: string | null
           qtd_funcionarios?: string | null
           qtd_obras_atual?: number | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           telefone_comercial?: string | null
           tipo_empresa?: string | null
           user_id: string
         }
         Update: {
+          account_status?: string
           account_type?: string | null
           ano_criacao_negocio?: number | null
           area_atuacao?: string | null
@@ -1279,6 +1495,9 @@ export type Database = {
           plano_marketplace_until?: string | null
           qtd_funcionarios?: string | null
           qtd_obras_atual?: number | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           telefone_comercial?: string | null
           tipo_empresa?: string | null
           user_id?: string
@@ -1589,6 +1808,30 @@ export type Database = {
         }
         Relationships: []
       }
+      system_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1648,6 +1891,146 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_activity_feed: {
+        Args: { _limit?: number }
+        Returns: {
+          action: string
+          actor_label: string
+          created_at: string
+          details: string
+          id: string
+          source: string
+          target_id: string
+          target_label: string
+          target_type: string
+        }[]
+      }
+      admin_dashboard_snapshot: { Args: never; Returns: Json }
+      admin_delete_blog_post: { Args: { _id: number }; Returns: boolean }
+      admin_list_app_error_events: {
+        Args: { _limit?: number; _offset?: number; _query?: string }
+        Returns: {
+          actor_user_id: string
+          created_at: string
+          error_code: string
+          function_name: string
+          id: string
+          message: string
+          metadata: Json
+          request_method: string
+          request_path: string
+          severity: string
+          source: string
+          total_rows: number
+        }[]
+      }
+      admin_list_ai_runs: {
+        Args: {
+          _limit?: number
+          _offset?: number
+          _query?: string
+          _status?: string
+        }
+        Returns: {
+          analysis_id: string
+          created_at: string
+          document_id: string
+          error_message: string
+          id: string
+          owner_email: string
+          owner_name: string
+          owner_user_id: string
+          payload_json: Json
+          project_name: string
+          stage: string
+          status: string
+          total_rows: number
+          updated_at: string
+        }[]
+      }
+      admin_list_marketplace_reports: {
+        Args: { _limit?: number; _offset?: number; _status?: string }
+        Returns: {
+          created_at: string
+          decision_reason: string
+          details: string
+          id: string
+          reason: string
+          reporter_email: string
+          reporter_id: string
+          reporter_name: string
+          status: string
+          target_hidden: boolean
+          target_id: string
+          target_name: string
+          target_owner_id: string
+          target_owner_name: string
+          target_type: string
+          total_rows: number
+        }[]
+      }
+      admin_list_security_events: {
+        Args: { _limit?: number; _offset?: number; _query?: string }
+        Returns: {
+          actor_user_id: string
+          created_at: string
+          event_type: string
+          id: string
+          identifier_hash: string
+          ip_hash: string
+          message: string
+          metadata: Json
+          severity: string
+          source: string
+          total_rows: number
+        }[]
+      }
+      admin_list_users: {
+        Args: {
+          _account_type?: string
+          _limit?: number
+          _offset?: number
+          _plan?: string
+          _query?: string
+          _status?: string
+        }
+        Returns: {
+          account_status: string
+          account_type: string
+          active_ads_count: number
+          analyses_count: number
+          cnpj: string
+          cpf: string
+          created_at: string
+          email: string
+          is_admin: boolean
+          nome: string
+          nome_empresa: string
+          plano_marketplace: string
+          plano_marketplace_until: string
+          total_rows: number
+          user_id: string
+        }[]
+      }
+      admin_log_action: {
+        Args: {
+          _action: string
+          _metadata?: Json
+          _reason?: string
+          _target_id?: string
+          _target_type: string
+        }
+        Returns: string
+      }
+      admin_moderate_marketplace_report: {
+        Args: {
+          _decision_reason?: string
+          _report_id: string
+          _set_hidden?: boolean
+          _status: string
+        }
+        Returns: Database["public"]["Tables"]["marketplace_reports"]["Row"]
+      }
       admin_override_featured: {
         Args: {
           _featured_until: string
@@ -1657,6 +2040,41 @@ export type Database = {
           _target_type: string
         }
         Returns: undefined
+      }
+      admin_prepare_password_reset: {
+        Args: { _user_id: string }
+        Returns: string
+      }
+      admin_review_store: {
+        Args: { _reason?: string; _status: string; _store_user_id: string }
+        Returns: Database["public"]["Tables"]["perfil_lojista"]["Row"]
+      }
+      admin_update_user_account: {
+        Args: {
+          _account_status: string
+          _plan: string
+          _plan_until?: string
+          _reason?: string
+          _user_id: string
+        }
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+      }
+      admin_upsert_blog_post: {
+        Args: {
+          _autor?: string
+          _categoria?: string
+          _conteudo?: string
+          _data?: string
+          _destaque?: boolean
+          _id?: number
+          _imagem?: string
+          _resumo?: string
+          _slug?: string
+          _tempo_leitura?: string
+          _tipo?: string
+          _titulo?: string
+        }
+        Returns: Database["public"]["Tables"]["blog_posts"]["Row"]
       }
       can_user_publish: { Args: { _user_id: string }; Returns: boolean }
       claim_webhook_event: {
@@ -1668,6 +2086,14 @@ export type Database = {
         Returns: Json
       }
       expire_features: { Args: never; Returns: undefined }
+      create_analysis_share: {
+        Args: { _analysis_id: string; _expires_hours?: number }
+        Returns: {
+          expires_at: string
+          share_token: string
+        }[]
+      }
+      delete_marketplace_product: { Args: { _id: string }; Returns: boolean }
       get_marketplace_ctr: {
         Args: { _days?: number }
         Returns: {
@@ -1677,6 +2103,33 @@ export type Database = {
           listing: string
         }[]
       }
+      get_platform_flags: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          maintenance_message: string
+          maintenance_mode: boolean
+          seller_onboarding_open: boolean
+        }[]
+      }
+      get_public_storefront: {
+        Args: { _user_id: string }
+        Returns: {
+          banner_url: string
+          categoria: string
+          cidade: string
+          descricao: string
+          estado: string
+          featured_until: string
+          horario_atendimento: string
+          instagram: string
+          is_premium: boolean
+          logo_url: string
+          nome_loja: string
+          total_produtos: number
+          user_id: string
+          whatsapp: string
+        }[]
+      }
       get_public_seller: {
         Args: { p_user_id: string }
         Returns: {
@@ -1684,6 +2137,16 @@ export type Database = {
           avatar_url: string
           nome: string
           user_id: string
+        }[]
+      }
+      get_shared_analysis: {
+        Args: { _analysis_id: string; _token: string }
+        Returns: {
+          bdi_percentual: number
+          id: string
+          nome_projeto: string
+          resultado_json: Json
+          status: string
         }[]
       }
       get_publish_status: {
@@ -1702,6 +2165,71 @@ export type Database = {
         }
         Returns: boolean
       }
+      list_public_marketplace_products: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          categoria: string
+          created_at: string
+          featured_until: string
+          foto_url: string
+          id: string
+          is_featured: boolean
+          loja_cidade: string
+          loja_estado: string
+          loja_is_premium: boolean
+          loja_nome: string
+          loja_whatsapp: string
+          nome_produto: string
+          preco: number
+          unidade_medida: string
+          user_id: string
+        }[]
+      }
+      list_public_seller_products: {
+        Args: { _user_id: string }
+        Returns: {
+          categoria: string
+          created_at: string
+          featured_until: string
+          foto_url: string
+          id: string
+          is_featured: boolean
+          nome_produto: string
+          preco: number
+          unidade_medida: string
+          user_id: string
+        }[]
+      }
+      list_public_store_directory: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          categoria: string
+          cidade: string
+          descricao: string
+          estado: string
+          featured_until: string
+          is_premium: boolean
+          logo_url: string
+          nome_loja: string
+          total_produtos: number
+          user_id: string
+        }[]
+      }
+      list_public_store_products: {
+        Args: { _user_id: string }
+        Returns: {
+          categoria: string
+          created_at: string
+          featured_until: string
+          foto_url: string
+          id: string
+          is_featured: boolean
+          nome_produto: string
+          preco: number
+          unidade_medida: string
+          user_id: string
+        }[]
+      }
       mark_webhook_event: {
         Args: {
           _error?: string
@@ -1710,6 +2238,29 @@ export type Database = {
           _status: string
         }
         Returns: undefined
+      }
+      upsert_marketplace_product: {
+        Args: {
+          _categoria?: string
+          _foto_url?: string
+          _id?: string
+          _nome_produto?: string
+          _preco?: number
+          _unidade_medida?: string
+        }
+        Returns: {
+          categoria: string
+          created_at: string
+          featured_until: string | null
+          foto_url: string | null
+          id: string
+          is_featured: boolean
+          nome_produto: string
+          preco: number
+          status: string
+          unidade_medida: string
+          user_id: string
+        }
       }
     }
     Enums: {

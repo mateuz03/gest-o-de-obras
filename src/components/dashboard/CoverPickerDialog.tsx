@@ -1,12 +1,21 @@
 import { useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Check, Loader2, ImageOff } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { validateUploadedFile } from "@/lib/upload/validateFile";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Check, ImageOff, Loader2, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 export const PRESET_COVERS = [
   "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80",
@@ -28,7 +37,13 @@ interface CoverPickerDialogProps {
   onSaved: (newUrl: string | null) => void;
 }
 
-export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover, onSaved }: CoverPickerDialogProps) {
+export function CoverPickerDialog({
+  open,
+  onOpenChange,
+  analysisId,
+  currentCover,
+  onSaved,
+}: CoverPickerDialogProps) {
   const { user } = useAuth();
   const [selected, setSelected] = useState<string | null>(currentCover ?? null);
   const [uploading, setUploading] = useState(false);
@@ -37,23 +52,33 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
 
   const handleFile = async (file: File) => {
     if (!user) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Imagem muito grande (máx 5MB)");
+
+    const validation = await validateUploadedFile(file, {
+      allowedMimeTypes: ["image/png", "image/jpeg", "image/webp"],
+      maxSizeBytes: 5 * 1024 * 1024,
+    });
+
+    if (!validation.valid) {
+      toast.error(validation.error || "Imagem invalida.");
       return;
     }
+
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
+      const safeName = validation.sanitizedName || file.name;
+      const ext = safeName.split(".").pop() || "jpg";
       const path = `${user.id}/${analysisId}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("project-covers")
         .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
+
+      if (uploadError) throw uploadError;
+
       const { data } = supabase.storage.from("project-covers").getPublicUrl(path);
       setSelected(data.publicUrl);
-      toast.success("Imagem carregada — clique em Salvar para aplicar");
-    } catch (err: any) {
-      toast.error("Falha no upload: " + (err?.message || "tente novamente"));
+      toast.success("Imagem carregada. Clique em Salvar para aplicar.");
+    } catch (error: any) {
+      toast.error(`Falha no upload: ${error?.message || "tente novamente"}`);
     } finally {
       setUploading(false);
     }
@@ -66,12 +91,14 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
         .from("analyses")
         .update({ cover_image_url: selected })
         .eq("id", analysisId);
+
       if (error) throw error;
+
       onSaved(selected);
       toast.success("Capa atualizada");
       onOpenChange(false);
-    } catch (err: any) {
-      toast.error("Erro ao salvar: " + (err?.message || ""));
+    } catch (error: any) {
+      toast.error(`Erro ao salvar: ${error?.message || ""}`);
     } finally {
       setSaving(false);
     }
@@ -83,7 +110,7 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
         <DialogHeader>
           <DialogTitle>Imagem de capa do projeto</DialogTitle>
           <DialogDescription>
-            Escolha uma imagem da galeria ou faça upload de uma capa personalizada.
+            Escolha uma imagem da galeria ou faca upload de uma capa personalizada.
           </DialogDescription>
         </DialogHeader>
 
@@ -97,6 +124,7 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
             <div className="grid max-h-[420px] grid-cols-3 gap-3 overflow-y-auto pr-1">
               {PRESET_COVERS.map((url) => {
                 const isSelected = selected === url;
+
                 return (
                   <button
                     key={url}
@@ -104,17 +132,19 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
                     onClick={() => setSelected(url)}
                     className={cn(
                       "group relative aspect-video overflow-hidden rounded-lg border-2 transition-all",
-                      isSelected ? "border-emerald-500 ring-2 ring-emerald-200" : "border-transparent hover:border-slate-300",
+                      isSelected
+                        ? "border-emerald-500 ring-2 ring-emerald-200"
+                        : "border-transparent hover:border-slate-300",
                     )}
                   >
                     <img src={url} alt="Capa" loading="lazy" className="h-full w-full object-cover" />
-                    {isSelected && (
+                    {isSelected ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-emerald-500/30">
                         <div className="rounded-full bg-emerald-500 p-1.5">
                           <Check className="h-4 w-4 text-white" />
                         </div>
                       </div>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}
@@ -135,34 +165,36 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
                 <p className="text-sm font-medium text-slate-700">
                   {uploading ? "Enviando..." : "Clique para enviar uma imagem"}
                 </p>
-                <p className="text-xs text-slate-500">JPG ou PNG até 5MB</p>
+                <p className="text-xs text-slate-500">JPG, PNG ou WEBP ate 5MB</p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                  e.target.value = "";
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void handleFile(file);
+                  }
+                  event.target.value = "";
                 }}
               />
 
-              {selected && (
+              {selected ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-600">Pré-visualização:</p>
+                  <p className="text-xs font-medium text-slate-600">Pre-visualizacao:</p>
                   <div className="aspect-video overflow-hidden rounded-lg border border-slate-200">
-                    <img src={selected} alt="Pré-visualização" className="h-full w-full object-cover" />
+                    <img src={selected} alt="Pre-visualizacao" className="h-full w-full object-cover" />
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </TabsContent>
         </Tabs>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          {currentCover && (
+          {currentCover ? (
             <Button
               variant="outline"
               onClick={() => setSelected(null)}
@@ -170,7 +202,7 @@ export function CoverPickerDialog({ open, onOpenChange, analysisId, currentCover
             >
               <ImageOff className="mr-2 h-4 w-4" /> Remover capa
             </Button>
-          )}
+          ) : null}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>

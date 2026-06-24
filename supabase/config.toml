@@ -1,8 +1,18 @@
 project_id = "wunghdnjiqlkuotenoip"
 
-[functions.vetorizar-sinapi]
+[functions.auth-login]
 enabled = true
 verify_jwt = false
+entrypoint = "./functions/auth-login/index.ts"
+
+[functions.request-password-reset]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/request-password-reset/index.ts"
+
+[functions.vetorizar-sinapi]
+enabled = true
+verify_jwt = true
 import_map = "./functions/vetorizar-sinapi/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -10,7 +20,7 @@ entrypoint = "./functions/vetorizar-sinapi/index.ts"
 
 [functions.calcular-quantitativos]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/calcular-quantitativos/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx

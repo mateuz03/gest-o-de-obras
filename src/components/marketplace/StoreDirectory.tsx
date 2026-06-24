@@ -15,31 +15,20 @@ export function StoreDirectory() {
   useEffect(() => {
     async function fetchLojas() {
       try {
-        const { data: perfis, error } = await supabase
-          .from("perfil_lojista")
-          .select(
-            "id, user_id, nome_loja, logo_url, descricao, categoria, cidade, estado, is_premium, featured_until"
-          )
-          .eq("status", "approved");
-
+        const { data, error } = await supabase.rpc("list_public_store_directory");
         if (error) throw error;
-
-        // Conta produtos ativos por loja
-        const { data: produtos, error: prodError } = await supabase
-          .from("produtos_loja")
-          .select("user_id")
-          .eq("status", "ativo");
-
-        if (prodError) throw prodError;
-
-        const contagem = new Map<string, number>();
-        (produtos || []).forEach((p: { user_id: string }) => {
-          contagem.set(p.user_id, (contagem.get(p.user_id) || 0) + 1);
-        });
-
-        const mapeadas: LojaDiretorio[] = (perfis || []).map((l) => ({
-          ...l,
-          total_produtos: contagem.get(l.user_id) || 0,
+        const mapeadas: LojaDiretorio[] = (data || []).map((loja) => ({
+          id: loja.user_id,
+          user_id: loja.user_id,
+          nome_loja: loja.nome_loja,
+          logo_url: loja.logo_url,
+          descricao: loja.descricao,
+          categoria: loja.categoria,
+          cidade: loja.cidade,
+          estado: loja.estado,
+          is_premium: loja.is_premium,
+          featured_until: loja.featured_until,
+          total_produtos: loja.total_produtos,
         }));
 
         setLojas(mapeadas);

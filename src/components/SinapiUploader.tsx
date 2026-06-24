@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { loadXlsx } from "@/lib/lazyDeps";
 import { toast } from "sonner";
 import {
   Upload,
@@ -201,6 +201,7 @@ export function SinapiUploader({ onImported }: Props) {
           },
         });
       } else if (ext === "xlsx" || ext === "xls") {
+        const XLSX = await loadXlsx();
         const buf = await f.arrayBuffer();
         const wb = XLSX.read(buf);
         const sheet = wb.Sheets[wb.SheetNames[0]];

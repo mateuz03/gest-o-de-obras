@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -55,6 +55,7 @@ const COLORS = [
 
 export default function ShareAnalise() {
   const { analysisId } = useParams();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -64,27 +65,34 @@ export default function ShareAnalise() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabase
-        .from("analyses")
-        .select("nome_projeto, resultado_json, bdi_percentual, status")
-        .eq("id", analysisId)
-        .single();
-
-      if (error || !data || data.status !== "completed" || !data.resultado_json) {
+      const token = searchParams.get("token");
+      if (!analysisId || !token) {
         setNotFound(true);
         setLoading(false);
         return;
       }
 
-      const res = data.resultado_json as unknown as AnalysisResult;
-      setProjectName(data.nome_projeto);
+      const { data, error } = await supabase.rpc("get_shared_analysis", {
+        _analysis_id: analysisId,
+        _token: token,
+      });
+
+      const shared = Array.isArray(data) ? data[0] : null;
+      if (error || !shared || shared.status !== "completed" || !shared.resultado_json) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      const res = shared.resultado_json as unknown as AnalysisResult;
+      setProjectName(shared.nome_projeto);
       setResult(res);
       setArea(res.area_total_m2 || 0);
-      setResumo(recalculateTotals(res, (data.bdi_percentual as number) || 25));
+      setResumo(recalculateTotals(res, (shared.bdi_percentual as number) || 25));
       setLoading(false);
     }
     load();
-  }, [analysisId]);
+  }, [analysisId, searchParams]);
 
   const pieData = useMemo(() => {
     if (!result?.macro_etapas) return [];
@@ -316,7 +324,7 @@ export default function ShareAnalise() {
       </div>
 
       {/* Client Chat Widget */}
-      {analysisId && <ClientChatWidget analysisId={analysisId} />}
+      {analysisId && <ClientChatWidget analysisId={analysisId} shareToken={searchParams.get("token")} />}
     </div>
   );
 }

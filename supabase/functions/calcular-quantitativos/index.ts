@@ -1,85 +1,74 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
+import { assertAnalysisAccess, corsHeaders, getAuthenticatedContext, HttpError, json, toErrorResponse } from "../_shared/security.ts";
 
-// Configuração de CORS para permitir que seu front-end acesse a função sem bloqueios
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+type ServicoPayload = {
+  codigo_servico?: string;
+  quantidade?: number;
+  analysis_id?: string;
 };
 
-serve(async (req) => {
-  // Lida com a requisição inicial (preflight) do navegador
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const ctx = await getAuthenticatedContext(req);
+    const body = await req.json();
+    const servicos = Array.isArray(body?.servicos) ? (body.servicos as ServicoPayload[]) : [];
+    const analysisId = typeof body?.analysis_id === "string" ? body.analysis_id : null;
 
-    // O front-end (ou a IA) vai enviar algo como:
-    // { servicos: [{ codigo_servico: "piso_porcelanato", quantidade: 50 }, { codigo_servico: "reboco_massa_unica", quantidade: 30 }] }
-    const { servicos } = await req.json();
-
-    if (!servicos || !Array.isArray(servicos)) {
-      throw new Error("O payload deve conter um array de 'servicos'.");
+    if (analysisId) {
+      await assertAnalysisAccess(ctx.adminClient, ctx.user.id, analysisId);
     }
 
-    // Dicionário para agrupar materiais iguais de serviços diferentes
+    if (servicos.length === 0) {
+      throw new HttpError(400, "O payload deve conter um array de serviços.", "INVALID_INPUT");
+    }
+
     const listaMateriaisAgrupada: Record<string, any> = {};
 
     for (const item of servicos) {
-      const { codigo_servico, quantidade } = item;
+      const codigoServico = String(item.codigo_servico || "").trim();
+      const quantidade = Number(item.quantidade || 0);
+      if (!codigoServico || quantidade <= 0) continue;
 
-      // Busca a receita de bolo do serviço no banco
-      const { data: composicao, error } = await supabase
+      const { data: composicao, error } = await ctx.adminClient
         .from("composicoes_padrao")
         .select("insumos, nome_servico")
-        .eq("codigo_servico", codigo_servico)
+        .eq("codigo_servico", codigoServico)
         .single();
 
       if (error || !composicao) {
-        console.warn(`⚠️ Serviço '${codigo_servico}' não encontrado na base. Pulando...`);
+        console.warn("[calcular-quantitativos] serviço não encontrado:", codigoServico);
         continue;
       }
 
-      // Calcula a quantidade final de cada material
-      const insumos = composicao.insumos as any[];
-      
+      const insumos = Array.isArray(composicao.insumos) ? composicao.insumos : [];
       for (const insumo of insumos) {
-        const quantidadeFinal = quantidade * insumo.quantidade_por_unidade * insumo.fator_perda;
+        const nomeBusca = String(insumo?.nome_busca || "").trim();
+        const fatorPerda = Number(insumo?.fator_perda || 1);
+        const quantidadePorUnidade = Number(insumo?.quantidade_por_unidade || 0);
+        if (!nomeBusca || quantidadePorUnidade <= 0) continue;
 
-        // Se o material já existe na nossa lista (ex: Cimento), nós apenas somamos
-        if (listaMateriaisAgrupada[insumo.nome_busca]) {
-          listaMateriaisAgrupada[insumo.nome_busca].quantidade_total += quantidadeFinal;
-          listaMateriaisAgrupada[insumo.nome_busca].origem.push(composicao.nome_servico);
-        } else {
-          // Se não existe, criamos a entrada do material
-          listaMateriaisAgrupada[insumo.nome_busca] = {
-            nome_busca: insumo.nome_busca,
-            tipo: insumo.tipo,
-            quantidade_total: quantidadeFinal,
-            origem: [composicao.nome_servico] // Rastreabilidade: guarda de qual serviço esse material veio
+        const quantidadeFinal = quantidade * quantidadePorUnidade * Math.max(fatorPerda, 0);
+        if (!listaMateriaisAgrupada[nomeBusca]) {
+          listaMateriaisAgrupada[nomeBusca] = {
+            nome_busca: nomeBusca,
+            tipo: String(insumo?.tipo || ""),
+            quantidade_total: 0,
+            origem: [] as string[],
           };
         }
+
+        listaMateriaisAgrupada[nomeBusca].quantidade_total += quantidadeFinal;
+        listaMateriaisAgrupada[nomeBusca].origem.push(composicao.nome_servico);
       }
     }
 
-    // Transforma o dicionário agrupado em um array limpo para devolver ao front-end
-    const materiaisFinais = Object.values(listaMateriaisAgrupada);
-
-    return new Response(JSON.stringify({ materiais: materiaisFinais }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
+    return json({
+      materiais: Object.values(listaMateriaisAgrupada),
     });
-
-  } catch (error: any) {
-    console.error("🚨 ERRO NO MOTOR PARAMÉTRICO:", error.message, error.stack);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+  } catch (error) {
+    return toErrorResponse(error, "Não foi possível calcular os quantitativos.");
   }
 });
