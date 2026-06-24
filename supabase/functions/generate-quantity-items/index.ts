@@ -1,11 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { assertAnalysisAccess, corsHeaders, getAuthenticatedContext, HttpError, toErrorResponse } from "../_shared/security.ts";
 
 interface GenerateQuantityItemsRequest {
   analysis_id: string;
@@ -79,28 +73,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const ctx = await getAuthenticatedContext(req);
+    const supabase = ctx.adminClient;
 
     const body: GenerateQuantityItemsRequest = await req.json();
     const { analysis_id } = body;
 
     if (!analysis_id) {
-      return new Response(JSON.stringify({ error: "Missing analysis_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new HttpError(400, "Missing analysis_id", "INVALID_INPUT");
     }
+
+    await assertAnalysisAccess(supabase, ctx.user.id, analysis_id);
 
     const architecturalRun = await getLatestRunByStage(supabase, analysis_id, "architectural_extraction");
     const electricalRun = await getLatestRunByStage(supabase, analysis_id, "electrical_extraction");
@@ -472,15 +455,6 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("generate-quantity-items error:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return toErrorResponse(error, "Não foi possível gerar o quantitativo.");
   }
 });

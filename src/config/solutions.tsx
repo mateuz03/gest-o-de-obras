@@ -9,6 +9,7 @@ import {
   Briefcase,
   type LucideIcon,
 } from "lucide-react";
+import type { SignupAccountHint } from "@/lib/authFeedback";
 
 /**
  * Arquitetura de Navegação Condicional
@@ -39,6 +40,7 @@ export interface SolutionMarketing {
 export interface SolutionRoute {
   slug: string;
   path: string;
+  signupAccountHint?: SignupAccountHint;
   /** Componente da tela privada (lazy). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: LazyExoticComponent<ComponentType<any>>;
@@ -148,6 +150,7 @@ export const SOLUTION_ROUTES: SolutionRoute[] = [
   {
     slug: "cadastrar-profissional",
     path: "/cadastrar-profissional",
+    signupAccountHint: "PF",
     component: CadastrarProfissional,
     marketing: {
       name: "Prestar Serviços",
@@ -165,6 +168,7 @@ export const SOLUTION_ROUTES: SolutionRoute[] = [
   {
     slug: "painel-loja",
     path: "/painel-loja",
+    signupAccountHint: "PJ",
     component: PainelLojista,
     marketing: {
       name: "Gerenciar Minha Loja",

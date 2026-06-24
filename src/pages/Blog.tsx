@@ -1,45 +1,66 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Search, Calendar, Clock, User,
-  ArrowLeft, ArrowRight, ChevronDown, X,
-  BookOpen, Star, Loader2
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Calendar,
+  ChevronDown,
+  Clock,
+  Loader2,
+  Search,
+  Star,
+  User,
+  X,
 } from "lucide-react";
+
+import Navbar from "@/components/Navbar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import Navbar from "@/components/Navbar";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  FALLBACK_BLOG_IMAGE,
+  getMockBlogPosts,
+  mapBlogRowToPublicPost,
+  type PublicBlogPost,
+} from "@/lib/blog";
 import { toast } from "sonner";
-import { BLOG_POSTS } from "@/data/blogData";
 
-interface Artigo {
-  id: number;
-  slug: string;
-  categoria: string;
-  tipo: string;
-  titulo: string;
-  resumo: string;
-  autor: string;
-  data: string;
-  tempoLeitura: string;
-  destaque: boolean;
-  imagem: string;
-}
+const CATEGORIAS = [
+  "Todas as Categorias",
+  "Gestão de Obras",
+  "Produtividade",
+  "Suprimentos",
+  "Tecnologia BIM",
+] as const;
 
-const CATEGORIAS = ["Todas as Categorias", "Gestão de Obras", "Produtividade", "Suprimentos", "Tecnologia BIM"] as const;
-const TIPOS = ["Todos os Formatos", "Artigo Técnico", "Guia Prático", "Tendência", "Estudo de Caso"] as const;
-const TEMAS_CHIPS = ["SINAPI", "Orçamento", "Produtividade", "Marketplace B2B", "Gestão de Obras", "Suprimentos"] as const;
-const FALLBACK_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400' viewBox='0 0 800 400'%3E%3Crect width='800' height='400' fill='%23f1f5f9'/%3E%3Crect x='340' y='160' width='120' height='80' rx='8' fill='%23cbd5e1'/%3E%3Ccircle cx='400' cy='145' r='20' fill='%23cbd5e1'/%3E%3C/svg%3E";
+const TIPOS = [
+  "Todos os Formatos",
+  "Artigo Técnico",
+  "Guia Prático",
+  "Tendência",
+  "Estudo de Caso",
+] as const;
+
+const TEMAS_CHIPS = [
+  "SINAPI",
+  "Orçamento",
+  "Produtividade",
+  "Marketplace B2B",
+  "Gestão de Obras",
+  "Suprimentos",
+] as const;
+
 const ARTIGOS_POR_PAGINA = 3;
 
 export default function Blog() {
   const { user } = useAuth();
-  const [artigos, setArtigos] = useState<Artigo[]>([]);
+  const [artigos, setArtigos] = useState<PublicBlogPost[]>([]);
   const [favoritos, setFavoritos] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
-  const [favoritosLoading, setFavoritosLoading] = useState(false); // ✅ CORRIGIDO
+  const [favoritosLoading, setFavoritosLoading] = useState(false);
 
   const [busca, setBusca] = useState("");
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>(CATEGORIAS[0]);
@@ -47,211 +68,152 @@ export default function Blog() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [mostrandoFavoritos, setMostrandoFavoritos] = useState(false);
 
-  // ── useEffect #1: Carrega artigos públicos (roda 1 vez)
-  // ── useEffect #1: Carrega artigos públicos (roda 1 vez)
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function carregarArtigos() {
-    setLoading(true);
-    try {
-      console.log("Tentando carregar artigos do Supabase...");
-      
-      // Tentar carregar do Supabase
-      const { data: postsData, error: postsError } = await supabase
-        .from("blog_posts")
-        .select("id, slug, titulo, resumo, conteudo, categoria, tipo, autor, data, tempoLeitura, imagem, destaque")
-        .order("created_at", { ascending: false });
+    async function carregarArtigos() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("blog_posts")
+          .select("id, slug, titulo, resumo, conteudo, categoria, tipo, autor, created_at, tempo_leitura, imagem, destaque")
+          .order("created_at", { ascending: false });
 
-      if (postsError) {
-        console.error("Erro Supabase (esperado se tabela não existe):", postsError);
-        throw new Error(postsError.message);
-      }
+        if (error) throw error;
+        if (cancelled) return;
 
-      if (cancelled) return;
+        if (!data || data.length === 0) {
+          setArtigos(getMockBlogPosts());
+          return;
+        }
 
-      console.log("Artigos carregados do Supabase:", postsData);
-
-      if (!postsData || postsData.length === 0) {
-        console.warn("Nenhum artigo encontrado no Supabase, usando dados mockados...");
-        const artigosMapeados: Artigo[] = BLOG_POSTS.map((p) => ({
-          id: p.id,
-          slug: p.slug,
-          categoria: p.categoria,
-          tipo: p.tipo,
-          titulo: p.titulo,
-          resumo: p.resumo,
-          autor: p.autor,
-          data: p.data,
-          tempoLeitura: p.tempoLeitura,
-          destaque: p.destaque,
-          imagem: p.imagem,
-        }));
-        setArtigos(artigosMapeados);
-        return;
-      }
-
-      // Tipagem segura dos dados do Supabase
-      const artigosMapeados: Artigo[] = (postsData || []).map((p: any) => ({
-        id: p.id || 0,
-        slug: p.slug || "",
-        categoria: p.categoria || "Sem categoria",
-        tipo: p.tipo || "Artigo",
-        titulo: p.titulo || "Sem título",
-        resumo: p.resumo || "",
-        autor: p.autor || "Anônimo",
-        data: p.data || new Date().toLocaleDateString("pt-BR"),
-        tempoLeitura: p.tempoLeitura || "5 min",
-        destaque: p.destaque || false,
-        imagem: p.imagem || FALLBACK_IMAGE,
-      }));
-
-      console.log("Artigos mapeados:", artigosMapeados);
-      setArtigos(artigosMapeados);
-    } catch (err: any) {
-      console.error("Erro ao carregar artigos:", err);
-      
-      // Fallback final: usar dados mockados
-      console.warn("Usando dados mockados como fallback...");
-      const artigosMapeados: Artigo[] = BLOG_POSTS.map((p) => ({
-        id: p.id,
-        slug: p.slug,
-        categoria: p.categoria,
-        tipo: p.tipo,
-        titulo: p.titulo,
-        resumo: p.resumo,
-        autor: p.autor,
-        data: p.data,
-        tempoLeitura: p.tempoLeitura,
-        destaque: p.destaque,
-        imagem: p.imagem,
-      }));
-      
-      if (!cancelled) {
-        setArtigos(artigosMapeados);
-        toast.error("Usando dados em cache. Alguns artigos podem estar desatualizados.");
-      }
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
+        setArtigos(data.map(mapBlogRowToPublicPost));
+      } catch (error) {
+        console.error("Erro ao carregar artigos:", error);
+        if (!cancelled) {
+          setArtigos(getMockBlogPosts());
+          toast.error("Usando dados em cache. Alguns artigos podem estar desatualizados.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
-  }
 
-  carregarArtigos();
-  return () => { cancelled = true; };
-}, []);
+    void carregarArtigos();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  // ── useEffect #2: Carrega favoritos do usuário (roda ao logar/deslogar)
-  // ── useEffect #2: Carrega favoritos do usuário (roda ao logar/deslogar)
-useEffect(() => {
-  if (!user) {
-    setFavoritos([]);
-    return;
-  }
-
-  let cancelled = false;
-
-  async function carregarFavoritos() {
-    setFavoritosLoading(true); // ✅ CORRIGIDO (antes era setFavoritosLoading)
-    try {
-      const { data: favData, error: favError } = await supabase
-        .from("blog_favorites")
-        .select("post_id")
-        .eq("user_id", user.id);
-
-      if (favError) throw favError;
-      if (cancelled) return;
-
-      setFavoritos(favData?.map((f: Record<string, any>) => Number(f.post_id)) || []);
-    } catch (err) {
-      if (!cancelled) {
-        console.error("Erro ao carregar favoritos:", err);
-        toast.error("Erro ao carregar seus favoritos.");
-      }
-    } finally {
-      if (!cancelled) setFavoritosLoading(false); // ✅ CORRIGIDO
-    }
-  }
-
-  carregarFavoritos();
-  return () => { cancelled = true; };
-}, [user]);
-
-  // ── Função memoizada: Toggle favorito
-  const toggleFavorito = useCallback(async (e: React.MouseEvent, postId: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+  useEffect(() => {
     if (!user) {
-      toast.error("Você precisa estar logado para favoritar artigos.");
+      setFavoritos([]);
       return;
     }
 
-    const jaFavoritado = favoritos.includes(postId);
+    let cancelled = false;
 
-    try {
-      if (jaFavoritado) {
-        const { error } = await supabase
+    async function carregarFavoritos() {
+      setFavoritosLoading(true);
+      try {
+        const { data, error } = await supabase
           .from("blog_favorites")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("post_id", postId);
+          .select("post_id")
+          .eq("user_id", user.id);
 
         if (error) throw error;
-        setFavoritos((prev) => prev.filter((id) => id !== postId));
-        toast.success("Removido dos favoritos.");
-      } else {
-        const { error } = await supabase
-          .from("blog_favorites")
-          .insert([{ user_id: user.id, post_id: postId }]);
-
-        if (error) throw error;
-        setFavoritos((prev) => [...prev, postId]);
-        toast.success("Artigo favoritado!");
+        if (!cancelled) {
+          setFavoritos((data ?? []).map((item) => Number(item.post_id)));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar favoritos:", error);
+        if (!cancelled) {
+          toast.error("Erro ao carregar seus favoritos.");
+        }
+      } finally {
+        if (!cancelled) setFavoritosLoading(false);
       }
-    } catch (err) {
-      console.error("Erro ao gerenciar favorito:", err);
-      toast.error("Falha ao processar solicitação.");
     }
-  }, [user, favoritos]);
 
-  // ── Filtragem memoizada
+    void carregarFavoritos();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const toggleFavorito = useCallback(
+    async (event: React.MouseEvent, postId: number) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!user) {
+        toast.error("Você precisa estar logado para favoritar artigos.");
+        return;
+      }
+
+      const jaFavoritado = favoritos.includes(postId);
+
+      try {
+        if (jaFavoritado) {
+          const { error } = await supabase
+            .from("blog_favorites")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("post_id", postId);
+
+          if (error) throw error;
+          setFavoritos((prev) => prev.filter((id) => id !== postId));
+          toast.success("Removido dos favoritos.");
+        } else {
+          const { error } = await supabase
+            .from("blog_favorites")
+            .insert([{ user_id: user.id, post_id: postId }]);
+
+          if (error) throw error;
+          setFavoritos((prev) => [...prev, postId]);
+          toast.success("Artigo favoritado.");
+        }
+      } catch (error) {
+        console.error("Erro ao gerenciar favorito:", error);
+        toast.error("Falha ao processar solicitação.");
+      }
+    },
+    [favoritos, user],
+  );
+
   const artigosFiltrados = useMemo(() => {
-    return artigos.filter((a) => {
+    return artigos.filter((artigo) => {
+      const term = busca.trim().toLowerCase();
       const matchBusca =
-        !busca ||
-        a.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-        a.resumo.toLowerCase().includes(busca.toLowerCase()) ||
-        a.categoria.toLowerCase().includes(busca.toLowerCase());
+        !term ||
+        artigo.titulo.toLowerCase().includes(term) ||
+        artigo.resumo.toLowerCase().includes(term) ||
+        artigo.categoria.toLowerCase().includes(term);
 
       const matchCategoria =
-        categoriaSelecionada === CATEGORIAS[0] || a.categoria === categoriaSelecionada;
+        categoriaSelecionada === CATEGORIAS[0] || artigo.categoria === categoriaSelecionada;
 
-      const matchTipo =
-        tipoSelecionado === TIPOS[0] || a.tipo === tipoSelecionado;
-
-      const matchFavorito = !mostrandoFavoritos || favoritos.includes(a.id);
+      const matchTipo = tipoSelecionado === TIPOS[0] || artigo.tipo === tipoSelecionado;
+      const matchFavorito = !mostrandoFavoritos || favoritos.includes(artigo.id);
 
       return matchBusca && matchCategoria && matchTipo && matchFavorito;
     });
   }, [artigos, busca, categoriaSelecionada, tipoSelecionado, mostrandoFavoritos, favoritos]);
 
-  // ── Paginação memoizada
   const { totalPaginas, paginaSegura, artigosPagina } = useMemo(() => {
     const total = Math.max(1, Math.ceil(artigosFiltrados.length / ARTIGOS_POR_PAGINA));
-    const paginaValida = Math.min(paginaAtual, total);
-    const paginados = artigosFiltrados.slice(
-      (paginaValida - 1) * ARTIGOS_POR_PAGINA,
-      paginaValida * ARTIGOS_POR_PAGINA
-    );
-    return { totalPaginas: total, paginaSegura: paginaValida, artigosPagina: paginados };
+    const pagina = Math.min(paginaAtual, total);
+    const inicio = (pagina - 1) * ARTIGOS_POR_PAGINA;
+
+    return {
+      totalPaginas: total,
+      paginaSegura: pagina,
+      artigosPagina: artigosFiltrados.slice(inicio, inicio + ARTIGOS_POR_PAGINA),
+    };
   }, [artigosFiltrados, paginaAtual]);
 
-  // ── Artigo em destaque memoizado
-  const artigoDestaque = useMemo(() => artigos.find((a) => a.destaque), [artigos]);
+  const artigoDestaque = useMemo(() => artigos.find((artigo) => artigo.destaque), [artigos]);
 
-  // ── Filtros ativos
   const filtrosAtivos = useMemo(() => {
     return [
       busca && { label: `"${busca}"`, clear: () => setBusca("") },
@@ -264,13 +226,11 @@ useEffect(() => {
         clear: () => setTipoSelecionado(TIPOS[0]),
       },
       mostrandoFavoritos && {
-        label: "Apenas Favoritos",
+        label: "Apenas favoritos",
         clear: () => setMostrandoFavoritos(false),
       },
-    ].filter(Boolean) as { label: string; clear: () => void }[];
+    ].filter(Boolean) as Array<{ label: string; clear: () => void }>;
   }, [busca, categoriaSelecionada, tipoSelecionado, mostrandoFavoritos]);
-
-  const temFiltrosAtivos = filtrosAtivos.length > 0;
 
   const limparFiltros = useCallback(() => {
     setBusca("");
@@ -280,13 +240,11 @@ useEffect(() => {
     setPaginaAtual(1);
   }, []);
 
-  // ── Handlers para chips de tema
   const handleTemaClick = useCallback((tema: string) => {
     setBusca(tema);
     setPaginaAtual(1);
   }, []);
 
-  // ── Handlers para filtros
   const handleCategoriaChange = useCallback((categoria: string) => {
     setCategoriaSelecionada(categoria);
     setPaginaAtual(1);
@@ -304,10 +262,10 @@ useEffect(() => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
+      <div className="min-h-screen bg-slate-50 pb-16 font-sans text-slate-900">
         <Navbar />
-        <div className="flex flex-col items-center justify-center py-32 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <div className="flex flex-col items-center justify-center gap-3 py-32">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
           <p className="text-sm font-medium text-slate-500">Buscando publicações do Obra Link...</p>
         </div>
       </div>
@@ -315,28 +273,24 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
+    <div className="min-h-screen bg-slate-50 pb-16 font-sans text-slate-900">
       <Navbar />
 
-      <main className="container max-w-5xl mx-auto py-12 px-4">
-
-        {/* HERO DO BLOG */}
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <main className="container mx-auto max-w-5xl px-4 py-12">
+        <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-3">
+            <h1 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900">
               Blog <span className="text-emerald-600">Obra Link</span>
             </h1>
-            <p className="text-lg text-slate-500 mb-6 max-w-2xl">
-              Conteúdo para engenheiros, gestores de obras, construtoras e
-              fornecedores — orçamento, SINAPI, produtividade e tecnologia.
+            <p className="mb-6 max-w-2xl text-lg text-slate-500">
+              Conteúdo para engenheiros, gestores de obras, construtoras e fornecedores.
             </p>
             <div className="flex flex-wrap gap-2">
               {TEMAS_CHIPS.map((tema) => (
                 <button
                   key={tema}
                   onClick={() => handleTemaClick(tema)}
-                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-full text-slate-600 hover:border-emerald-500 hover:text-emerald-600 transition-colors duration-200 cursor-pointer"
-                  aria-label={`Buscar artigos sobre ${tema}`}
+                  className="cursor-pointer rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-600 transition-colors hover:border-emerald-500 hover:text-emerald-600"
                 >
                   {tema}
                 </button>
@@ -344,128 +298,127 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Botão de alternar visualização de favoritos */}
-          {user && (
+          {user ? (
             <Button
               variant={mostrandoFavoritos ? "default" : "outline"}
               onClick={handleToggleFavoritos}
               disabled={favoritosLoading}
-              className={`rounded-full shadow-sm whitespace-nowrap ${
+              className={`rounded-full shadow-sm ${
                 mostrandoFavoritos
-                  ? "bg-amber-500 hover:bg-amber-600 text-white border-none"
+                  ? "border-none bg-amber-500 text-white hover:bg-amber-600"
                   : "bg-white text-slate-700"
               }`}
-              aria-label={mostrandoFavoritos ? "Ver todos os artigos" : `Ver ${favoritos.length} favoritos`}
             >
-              <Star className={`w-4 h-4 mr-2 ${mostrandoFavoritos ? "fill-white" : ""}`} />
-              {mostrandoFavoritos ? "Ver Todos" : `Favoritos (${favoritos.length})`}
+              <Star className={`mr-2 h-4 w-4 ${mostrandoFavoritos ? "fill-white" : ""}`} />
+              {mostrandoFavoritos ? "Ver todos" : `Favoritos (${favoritos.length})`}
             </Button>
-          )}
+          ) : null}
         </div>
 
-        {/* ARTIGO EM DESTAQUE */}
-        {artigoDestaque && !temFiltrosAtivos && (
+        {artigoDestaque && filtrosAtivos.length === 0 ? (
           <Link
             to={`/blog/${artigoDestaque.slug}`}
-            className="block mb-12 group relative focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-2xl"
-            aria-label={`Artigo em destaque: ${artigoDestaque.titulo}`}
+            className="group relative mb-12 block rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white hover:shadow-md transition-shadow duration-200">
-              <div className="absolute top-4 left-4 z-10 flex gap-2">
-                <Badge className="bg-emerald-600 text-white font-semibold flex items-center gap-1">
-                  <Star className="w-3 h-3" /> Destaque
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+              <div className="absolute left-4 top-4 z-10 flex gap-2">
+                <Badge className="flex items-center gap-1 bg-emerald-600 font-semibold text-white">
+                  <Star className="h-3 w-3" />
+                  Destaque
                 </Badge>
               </div>
 
-              {/* Botão de favoritar flutuante no Destaque */}
               <button
-                onClick={(e) => toggleFavorito(e, artigoDestaque.id)}
-                className="absolute top-4 right-4 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow hover:bg-white transition-colors duration-200"
-                aria-label={favoritos.includes(artigoDestaque.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-              >
-                <Star className={`w-5 h-5 transition-colors ${
+                onClick={(event) => void toggleFavorito(event, artigoDestaque.id)}
+                className="absolute right-4 top-4 z-10 rounded-full bg-white/80 p-2 shadow backdrop-blur-sm transition-colors hover:bg-white"
+                aria-label={
                   favoritos.includes(artigoDestaque.id)
-                    ? "fill-amber-400 text-amber-400"
-                    : "text-slate-400"
-                }`} />
+                    ? "Remover dos favoritos"
+                    : "Adicionar aos favoritos"
+                }
+              >
+                <Star
+                  className={`h-5 w-5 ${
+                    favoritos.includes(artigoDestaque.id)
+                      ? "fill-amber-400 text-amber-400"
+                      : "text-slate-400"
+                  }`}
+                />
               </button>
 
               <div className="flex flex-col md:flex-row">
-                <div className="md:w-1/2 h-64 md:h-auto overflow-hidden">
+                <div className="h-64 overflow-hidden md:w-1/2 md:h-auto">
                   <img
                     src={artigoDestaque.imagem}
                     alt={artigoDestaque.titulo}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                    }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="eager"
+                    onError={(event) => {
+                      (event.target as HTMLImageElement).src = FALLBACK_BLOG_IMAGE;
+                    }}
                   />
                 </div>
-                <div className="md:w-1/2 p-8 flex flex-col justify-center">
-                  <Badge className="bg-emerald-100 text-emerald-800 border-none w-fit mb-4 font-semibold">
+
+                <div className="flex flex-col justify-center p-8 md:w-1/2">
+                  <Badge className="mb-4 w-fit border-none bg-emerald-100 font-semibold text-emerald-800">
                     {artigoDestaque.categoria}
                   </Badge>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-3 leading-snug group-hover:text-emerald-600 transition-colors duration-200">
+                  <h2 className="mb-3 text-2xl font-bold leading-snug text-slate-900 transition-colors group-hover:text-emerald-600">
                     {artigoDestaque.titulo}
                   </h2>
-                  <p className="text-slate-500 mb-6 line-clamp-3">
-                    {artigoDestaque.resumo}
-                  </p>
-                  <div className="flex items-center gap-4 text-sm text-slate-400 font-medium mb-6 flex-wrap">
+                  <p className="mb-6 line-clamp-3 text-slate-500">{artigoDestaque.resumo}</p>
+                  <div className="mb-6 flex flex-wrap items-center gap-4 text-sm font-medium text-slate-400">
                     <span className="flex items-center gap-1.5">
-                      <User className="w-4 h-4" />
+                      <User className="h-4 w-4" />
                       {artigoDestaque.autor}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4" />
+                      <Calendar className="h-4 w-4" />
                       {artigoDestaque.data}
                     </span>
                     <span className="flex items-center gap-1.5 text-emerald-600">
-                      <Clock className="w-4 h-4" />
+                      <Clock className="h-4 w-4" />
                       {artigoDestaque.tempoLeitura}
                     </span>
                   </div>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-6 w-fit transition-colors duration-200">
-                    <BookOpen className="w-4 h-4 mr-2" /> Ler artigo completo
+                  <Button className="w-fit rounded-full bg-emerald-600 px-6 text-white hover:bg-emerald-700">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Ler artigo completo
                   </Button>
                 </div>
               </div>
             </div>
           </Link>
-        )}
+        ) : null}
 
-        {/* BUSCA E FILTROS */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 mb-4">
+        <div className="mb-4 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Buscar por SINAPI, orçamento, produtividade, gestão..."
+              placeholder="Buscar por SINAPI, orçamento, produtividade..."
               value={busca}
-              onChange={(e) => {
-                setBusca(e.target.value);
+              onChange={(event) => {
+                setBusca(event.target.value);
                 setPaginaAtual(1);
               }}
-              className="pl-10 h-12 bg-slate-50 border-transparent focus:bg-white focus:border-emerald-500 text-base transition-colors"
-              aria-label="Buscar artigos"
+              className="h-12 border-transparent bg-slate-50 pl-10 text-base focus:border-emerald-500 focus:bg-white"
             />
-            {busca && (
+            {busca ? (
               <button
                 onClick={() => setBusca("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                aria-label="Limpar busca"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
-            )}
+            ) : null}
           </div>
-          <div className="flex gap-3 md:w-auto flex-wrap md:flex-nowrap">
-            <div className="relative flex-1 md:flex-none md:w-48">
+
+          <div className="flex flex-wrap gap-3 md:flex-nowrap">
+            <div className="relative flex-1 md:w-48">
               <select
                 value={tipoSelecionado}
-                onChange={(e) => handleTipoChange(e.target.value)}
-                className="w-full h-12 appearance-none bg-slate-50 border border-slate-200 rounded-md px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition-colors"
-                aria-label="Filtrar por formato"
+                onChange={(event) => handleTipoChange(event.target.value)}
+                className="h-12 w-full appearance-none rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 {TIPOS.map((tipo) => (
                   <option key={tipo} value={tipo}>
@@ -473,70 +426,67 @@ useEffect(() => {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             </div>
-            <div className="relative flex-1 md:flex-none md:w-56">
+
+            <div className="relative flex-1 md:w-56">
               <select
                 value={categoriaSelecionada}
-                onChange={(e) => handleCategoriaChange(e.target.value)}
-                className="w-full h-12 appearance-none bg-slate-50 border border-slate-200 rounded-md px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition-colors"
-                aria-label="Filtrar por categoria"
+                onChange={(event) => handleCategoriaChange(event.target.value)}
+                className="h-12 w-full appearance-none rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500"
               >
-                {CATEGORIAS.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {CATEGORIAS.map((categoria) => (
+                  <option key={categoria} value={categoria}>
+                    {categoria}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             </div>
           </div>
         </div>
 
-        {/* Filtros ativos */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 min-h-[28px]">
+        <div className="mb-6 flex min-h-[28px] flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            {filtrosAtivos.map((f) => (
+            {filtrosAtivos.map((filtro) => (
               <span
-                key={f.label}
-                className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-0.5 text-sm font-medium"
+                key={filtro.label}
+                className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-0.5 text-sm font-medium text-emerald-700"
               >
-                {f.label}
+                {filtro.label}
                 <button
                   onClick={() => {
-                    f.clear();
+                    filtro.clear();
                     setPaginaAtual(1);
                   }}
-                  className="hover:text-emerald-900 transition-colors"
-                  aria-label={`Remover filtro ${f.label}`}
+                  className="transition-colors hover:text-emerald-900"
                 >
-                  <X className="w-3 h-3 ml-0.5" />
+                  <X className="ml-0.5 h-3 w-3" />
                 </button>
               </span>
             ))}
-            {temFiltrosAtivos && (
+            {filtrosAtivos.length > 0 ? (
               <button
                 onClick={limparFiltros}
-                className="text-sm text-slate-400 hover:text-slate-700 underline underline-offset-2 transition-colors"
-                aria-label="Limpar todos os filtros"
+                className="text-sm text-slate-400 underline underline-offset-2 transition-colors hover:text-slate-700"
               >
                 Limpar filtros
               </button>
-            )}
+            ) : null}
           </div>
-          <span className="text-sm text-slate-400 font-medium" aria-live="polite" aria-atomic="true">
+
+          <span className="text-sm font-medium text-slate-400">
             {artigosFiltrados.length === 0
               ? "Nenhum artigo encontrado"
               : `${artigosFiltrados.length} artigo${artigosFiltrados.length !== 1 ? "s" : ""} encontrado${artigosFiltrados.length !== 1 ? "s" : ""}`}
           </span>
         </div>
 
-        {/* LISTA DE ARTIGOS */}
         {artigosPagina.length === 0 ? (
-          <div className="text-center py-24 bg-white rounded-2xl border border-dashed border-slate-200">
-            <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-slate-700 mb-2">Nenhum artigo encontrado</h3>
-            <p className="text-slate-400 mb-6">Tente buscar por outro termo ou limpar os filtros.</p>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-24 text-center">
+            <Search className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="mb-2 text-lg font-bold text-slate-700">Nenhum artigo encontrado</h3>
+            <p className="mb-6 text-slate-400">Tente buscar por outro termo ou limpar os filtros.</p>
             <Button variant="outline" onClick={limparFiltros}>
               Limpar filtros
             </Button>
@@ -547,67 +497,65 @@ useEffect(() => {
               <Link
                 key={artigo.id}
                 to={`/blog/${artigo.slug}`}
-                className="flex flex-col md:flex-row bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-emerald-200 transition-all group relative focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                aria-label={`Artigo: ${artigo.titulo}`}
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-emerald-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 md:flex-row"
               >
-                {/* Imagem */}
-                <div className="md:w-2/5 lg:w-1/3 h-52 md:h-auto overflow-hidden bg-slate-100 relative flex-shrink-0">
+                <div className="relative h-52 overflow-hidden bg-slate-100 md:h-auto md:w-2/5 lg:w-1/3">
                   <img
                     src={artigo.imagem}
                     alt={artigo.titulo}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                    }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
+                    onError={(event) => {
+                      (event.target as HTMLImageElement).src = FALLBACK_BLOG_IMAGE;
+                    }}
                   />
-                  {/* Botão de Favorito no Card Normal */}
+
                   <button
-                    onClick={(e) => toggleFavorito(e, artigo.id)}
-                    className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow hover:bg-white transition-all scale-90 md:scale-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    aria-label={favoritos.includes(artigo.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    onClick={(event) => void toggleFavorito(event, artigo.id)}
+                    className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow backdrop-blur-sm transition-all hover:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
-                    <Star className={`w-4 h-4 transition-colors ${
-                      favoritos.includes(artigo.id)
-                        ? "fill-amber-400 text-amber-400"
-                        : "text-slate-400"
-                    }`} />
+                    <Star
+                      className={`h-4 w-4 ${
+                        favoritos.includes(artigo.id)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-slate-400"
+                      }`}
+                    />
                   </button>
                 </div>
 
-                {/* Conteúdo */}
-                <div className="p-6 md:p-8 flex flex-col justify-center flex-1">
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-semibold">
+                <div className="flex flex-1 flex-col justify-center p-6 md:p-8">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <Badge className="border-none bg-emerald-100 font-semibold text-emerald-800 hover:bg-emerald-100">
                       {artigo.categoria}
                     </Badge>
-                    <span className="text-xs text-slate-400 font-medium">{artigo.tipo}</span>
+                    <span className="text-xs font-medium text-slate-400">{artigo.tipo}</span>
                   </div>
 
-                  <h2 className="text-xl font-bold text-slate-900 mb-2 leading-snug line-clamp-2 group-hover:text-emerald-600 transition-colors duration-200">
+                  <h2 className="mb-2 line-clamp-2 text-xl font-bold leading-snug text-slate-900 transition-colors group-hover:text-emerald-600">
                     {artigo.titulo}
                   </h2>
-
-                  <p className="text-slate-500 mb-5 line-clamp-2 text-sm leading-relaxed">
+                  <p className="mb-5 line-clamp-2 text-sm leading-relaxed text-slate-500">
                     {artigo.resumo}
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-between gap-4 mt-auto">
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400 font-medium">
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-slate-400">
                       <span className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5" />
+                        <User className="h-3.5 w-3.5" />
                         {artigo.autor}
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
+                        <Calendar className="h-3.5 w-3.5" />
                         {artigo.data}
                       </span>
                       <span className="flex items-center gap-1.5 text-emerald-600">
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock className="h-3.5 w-3.5" />
                         {artigo.tempoLeitura}
                       </span>
                     </div>
-                    <span className="border border-emerald-600 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-200 text-sm font-medium rounded-full px-5 py-1.5">
+
+                    <span className="rounded-full border border-emerald-600 px-5 py-1.5 text-sm font-medium text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
                       Ler artigo
                     </span>
                   </div>
@@ -617,47 +565,42 @@ useEffect(() => {
           </div>
         )}
 
-        {/* PAGINAÇÃO */}
-        {totalPaginas > 1 && (
+        {totalPaginas > 1 ? (
           <nav className="mt-12 flex items-center justify-center gap-2" aria-label="Paginação">
             <Button
               variant="outline"
-              onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+              onClick={() => setPaginaAtual((prev) => Math.max(1, prev - 1))}
               disabled={paginaSegura === 1}
-              className="w-10 h-10 p-0 rounded-full border-slate-200 transition-colors"
-              aria-label="Página anterior"
+              className="h-10 w-10 rounded-full border-slate-200 p-0"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="h-4 w-4" />
             </Button>
 
-            {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
+            {Array.from({ length: totalPaginas }, (_, index) => index + 1).map((numero) => (
               <Button
-                key={num}
+                key={numero}
                 variant="outline"
-                onClick={() => setPaginaAtual(num)}
-                aria-label={`Página ${num}`}
-                aria-current={paginaSegura === num ? "page" : undefined}
-                className={`w-10 h-10 p-0 rounded-full transition-colors duration-200 ${
-                  paginaSegura === num
+                onClick={() => setPaginaAtual(numero)}
+                className={`h-10 w-10 rounded-full p-0 ${
+                  paginaSegura === numero
                     ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {num}
+                {numero}
               </Button>
             ))}
 
             <Button
               variant="outline"
-              onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
+              onClick={() => setPaginaAtual((prev) => Math.min(totalPaginas, prev + 1))}
               disabled={paginaSegura === totalPaginas}
-              className="w-10 h-10 p-0 rounded-full border-slate-200 transition-colors"
-              aria-label="Próxima página"
+              className="h-10 w-10 rounded-full border-slate-200 p-0"
             >
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </nav>
-        )}
+        ) : null}
       </main>
     </div>
   );

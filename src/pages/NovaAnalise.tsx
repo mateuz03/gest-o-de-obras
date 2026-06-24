@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import * as pdfjsLib from "pdfjs-dist";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,10 +43,8 @@ import {
 } from "lucide-react";
 import { LocalidadeAutocomplete } from "@/components/ui/localidade-autocomplete";
 // ✅ Importação corrigida do worker
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
 
 // ✅ Configuração do worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,6 +69,33 @@ const ANALYSIS_IMAGE_QUALITY = 0.78;
 const PDF_SCALE = 1.2;
 const JPEG_QUALITY = 0.65;
 const MAX_PAGES_PER_PDF = 5;
+
+type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.js");
+
+let pdfJsLoader:
+  | Promise<PdfJsModule & { GlobalWorkerOptions?: { workerSrc?: string } }>
+  | null = null;
+
+async function loadPdfJs() {
+  if (!pdfJsLoader) {
+    pdfJsLoader = Promise.all([
+      import("pdfjs-dist/legacy/build/pdf.js"),
+      import("pdfjs-dist/legacy/build/pdf.worker.min.js?url"),
+    ]).then(([pdfjsModule, workerModule]) => {
+      const pdfjsLib =
+        (pdfjsModule.default ??
+          pdfjsModule) as PdfJsModule & { GlobalWorkerOptions?: { workerSrc?: string } };
+
+      if (pdfjsLib.GlobalWorkerOptions) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerModule.default;
+      }
+
+      return pdfjsLib;
+    });
+  }
+
+  return pdfJsLoader;
+}
 
 type AnalysisMode = "planta" | "foto_ambiente";
 
@@ -101,6 +125,7 @@ const MODE_CONFIG = {
 const pdfToCompressedImages = async (
   file: File
 ): Promise<{ base64: string; mime_type: string }[]> => {
+  const pdfjsLib = await loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
 
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });

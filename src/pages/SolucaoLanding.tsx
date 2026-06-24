@@ -1,44 +1,45 @@
 import { useEffect } from "react";
-import { Link, useParams, Navigate } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Box, CheckCircle2, ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { getLandingBySlug } from "@/config/landingSolutions";
-import { saveIntendedRoute, authUrlWithRedirect } from "@/lib/intendedRoute";
+import { authUrlWithRedirect, saveIntendedRoute } from "@/lib/intendedRoute";
 
 interface SolucaoLandingProps {
-  /** Slug da solução. Quando omitido, é lido da rota `/solucoes/:slug`. */
   slug?: string;
 }
 
-/** Atualiza título e meta description para SEO dinâmico por solução. */
 function useLandingSeo(name?: string, subtitle?: string) {
   useEffect(() => {
     if (!name) return;
+
     const prevTitle = document.title;
-    document.title = `${name} — Obra Link`;
+    document.title = `${name} - Obra Link`;
 
     const meta =
       (document.querySelector('meta[name="description"]') as HTMLMetaElement | null) ??
       (() => {
-        const m = document.createElement("meta");
-        m.name = "description";
-        document.head.appendChild(m);
-        return m;
+        const created = document.createElement("meta");
+        created.name = "description";
+        document.head.appendChild(created);
+        return created;
       })();
-    const prevDesc = meta.content;
+
+    const prevDescription = meta.content;
     if (subtitle) meta.content = subtitle.slice(0, 160);
 
     return () => {
       document.title = prevTitle;
-      if (subtitle) meta.content = prevDesc;
+      if (subtitle) meta.content = prevDescription;
     };
   }, [name, subtitle]);
 }
 
-/** Renderiza o título com a expressão em destaque. */
 function renderTitle(title: string, highlight: string) {
   const [before, after] = title.split("{highlight}");
+
   return (
     <>
       {before}
@@ -48,54 +49,29 @@ function renderTitle(title: string, highlight: string) {
   );
 }
 
-/**
- * Landing Page Dinâmica de Conversão (única e reaproveitável).
- *
- * Exibida para VISITANTES que tentam acessar uma das soluções de negócio
- * (Marketplace, Prestar Serviço, Crie sua Loja). Recebe os dados via slug
- * de rota e direciona para cadastro/login preservando a rota de destino
- * (memória de intenção → deep link pós-login).
- */
 export default function SolucaoLanding({ slug: slugProp }: SolucaoLandingProps) {
   const params = useParams();
   const slug = slugProp ?? params.slug;
   const solution = getLandingBySlug(slug);
-
   const destination = solution?.destination ?? "/dashboard";
 
   useEffect(() => {
     if (solution) saveIntendedRoute(destination);
-  }, [solution, destination]);
+  }, [destination, solution]);
 
   useLandingSeo(solution?.marketing.name, solution?.marketing.subtitle);
 
-  // Slug inexistente → volta para a Home pública.
   if (!solution) return <Navigate to="/" replace />;
 
   const { name, badge, title, highlight, subtitle, benefits, primaryCta, icon: Icon } =
     solution.marketing;
-  const signupUrl = authUrlWithRedirect(destination, "signup");
+  const signupUrl = authUrlWithRedirect(destination, "signup", solution.signupAccountHint);
   const loginUrl = authUrlWithRedirect(destination, "login");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 text-slate-900">
-      <header className="border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 lg:px-8">
-          <Link to="/" className="flex items-center gap-2 text-xl font-bold text-slate-900">
-            <Box className="h-6 w-6 text-emerald-600" />
-            <span>Obra Link</span>
-          </Link>
-          <Button asChild variant="ghost" size="sm" className="text-slate-600">
-            <Link to="/">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao início
-            </Link>
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-16 lg:px-8 lg:py-24">
+      <main className="container mx-auto px-4 py-14 lg:px-8 lg:py-20">
         <div className="mx-auto grid max-w-5xl items-center gap-12 lg:grid-cols-2">
-          {/* Coluna de conteúdo */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -111,16 +87,15 @@ export default function SolucaoLanding({ slug: slugProp }: SolucaoLandingProps) 
             <p className="mb-8 text-lg leading-relaxed text-slate-500">{subtitle}</p>
 
             <ul className="mb-10 space-y-3">
-              {benefits.map((b) => (
-                <li key={b} className="flex items-start gap-3">
+              {benefits.map((benefit) => (
+                <li key={benefit} className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                  <span className="text-slate-700">{b}</span>
+                  <span className="text-slate-700">{benefit}</span>
                 </li>
               ))}
             </ul>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              {/* CTA Primário */}
               <Button
                 asChild
                 size="lg"
@@ -131,23 +106,21 @@ export default function SolucaoLanding({ slug: slugProp }: SolucaoLandingProps) 
                 </Link>
               </Button>
 
-              {/* CTA Secundário discreto */}
               <Button
                 asChild
                 variant="ghost"
                 size="lg"
                 className="h-12 px-4 text-base text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               >
-                <Link to={loginUrl}>Já tenho uma conta. Fazer login</Link>
+                <Link to={loginUrl}>Ja tenho uma conta. Fazer login</Link>
               </Button>
             </div>
 
             <p className="mt-4 text-sm text-slate-400">
-              Leva menos de 1 minuto • Sem cartão de crédito
+              Leva menos de 1 minuto - Sem cartao de credito
             </p>
           </motion.div>
 
-          {/* Coluna ilustrativa */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -162,7 +135,7 @@ export default function SolucaoLanding({ slug: slugProp }: SolucaoLandingProps) 
                 </div>
                 <h3 className="mb-2 text-xl font-bold text-slate-900">{name}</h3>
                 <p className="mb-6 text-sm text-slate-500">
-                  Crie sua conta gratuita e libere esta solução junto com todas as outras
+                  Crie sua conta gratuita e libere esta solucao junto com todas as outras
                   ferramentas do Obra Link.
                 </p>
                 <div className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-emerald-400">

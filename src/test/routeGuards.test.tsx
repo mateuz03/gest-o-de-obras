@@ -1,18 +1,27 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-// ── Mock do contexto de autenticação ──────────────────────────────────────
 const mockAuth = vi.fn();
+const mockUseAdminRole = vi.fn();
+const mockUsePlatformFlags = vi.fn();
+
 vi.mock("@/contexts/AuthContext", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/contexts/AuthContext")>();
   return { ...actual, useAuth: () => mockAuth() };
 });
 
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+vi.mock("@/hooks/useAdminRole", () => ({
+  useAdminRole: (...args: unknown[]) => mockUseAdminRole(...args),
+}));
 
-// Sentinela: representa QUALQUER árvore de tela privada. Se ela for renderizada
-// sem usuário autenticado, houve vazamento de dados no client-side.
+vi.mock("@/hooks/usePlatformFlags", () => ({
+  usePlatformFlags: (...args: unknown[]) => mockUsePlatformFlags(...args),
+}));
+
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import RecursoBloqueado from "@/pages/RecursoBloqueado";
+
 const PRIVATE_TEXT = "CONTEUDO-PRIVADO-SECRETO";
 const PrivateScreen = vi.fn(() => <div>{PRIVATE_TEXT}</div>);
 
@@ -22,11 +31,11 @@ function renderProtected() {
       <Routes>
         <Route
           path="/dashboard"
-          element={
+          element={(
             <ProtectedRoute>
               <PrivateScreen />
             </ProtectedRoute>
-          }
+          )}
         />
         <Route path="/auth" element={<div>Tela de Login</div>} />
       </Routes>
@@ -34,48 +43,84 @@ function renderProtected() {
   );
 }
 
-describe("Route Guards — isolamento de telas privadas", () => {
+describe("Route guards", () => {
   beforeEach(() => {
     mockAuth.mockReset();
+    mockUseAdminRole.mockReset();
+    mockUsePlatformFlags.mockReset();
     PrivateScreen.mockClear();
+
     try {
       sessionStorage.clear();
     } catch {
-      /* ignore */
+      // ignore storage errors
     }
+
+    mockUseAdminRole.mockReturnValue({
+      isAdmin: false,
+      isAdminLoading: false,
+    });
+
+    mockUsePlatformFlags.mockReturnValue({
+      flags: {
+        maintenance_mode: false,
+        maintenance_message: "",
+      },
+      loading: false,
+    });
   });
 
-  it("NÃO renderiza a árvore privada quando isAuthenticated é falso", () => {
-    mockAuth.mockReturnValue({ user: null, loading: false });
+  it("does not render the private tree when the user is not authenticated", () => {
+    mockAuth.mockReturnValue({
+      user: null,
+      loading: false,
+      accountStatus: "active",
+      signOut: vi.fn(),
+    });
+
     renderProtected();
 
-    // Nenhum dado privado pode vazar para o DOM.
     expect(screen.queryByText(PRIVATE_TEXT)).not.toBeInTheDocument();
-    // O componente privado nem chega a ser montado/executado.
     expect(PrivateScreen).not.toHaveBeenCalled();
-    // O visitante é levado ao login.
     expect(screen.getByText("Tela de Login")).toBeInTheDocument();
   });
 
-  it("mostra o estado de 'Checking Auth' e bloqueia a renderização enquanto carrega", () => {
-    mockAuth.mockReturnValue({ user: null, loading: true });
+  it("keeps the private tree blocked while auth is still loading", () => {
+    mockAuth.mockReturnValue({
+      user: null,
+      loading: true,
+      accountStatus: "active",
+      signOut: vi.fn(),
+    });
+
     renderProtected();
 
     expect(screen.queryByText(PRIVATE_TEXT)).not.toBeInTheDocument();
     expect(PrivateScreen).not.toHaveBeenCalled();
-    // Ainda não redirecionou (status real não resolvido).
     expect(screen.queryByText("Tela de Login")).not.toBeInTheDocument();
   });
 
-  it("persiste a rota de intenção para redirecionamento pós-login", () => {
-    mockAuth.mockReturnValue({ user: null, loading: false });
+  it("persists the intended route for post-login redirect", () => {
+    mockAuth.mockReturnValue({
+      user: null,
+      loading: false,
+      accountStatus: "active",
+      signOut: vi.fn(),
+    });
+
     renderProtected();
 
     expect(sessionStorage.getItem("obralink:intended-route")).toBe("/dashboard");
   });
 
-  it("renderiza a árvore privada apenas quando autenticado", () => {
-    mockAuth.mockReturnValue({ user: { id: "u1" }, loading: false });
+  it("renders the private tree only when the user is authenticated", () => {
+    mockAuth.mockReturnValue({
+      user: { id: "u1" },
+      loading: false,
+      accountStatus: "active",
+      signOut: vi.fn(),
+    });
+
     renderProtected();
 
     expect(screen.getByText(PRIVATE_TEXT)).toBeInTheDocument();
@@ -83,22 +128,18 @@ describe("Route Guards — isolamento de telas privadas", () => {
   });
 });
 
-// ── Guard condicional do App (Soluções Internas) ──────────────────────────
-import RecursoBloqueado from "@/pages/RecursoBloqueado";
-
-describe("Guard condicional — Soluções Internas", () => {
+describe("Solution intercept", () => {
   beforeEach(() => {
     PrivateScreen.mockClear();
   });
 
-  it("renderiza a Tela de Bloqueio (não a privada) para visitantes", () => {
-    const user = null;
+  it("renders the blocked marketing screen for visitors instead of the private tree", () => {
     render(
       <MemoryRouter initialEntries={["/dashboard"]}>
         <Routes>
           <Route
             path="/dashboard"
-            element={user ? <PrivateScreen /> : <RecursoBloqueado slug="gestao-de-projetos" />}
+            element={<RecursoBloqueado slug="gestao-de-projetos" />}
           />
         </Routes>
       </MemoryRouter>,
@@ -106,9 +147,8 @@ describe("Guard condicional — Soluções Internas", () => {
 
     expect(PrivateScreen).not.toHaveBeenCalled();
     expect(screen.queryByText(PRIVATE_TEXT)).not.toBeInTheDocument();
-    // A tela de bloqueio mostra o marketing do recurso (tagline única).
     expect(
-      screen.getByText(/Todos os seus orçamentos e obras em um só painel/i),
+      screen.getByRole("heading", { name: /Todos os seus orçamentos e obras em um só painel/i }),
     ).toBeInTheDocument();
   });
 });

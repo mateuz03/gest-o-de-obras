@@ -15,7 +15,9 @@ import {
   BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { landingPath } from "@/config/landingSolutions";
 import Navbar from "@/components/Navbar";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ── Constantes fora do componente (sem recriação a cada render) ───────────
 const STATS = [
@@ -61,6 +63,9 @@ const FALLBACK_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1000' height='400' viewBox='0 0 1000 400'%3E%3Crect width='1000' height='400' fill='%23f1f5f9'/%3E%3C/svg%3E";
 
 export default function QuemSomos() {
+  const { user } = useAuth();
+  const marketplacePath = user ? "/marketplace" : landingPath("marketplace");
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       <Navbar />
@@ -100,7 +105,7 @@ export default function QuemSomos() {
               variant="outline"
               className="rounded-full px-6 border-slate-300 text-slate-700"
             >
-              <Link to="/marketplace">Ver Marketplace</Link>
+              <Link to={marketplacePath}>Ver Marketplace</Link>
             </Button>
           </div>
         </div>

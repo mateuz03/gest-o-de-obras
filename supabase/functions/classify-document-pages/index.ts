@@ -1,11 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { assertAnalysisAccess, assertDocumentAccess, corsHeaders, getAuthenticatedContext, HttpError, json, toErrorResponse } from "../_shared/security.ts";
 
 interface ClassifyRequest {
   analysis_id: string;
@@ -22,7 +15,6 @@ function normalize(text: string) {
 function classifyPageFromText(text: string) {
   const t = normalize(text || "");
   const signals: string[] = [];
-
   let pageClass = "desconhecida";
   let confidence = 0.2;
 
@@ -61,34 +53,22 @@ function classifyPageFromText(text: string) {
   return { pageClass, confidence, signals };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
+    const ctx = await getAuthenticatedContext(req);
     const body: ClassifyRequest = await req.json();
     const { analysis_id, document_id } = body;
 
     if (!analysis_id || !document_id) {
-      return new Response(JSON.stringify({ error: "Missing analysis_id or document_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new HttpError(400, "analysis_id e document_id são obrigatórios.", "INVALID_INPUT");
     }
 
-    const { data: pages, error: pagesError } = await supabase
+    await assertAnalysisAccess(ctx.adminClient, ctx.user.id, analysis_id);
+    await assertDocumentAccess(ctx.adminClient, analysis_id, document_id);
+
+    const { data: pages, error: pagesError } = await ctx.adminClient
       .from("analysis_document_pages")
       .select("*")
       .eq("analysis_id", analysis_id)
@@ -97,30 +77,25 @@ serve(async (req) => {
 
     if (pagesError) throw pagesError;
 
-    const updates = [];
     for (const page of pages || []) {
       const sourceText = [page.embedded_text || "", page.ocr_text || ""].join("\n").trim();
       const { pageClass, confidence, signals } = classifyPageFromText(sourceText);
 
-      updates.push(
-        supabase
-          .from("analysis_document_pages")
-          .update({
-            page_class: pageClass,
-            classification_confidence: confidence,
-            metadata_json: {
-              ...(page.metadata_json || {}),
-              signals,
-              classified_at: new Date().toISOString(),
-            },
-          })
-          .eq("id", page.id)
-      );
+      await ctx.adminClient
+        .from("analysis_document_pages")
+        .update({
+          page_class: pageClass,
+          classification_confidence: confidence,
+          metadata_json: {
+            ...(page.metadata_json || {}),
+            signals,
+            classified_at: new Date().toISOString(),
+          },
+        })
+        .eq("id", page.id);
     }
 
-    await Promise.all(updates);
-
-    await supabase
+    await ctx.adminClient
       .from("analysis_documents")
       .update({
         status: "classified",
@@ -128,35 +103,19 @@ serve(async (req) => {
       })
       .eq("id", document_id);
 
-    await supabase.from("analysis_extraction_runs").insert({
+    await ctx.adminClient.from("analysis_extraction_runs").insert({
       analysis_id,
       document_id,
       stage: "classification",
       status: "completed",
-      payload_json: {
-        page_count: pages?.length || 0,
-      },
+      payload_json: { page_count: pages?.length || 0 },
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        classified_pages: pages?.length || 0,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json({
+      success: true,
+      classified_pages: pages?.length || 0,
+    });
   } catch (error) {
-    console.error("classify-document-pages error:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return toErrorResponse(error, "Não foi possível classificar as páginas.");
   }
 });

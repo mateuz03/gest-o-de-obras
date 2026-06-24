@@ -4,6 +4,7 @@ import { Store, ShoppingCart, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ReportDialog } from "@/components/marketplace/ReportDialog";
 import { resolveSellerLink } from "@/lib/sellerLink";
 
 export interface MarketplaceProduto {
@@ -99,7 +100,7 @@ export function ProductCard({ produto: p, featured = false, onAdd }: ProductCard
           <span className="text-xs text-slate-500">/ {p.unidade_medida}</span>
         </div>
 
-        <div className="mt-auto pt-2">
+        <div className="mt-auto space-y-2 pt-2">
           <Button
             size="sm"
             className="w-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
@@ -108,6 +109,13 @@ export function ProductCard({ produto: p, featured = false, onAdd }: ProductCard
             <ShoppingCart className="mr-2 h-4 w-4" />
             Adicionar ao Projeto
           </Button>
+          <ReportDialog
+            targetType="produto"
+            targetId={p.id}
+            targetName={p.nome_produto}
+            buttonVariant="outline"
+            buttonClassName="w-full border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          />
         </div>
       </CardContent>
     </Card>

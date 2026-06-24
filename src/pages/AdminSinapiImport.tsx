@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ const fileToBase64 = (file: File): Promise<string> =>
 
 export default function AdminSinapiImport() {
   const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { isAdmin, isAdminLoading } = useAdminRole(user?.id);
   const [file, setFile] = useState<File | null>(null);
   const [uf, setUf] = useState("");
   const [mesAno, setMesAno] = useState("");
@@ -37,13 +38,6 @@ export default function AdminSinapiImport() {
   const [progress, setProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
-
-  useEffect(() => {
-    if (!user) { setIsAdmin(false); return; }
-    supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }).then(({ data }) => {
-      setIsAdmin(!!data);
-    });
-  }, [user]);
 
   const onSelectFile = (f: File | null) => {
     if (!f) return;
@@ -107,7 +101,7 @@ export default function AdminSinapiImport() {
     }
   };
 
-  if (isAdmin === null) {
+  if (isAdminLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

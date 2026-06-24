@@ -30,11 +30,8 @@ async function validateSignature(req: Request, dataId: string, secret: string): 
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return computed === v1;
+  const expectedBytes = new Uint8Array((v1.match(/.{1,2}/g) || []).map((hex) => parseInt(hex, 16)));
+  return crypto.subtle.verify("HMAC", key, expectedBytes, new TextEncoder().encode(manifest));
 }
 
 Deno.serve(async (req) => {
@@ -82,7 +79,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Validação de assinatura ──
-    if (WEBHOOK_SECRET && req.headers.get("x-signature")) {
+    if (WEBHOOK_SECRET) {
       const valid = await validateSignature(req, String(dataId), WEBHOOK_SECRET);
       if (!valid) {
         log("error", "invalid_signature", { dataId, eventId });

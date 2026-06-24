@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, lazy, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,18 +12,46 @@ import { ArrowLeft, Box, Download, FileSpreadsheet, FileText, DollarSign, Link2,
 import { exportToPDF, exportToExcel } from "@/lib/export";
 import { exportOrcaLinkPDF } from "@/lib/exportOrcaLink";
 import { SinapiLinkModal } from "@/components/SinapiLinkModal";
-import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
-import { GanttChart } from "@/components/GanttChart";
-import { MemorialDescritivo } from "@/components/MemorialDescritivo";
-import { PredictiveDelayAlert } from "@/components/PredictiveDelayAlert";
-import { ConstructionDiaryPanel } from "@/components/ConstructionDiaryPanel";
-import { ClashDetectionPanel } from "@/components/ClashDetectionPanel";
-import { SourceFilesPanel } from "@/components/SourceFilesPanel";
-import { ProjectCopilotChat, type ProposalPayload, type CopilotBudgetItem } from "@/components/ProjectCopilotChat";
 import { EditableBudgetTable } from "@/components/EditableBudgetTable";
-import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
+import type { ProposalPayload, CopilotBudgetItem } from "@/components/ProjectCopilotChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+
+const ExecutiveDashboard = lazy(async () => ({
+  default: (await import("@/components/ExecutiveDashboard")).ExecutiveDashboard,
+}));
+
+const PredictiveDelayAlert = lazy(async () => ({
+  default: (await import("@/components/PredictiveDelayAlert")).PredictiveDelayAlert,
+}));
+
+const GanttChart = lazy(async () => ({
+  default: (await import("@/components/GanttChart")).GanttChart,
+}));
+
+const ConstructionDiaryPanel = lazy(async () => ({
+  default: (await import("@/components/ConstructionDiaryPanel")).ConstructionDiaryPanel,
+}));
+
+const MemorialDescritivo = lazy(async () => ({
+  default: (await import("@/components/MemorialDescritivo")).MemorialDescritivo,
+}));
+
+const ClashDetectionPanel = lazy(async () => ({
+  default: (await import("@/components/ClashDetectionPanel")).ClashDetectionPanel,
+}));
+
+const SourceFilesPanel = lazy(async () => ({
+  default: (await import("@/components/SourceFilesPanel")).SourceFilesPanel,
+}));
+
+const ProjectCopilotChat = lazy(async () => ({
+  default: (await import("@/components/ProjectCopilotChat")).ProjectCopilotChat,
+}));
+
+const DeleteProjectDialog = lazy(async () => ({
+  default: (await import("@/components/DeleteProjectDialog")).DeleteProjectDialog,
+}));
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -451,6 +479,16 @@ function RecommendationsSection({ items, macroEtapas }: { items?: BrandRecommend
         </Card>
       )}
     </div>
+  );
+}
+
+function DeferredPanelFallback({ label }: { label: string }) {
+  return (
+    <Card>
+      <CardContent className="pt-6 text-sm text-muted-foreground">
+        {label}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1004,10 +1042,22 @@ export default function AnaliseResultado() {
               variant="outline"
               size="sm"
               className="border-slate-300 text-slate-700 hover:bg-slate-50"
-              onClick={() => {
-                const shareUrl = `${window.location.origin}/share/${id}`;
-                navigator.clipboard.writeText(shareUrl);
-                toast.success("Link copiado! Envie para o cliente.");
+              onClick={async () => {
+                if (!id) return;
+                const { data, error } = await supabase.rpc("create_analysis_share", {
+                  _analysis_id: id,
+                  _expires_hours: 24 * 7,
+                });
+
+                const row = Array.isArray(data) ? data[0] : null;
+                if (error || !row?.share_token) {
+                  toast.error("Não foi possível gerar o link compartilhado.");
+                  return;
+                }
+
+                const shareUrl = `${window.location.origin}/share/${id}?token=${row.share_token}`;
+                await navigator.clipboard.writeText(shareUrl);
+                toast.success("Link seguro copiado! Envie para o cliente.");
               }}
             >
               <Share2 className="mr-1 h-4 w-4" /> Compartilhar
@@ -1028,7 +1078,14 @@ export default function AnaliseResultado() {
               variant="outline"
               size="sm"
               className="border-slate-300 text-slate-700 hover:bg-slate-50"
-              onClick={() => exportToPDF(analysis.nome_projeto, result)}
+              onClick={async () => {
+                try {
+                  await exportToPDF(analysis.nome_projeto, result);
+                } catch (error) {
+                  console.error(error);
+                  toast.error("Erro ao gerar o PDF completo.");
+                }
+              }}
             >
               <FileText className="mr-1 h-4 w-4" /> PDF Completo
             </Button>
@@ -1037,7 +1094,14 @@ export default function AnaliseResultado() {
               variant="outline"
               size="sm"
               className="border-slate-300 text-slate-700 hover:bg-slate-50"
-              onClick={() => exportToExcel(analysis.nome_projeto, result)}
+              onClick={async () => {
+                try {
+                  await exportToExcel(analysis.nome_projeto, result);
+                } catch (error) {
+                  console.error(error);
+                  toast.error("Erro ao gerar a planilha.");
+                }
+              }}
             >
               <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
             </Button>
@@ -1048,7 +1112,7 @@ export default function AnaliseResultado() {
                 setDownloadingPdf(true);
                 try {
                   await new Promise((r) => setTimeout(r, 50));
-                  exportOrcaLinkPDF(analysis.nome_projeto, result, computedSummary);
+                  await exportOrcaLinkPDF(analysis.nome_projeto, result, computedSummary);
                   toast.success("PDF gerado com sucesso!");
                 } catch (e) {
                   console.error(e);
@@ -1122,8 +1186,12 @@ export default function AnaliseResultado() {
           </Card>
         )}
 
-        <ExecutiveDashboard result={result} resumo={computedSummary} analysisId={id} />
-        <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
+        <Suspense fallback={<DeferredPanelFallback label="Carregando indicadores do projeto..." />}>
+          <ExecutiveDashboard result={result} resumo={computedSummary} analysisId={id} />
+        </Suspense>
+        <Suspense fallback={<DeferredPanelFallback label="Carregando monitoramento preditivo..." />}>
+          <PredictiveDelayAlert analysisId={id!} refreshKey={diarioRefreshKey} />
+        </Suspense>
         <SummaryCard resumo={computedSummary} />
 
         {hasMacroEtapas ? (
@@ -1271,37 +1339,47 @@ export default function AnaliseResultado() {
               </TabsContent>
 
               <TabsContent value="cronograma">
-                <GanttChart
-                  analysisId={id!}
-                  macroEtapas={Array.isArray(result?.macro_etapas) ? result.macro_etapas : []}
-                  areaM2={toNumber(result?.area_total_m2, 100)}
-                  onSaved={() => setDiarioRefreshKey((value) => value + 1)}
-                />
+                <Suspense fallback={<DeferredPanelFallback label="Carregando cronograma..." />}>
+                  <GanttChart
+                    analysisId={id!}
+                    macroEtapas={Array.isArray(result?.macro_etapas) ? result.macro_etapas : []}
+                    areaM2={toNumber(result?.area_total_m2, 100)}
+                    onSaved={() => setDiarioRefreshKey((value) => value + 1)}
+                  />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="diario">
-                <ConstructionDiaryPanel
-                  analysisId={id!}
-                  onSaved={() => setDiarioRefreshKey((value) => value + 1)}
-                />
+                <Suspense fallback={<DeferredPanelFallback label="Carregando diario de obra..." />}>
+                  <ConstructionDiaryPanel
+                    analysisId={id!}
+                    onSaved={() => setDiarioRefreshKey((value) => value + 1)}
+                  />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="memorial">
-                <MemorialDescritivo
-                  analysisResult={result}
-                  nomeProjeto={analysis.nome_projeto}
-                  tipoConstrucao={analysis.tipo_construcao || undefined}
-                  totalObra={toNumber(computedSummary?.total_geral, 0)}
-                  bdiPercent={toNumber((analysis as any)?.bdi_percentual, 25)}
-                />
+                <Suspense fallback={<DeferredPanelFallback label="Carregando memorial descritivo..." />}>
+                  <MemorialDescritivo
+                    analysisResult={result}
+                    nomeProjeto={analysis.nome_projeto}
+                    tipoConstrucao={analysis.tipo_construcao || undefined}
+                    totalObra={toNumber(computedSummary?.total_geral, 0)}
+                    bdiPercent={toNumber((analysis as any)?.bdi_percentual, 25)}
+                  />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="conflitos">
-                <ClashDetectionPanel analysisId={id!} />
+                <Suspense fallback={<DeferredPanelFallback label="Carregando analise de conflitos..." />}>
+                  <ClashDetectionPanel analysisId={id!} />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="arquivos">
-                <SourceFilesPanel analysisId={id!} userId={(analysis as any)?.user_id} />
+                <Suspense fallback={<DeferredPanelFallback label="Carregando arquivos de referencia..." />}>
+                  <SourceFilesPanel analysisId={id!} userId={(analysis as any)?.user_id} />
+                </Suspense>
               </TabsContent>
             </Tabs>
           </>
@@ -1328,22 +1406,26 @@ export default function AnaliseResultado() {
       )}
 
       {id && (
-        <ProjectCopilotChat
-          projectId={id}
-          budgetItems={Array.isArray(copilotBudgetItems) ? copilotBudgetItems : []}
-          onApplyProposal={handleApplyProposal}
-        />
+        <Suspense fallback={null}>
+          <ProjectCopilotChat
+            projectId={id}
+            budgetItems={Array.isArray(copilotBudgetItems) ? copilotBudgetItems : []}
+            onApplyProposal={handleApplyProposal}
+          />
+        </Suspense>
       )}
 
       {id && (
-        <DeleteProjectDialog
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          analysisId={id}
-          projectName={analysis.nome_projeto}
-          userId={user?.id}
-          onDeleted={() => navigate("/dashboard")}
-        />
+        <Suspense fallback={null}>
+          <DeleteProjectDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            analysisId={id}
+            projectName={analysis.nome_projeto}
+            userId={user?.id}
+            onDeleted={() => navigate("/dashboard")}
+          />
+        </Suspense>
       )}
     </div>
   );

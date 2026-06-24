@@ -1,4 +1,3 @@
-import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { landingFaq } from "@/data/faq";
@@ -50,6 +49,7 @@ import {
   Instagram,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { landingPath } from "@/config/landingSolutions";
 import { useAuth } from "@/contexts/AuthContext";
 
 const fadeInUp = {
@@ -67,6 +67,8 @@ const stagger = {
 
 export default function Index() {
   const { user } = useAuth();
+  const servicePath = user ? "/cadastrar-profissional" : landingPath("prestar-servico");
+  const storePath = user ? "/painel-loja" : landingPath("criar-loja");
   const [orcamentosMes, setOrcamentosMes] = useState(8);
   const [horasLevantamento, setHorasLevantamento] = useState(13);
 
@@ -107,84 +109,10 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
-      {/* ─── HEADER ─── */}
-      <nav className="fixed top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-lg">
-        <div className="container flex h-16 items-center justify-between">
-          
-          {/* LOGO */}
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
-            <Box className="h-6 w-6 text-emerald-600" />
-            <span>Obra Link</span>
-          </Link>
-
-          {/* MENUS DROPDOWN (Centro) */}
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            
-            {/* 1. Soluções */}
-            <div className="relative group">
-              <button className="flex items-center gap-1 hover:text-emerald-600 transition-colors py-4">
-                Soluções <ChevronDown className="w-4 h-4" />
-              </button>
-              {/* Menu Invisível que aparece no Hover */}
-              <div className="absolute top-full left-0 hidden group-hover:block w-56 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
-                <Link to={user ? "/dashboard" : "/recurso/gestao-de-projetos"} className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Gestão de Projetos</Link>
-                <Link to="/marketplace" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Marketplace</Link>
-                <Link to="/profissionais" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Prestar Serviços</Link>
-                <Link to="/seja-parceiro" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Seja Parceiro</Link>
-              </div>
-            </div>
-
-            {/* 2. Conteúdo */}
-            <div className="relative group">
-              <button className="flex items-center gap-1 hover:text-emerald-600 transition-colors py-4">
-                Conteúdo <ChevronDown className="w-4 h-4" />
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block w-48 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
-                <Link to="/blog" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Blog</Link>
-                <Link to="/documentos" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Documentos e Dicas</Link>
-              </div>
-            </div>
-
-            {/* 3. Obra Link */}
-            <div className="relative group">
-              <button className="flex items-center gap-1 hover:text-emerald-600 transition-colors py-4">
-                Obra Link <ChevronDown className="w-4 h-4" />
-              </button>
-              <div className="absolute top-full left-0 hidden group-hover:block w-48 bg-white shadow-xl border border-slate-100 rounded-md py-2 z-50">
-                <Link to="/sobre-nos" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Quem Somos</Link>
-                <Link to="/suporte" className="block px-4 py-2 hover:bg-slate-50 hover:text-emerald-600">Precisa de Suporte?</Link>
-              </div>
-            </div>
-
-          </div>
-
-          {/* BOTÕES DIREITA (Login) */}
-          <div className="flex items-center gap-4">
-            {user ? (
-              // Se o usuário já estiver logado, não precisa do botão de Dashboard gigante
-              <Link to="/dashboard" className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
-                Ir para o Painel
-              </Link>
-            ) : (
-              // Se não estiver logado, mostramos os botões padrão de B2B
-              <>
-                <Link to="/auth" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">
-                  Entrar
-                </Link>
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                  <Link to="/solicitar-acesso">Solicitar Acesso Imediato</Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      {/* ─── HERO ─── */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative overflow-hidden pb-20 pt-20">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30" />
         <div className="container relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
             <motion.div {...fadeInUp}>
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700">
                 <Zap className="h-4 w-4" /> Orçamentos com Inteligência Artificial
@@ -783,8 +711,8 @@ export default function Index() {
             <div>
               <h4 className="font-semibold text-slate-900 mb-3 text-sm">Empresas</h4>
               <ul className="space-y-2 text-sm text-slate-500">
-                <li><Link to="/seja-parceiro" className="hover:text-slate-900 transition-colors">Anunciar Materiais</Link></li>
-                <li><Link to="/profissionais" className="hover:text-slate-900 transition-colors">Prestar Serviços</Link></li>
+                <li><Link to={storePath} className="hover:text-slate-900 transition-colors">Anunciar Materiais</Link></li>
+                <li><Link to={servicePath} className="hover:text-slate-900 transition-colors">Prestar Serviços</Link></li>
               </ul>
             </div>
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { 
-  Box, ArrowLeft, Loader2, HardHat, Camera, Upload, 
+  ArrowLeft, Loader2, HardHat, Camera, Upload, 
   Check, X, Eye, Star, MessageCircle, MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -250,18 +250,13 @@ export default function CadastrarProfissional() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
-      {/* Header */}
-      <nav className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-lg shadow-sm">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-slate-900">
-            <Box className="h-6 w-6 text-emerald-600" />
-            <span className="hidden sm:inline">Obra Link</span>
-          </Link>
-          <div className="flex items-center gap-3">
+      <div className="container max-w-3xl py-10 lg:py-12">
+        <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="mb-4 flex items-center justify-center gap-3">
             <Button
               variant="outline"
               size="sm"
-              className="text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hidden sm:flex"
+              className="text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
               onClick={() => setShowPreview(true)}
             >
               <Eye className="h-4 w-4 mr-2" /> Preview
@@ -272,15 +267,10 @@ export default function CadastrarProfissional() {
               className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               onClick={handleCancel}
             >
-              <ArrowLeft className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Sair</span>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Sair
             </Button>
           </div>
-        </div>
-      </nav>
 
-      <div className="container max-w-3xl py-10 lg:py-12">
-        <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 ring-1 ring-emerald-200 mb-4 shadow-sm">
             <HardHat className="h-7 w-7 text-emerald-600" />
           </div>

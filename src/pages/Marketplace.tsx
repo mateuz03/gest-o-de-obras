@@ -365,29 +365,29 @@ export default function Marketplace() {
   useEffect(() => {
     async function fetchMarketplace() {
       try {
-        const { data, error } = await supabase
-          .from("produtos_loja")
-          .select(`
-            id,
-            user_id,
-            nome_produto,
-            categoria,
-            preco,
-            unidade_medida,
-            foto_url,
-            created_at,
-            is_featured,
-            featured_until,
-            perfil_lojista!inner(nome_loja, whatsapp, status)
-          `)
-          .eq("status", "ativo")
-          .eq("perfil_lojista.status", "approved")
-          .order("is_featured", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false })
-          .order("id", { ascending: true });
+        const { data, error } = await supabase.rpc("list_public_marketplace_products");
 
         if (error) throw error;
-        if (data) setProdutosDB(data as unknown as Produto[]);
+        if (data) {
+          setProdutosDB(
+            data.map((produto) => ({
+              id: produto.id,
+              user_id: produto.user_id,
+              nome_produto: produto.nome_produto,
+              categoria: produto.categoria,
+              preco: Number(produto.preco),
+              unidade_medida: produto.unidade_medida,
+              foto_url: produto.foto_url || undefined,
+              created_at: produto.created_at,
+              is_featured: produto.is_featured,
+              featured_until: produto.featured_until,
+              perfil_lojista: {
+                nome_loja: produto.loja_nome,
+                whatsapp: produto.loja_whatsapp,
+              },
+            }))
+          );
+        }
       } catch (error) {
         console.error("Erro ao carregar o marketplace:", error);
         toast.error("Não foi possível carregar os produtos.");

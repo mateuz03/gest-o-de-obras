@@ -1,20 +1,6 @@
-import { useState } from "react";
-import { 
-  Settings, 
-  Key, 
-  CreditCard, 
-  ShieldAlert, 
-  Save, 
-  Eye, 
-  EyeOff,
-  Server
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Loader2, Save, Settings, ShieldAlert, Store, Wrench } from "lucide-react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,229 +11,277 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface SettingRow {
+  key: string;
+  value: {
+    enabled?: boolean;
+    message?: string;
+  };
+}
+
+const DEFAULT_MESSAGE = "A plataforma está temporariamente em manutenção. Tente novamente em instantes.";
 
 export default function Configuracoes() {
-  const [mostrarChaveIA, setMostrarChaveIA] = useState(false);
-  const [salvando, setSalvando] = useState(false);
-  
-  // Estado para controlar o modal de confirmação do modo manutenção
-  const [showAlertaManutencao, setShowAlertaManutencao] = useState(false);
-  
-  // Estados simulados das configurações
-  const [config, setConfig] = useState({
-    iaKey: "sk-proj-aiconstruct-**********************",
-    limiteTokens: "5000000",
-    stripeWebhook: "whsec_obralink_**********************",
-    modoManutencao: false,
-    cadastroLojistasAberto: true
-  });
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [confirmMaintenance, setConfirmMaintenance] = useState(false);
 
-  const handleSalvar = async () => {
-    // 5. Validação dos campos antes de salvar
-    if (!config.iaKey.trim()) {
-      toast.error("A Chave da API não pode estar vazia.");
-      return;
-    }
-    
-    if (Number(config.limiteTokens) <= 0) {
-      toast.error("O limite de tokens deve ser maior que zero.");
-      return;
-    }
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState(DEFAULT_MESSAGE);
+  const [sellerOnboardingOpen, setSellerOnboardingOpen] = useState(true);
 
-    setSalvando(true);
-    
-    // 3. Estrutura try/catch preparada para o backend real
+  async function carregar() {
+    setLoading(true);
     try {
-      // Simula a latência da rede (Substituir pela chamada real do Supabase)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      toast.success("Configurações do sistema atualizadas com sucesso!");
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("key, value")
+        .in("key", ["maintenance_mode", "seller_onboarding"]);
+
+      if (error) throw error;
+
+      const rows = ((data as SettingRow[]) ?? []).reduce<Record<string, SettingRow["value"]>>((acc, row) => {
+        acc[row.key] = row.value || {};
+        return acc;
+      }, {});
+
+      setMaintenanceMode(rows.maintenance_mode?.enabled === true);
+      setMaintenanceMessage(rows.maintenance_mode?.message || DEFAULT_MESSAGE);
+      setSellerOnboardingOpen(rows.seller_onboarding?.enabled !== false);
     } catch (error) {
       console.error(error);
-      toast.error("Falha ao atualizar as configurações. Tente novamente.");
+      toast.error("Não foi possível carregar as configurações globais.");
     } finally {
-      setSalvando(false);
+      setLoading(false);
     }
-  };
+  }
 
-  const toggleModoManutencao = (checked: boolean) => {
-    if (checked) {
-      // 1. Se estiver ativando, mostra o alerta antes de mudar o estado
-      setShowAlertaManutencao(true);
-    } else {
-      // Se estiver desativando, pode desativar direto
-      setConfig(prev => ({ ...prev, modoManutencao: false }));
+  useEffect(() => {
+    void carregar();
+  }, []);
+
+  const dirty = useMemo(() => {
+    return true;
+  }, [maintenanceMode, maintenanceMessage, sellerOnboardingOpen]);
+
+  async function persistir() {
+    if (!user) return;
+    if (!maintenanceMessage.trim()) {
+      toast.error("Informe a mensagem exibida durante a manutenção.");
+      return;
     }
-  };
 
-  const confirmarManutencao = () => {
-    setConfig(prev => ({ ...prev, modoManutencao: true }));
-    setShowAlertaManutencao(false);
-    toast.warning("Modo de manutenção ativado. Usuários foram bloqueados.");
-  };
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert([
+          {
+            key: "maintenance_mode",
+            value: {
+              enabled: maintenanceMode,
+              message: maintenanceMessage.trim(),
+            },
+            updated_by: user.id,
+            description: "Bloqueia o acesso de usuários não administradores.",
+          },
+          {
+            key: "seller_onboarding",
+            value: {
+              enabled: sellerOnboardingOpen,
+            },
+            updated_by: user.id,
+            description: "Permite novas submissões de lojas no marketplace.",
+          },
+        ]);
+
+      if (error) throw error;
+
+      toast.success("Configurações operacionais salvas.");
+      await carregar();
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível salvar as configurações.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300 pb-12">
-      
-      {/* ─── CABEÇALHO ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
-            <Settings className="w-8 h-8 text-emerald-600" />
-            Configurações Globais
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Operação</p>
+          <h2 className="mt-1 flex items-center gap-3 text-3xl font-extrabold text-slate-900">
+            <Settings className="h-8 w-8 text-emerald-600" />
+            Configurações globais
           </h2>
-          <p className="text-sm text-slate-500 mt-2">
-            Gerencie variáveis de ambiente, integrações de pagamento e estado geral da plataforma.
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">
+            Flags operacionais reais, sem armazenar segredo sensível no front. Chaves privadas continuam sob gestão de ambiente.
           </p>
         </div>
-        <Button 
-          onClick={handleSalvar}
-          disabled={salvando}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm px-6"
-        >
-          {salvando ? "Salvando..." : <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>}
+        <Button className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => void persistir()} disabled={saving || !dirty}>
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Salvar mudanças
         </Button>
       </div>
 
-      <div className="space-y-6">
-        
-        {/* ─── BLOCO 1: INTEGRAÇÃO IA ─── */}
-        <Card className="border-slate-200 shadow-sm bg-white">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Key className="w-5 h-5 text-indigo-500" /> Inteligência Artificial (OpenAI)
-            </CardTitle>
-            <CardDescription>
-              Credenciais da API usada para leitura de plantas e orçamentação automatizada.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6">
+      <Card className="border-slate-200 bg-white shadow-sm">
+        <CardContent className="space-y-6 p-6">
+          <div className="flex items-center gap-3">
+            <Wrench className="h-5 w-5 text-emerald-600" />
             <div>
-              <Label className="text-slate-700 font-bold mb-2 block">Chave da API (Secret Key)</Label>
-              <div className="relative">
-                <Input 
-                  type={mostrarChaveIA ? "text" : "password"} 
-                  value={config.iaKey}
-                  // 4. Usando functional update (prev => ...)
-                  onChange={(e) => setConfig(prev => ({ ...prev, iaKey: e.target.value }))}
-                  className="pr-10 bg-slate-50 font-mono text-sm" 
-                />
-                <button 
-                  type="button"
-                  onClick={() => setMostrarChaveIA(!mostrarChaveIA)}
-                  // 2. aria-label adicionado para acessibilidade
-                  aria-label={mostrarChaveIA ? "Ocultar chave da API" : "Mostrar chave da API"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                >
-                  {mostrarChaveIA ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              <h3 className="text-lg font-bold text-slate-900">Flags de plataforma</h3>
+              <p className="text-sm text-slate-500">Toggles que alteram o comportamento real do produto.</p>
             </div>
-            
-            <div>
-              <Label className="text-slate-700 font-bold mb-2 block">Limite Global de Tokens (Mensal)</Label>
-              <Input 
-                type="number" 
-                value={config.limiteTokens}
-                onChange={(e) => setConfig(prev => ({ ...prev, limiteTokens: e.target.value }))}
-                className="bg-slate-50 max-w-[200px]" 
-              />
-              <p className="text-xs text-slate-500 mt-1">Evita cobranças surpresa caso ocorra um pico anômalo de uso.</p>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* ─── BLOCO 2: PAGAMENTOS ─── */}
-        <Card className="border-slate-200 shadow-sm bg-white">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-emerald-500" /> Pagamentos & Assinaturas
-            </CardTitle>
-            <CardDescription>
-              Configuração do Webhook do Stripe para liberar acesso automático após o pagamento.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            <div>
-              <Label className="text-slate-700 font-bold mb-2 block">Stripe Webhook Secret</Label>
-              <Input 
-                type="password" 
-                value={config.stripeWebhook}
-                onChange={(e) => setConfig(prev => ({ ...prev, stripeWebhook: e.target.value }))}
-                className="bg-slate-50 font-mono text-sm" 
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ─── BLOCO 3: CONTROLES DO SISTEMA ─── */}
-        <Card className="border-slate-200 shadow-sm bg-white">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Server className="w-5 h-5 text-amber-500" /> Controles Operacionais
-            </CardTitle>
-            <CardDescription>
-              Ative ou desative módulos inteiros da plataforma.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            
-            {/* Toggle de Cadastro de Lojistas */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div>
-                <p className="font-bold text-slate-900">Cadastro de Lojistas</p>
-                <p className="text-sm text-slate-500">Permite que novas lojas se cadastrem no marketplace.</p>
-              </div>
-              <Switch 
-                checked={config.cadastroLojistasAberto} 
-                onCheckedChange={(checked) => setConfig(prev => ({ ...prev, cadastroLojistasAberto: checked }))} 
-              />
-            </div>
-
-            {/* Toggle de Manutenção (DANGER ZONE) */}
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-red-600 mt-0.5" />
-                <div>
-                  <p className="font-bold text-red-900">Modo de Manutenção</p>
-                  <p className="text-sm text-red-700">Bloqueia o acesso de todos os usuários (exceto admins). Use apenas em atualizações críticas do banco de dados.</p>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-600" />
+                  <p className="font-semibold text-slate-900">Modo de manutenção</p>
+                  <Badge
+                    variant="outline"
+                    className={`border ${
+                      maintenanceMode
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-slate-200 bg-white text-slate-600"
+                    }`}
+                  >
+                    {maintenanceMode ? "Ativo" : "Inativo"}
+                  </Badge>
                 </div>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Quando ativo, bloqueia o acesso das áreas privadas para usuários comuns e mantém apenas administradores operando.
+                </p>
               </div>
-              <Switch 
-                checked={config.modoManutencao} 
-                onCheckedChange={toggleModoManutencao} 
+              <Switch
+                checked={maintenanceMode}
+                onCheckedChange={(checked) => {
+                  if (checked) setConfirmMaintenance(true);
+                  else setMaintenanceMode(false);
+                }}
               />
             </div>
 
-          </CardContent>
-        </Card>
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="maintenance-message">Mensagem mostrada ao usuário</Label>
+              <Textarea
+                id="maintenance-message"
+                rows={4}
+                value={maintenanceMessage}
+                onChange={(event) => setMaintenanceMessage(event.target.value)}
+              />
+            </div>
+          </div>
 
-      </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <Store className="h-5 w-5 text-emerald-600" />
+                  <p className="font-semibold text-slate-900">Cadastro de novas lojas</p>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Controla o onboarding de novos CNPJs no marketplace. Lojas já aprovadas continuam podendo atualizar a vitrine.
+                </p>
+              </div>
+              <Switch checked={sellerOnboardingOpen} onCheckedChange={setSellerOnboardingOpen} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* ─── ALERT DIALOG DO MODO MANUTENÇÃO ─── */}
-      <AlertDialog open={showAlertaManutencao} onOpenChange={setShowAlertaManutencao}>
+      <Card className="border-slate-200 bg-white shadow-sm">
+        <CardContent className="space-y-4 p-6">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-slate-600" />
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Integrações sensíveis</h3>
+              <p className="text-sm text-slate-500">Segredos não são mais editados no painel para evitar vazamento e falsa sensação de persistência.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <IntegrationCard
+              title="OpenAI / IA"
+              description="Gerenciado por variável de ambiente no runtime das Edge Functions."
+              status="Somente leitura"
+            />
+            <IntegrationCard
+              title="Mercado Pago / Pix"
+              description="Tokens e webhook seguem no ambiente do backend e não transitam pelo front."
+              status="Somente leitura"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={confirmMaintenance} onOpenChange={setConfirmMaintenance}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-              <ShieldAlert className="w-5 h-5" />
-              Atenção: Modo de Manutenção
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              <ShieldAlert className="h-5 w-5" />
+              Ativar manutenção?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja ativar o modo de manutenção? Isso bloqueará o acesso de <strong>todos os usuários ativos</strong> imediatamente. O sistema ficará inacessível até que você desative esta opção.
+              Essa ação passa a bloquear imediatamente o acesso de usuários não administradores às áreas privadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmarManutencao}
-              className="bg-red-600 hover:bg-red-700 text-white"
+            <AlertDialogAction
+              className="bg-amber-600 text-white hover:bg-amber-700"
+              onClick={() => setMaintenanceMode(true)}
             >
-              Ativar Manutenção
+              Confirmar ativação
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
 
+function IntegrationCard({
+  title,
+  description,
+  status,
+}: {
+  title: string;
+  description: string;
+  status: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-semibold text-slate-900">{title}</p>
+        <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">
+          {status}
+        </Badge>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
     </div>
   );
 }

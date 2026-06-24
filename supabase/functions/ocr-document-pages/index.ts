@@ -1,223 +1,91 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { assertAnalysisAccess, assertDocumentAccess, corsHeaders, getAuthenticatedContext, HttpError, json, toErrorResponse } from "../_shared/security.ts";
+import { runGoogleVisionOcr } from "../_shared/ocr-providers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-interface RunAnalysisPipelineRequest {
+interface OcrDocumentPagesRequest {
   analysis_id: string;
-  user_id?: string;
-  file_name: string;
-  mime_type: string;
-  storage_path: string;
-  storage_bucket?: string;
-  persist_result?: boolean;
+  document_id: string;
+  target_bucket?: string;
+  only_missing?: boolean;
 }
 
-async function invokeStage(
-  supabase: any,
-  authHeader: string,
-  functionName: string,
-  body: Record<string, unknown>
-) {
-  const { data, error } = await supabase.functions.invoke(functionName, {
-    body,
-    headers: {
-      Authorization: authHeader,
-    },
-  });
-
-  if (error) {
-    throw new Error(`${functionName} failed: ${error.message}`);
-  }
-
-  return data;
-}
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const body: RunAnalysisPipelineRequest = await req.json();
-
+    const ctx = await getAuthenticatedContext(req);
+    const body: OcrDocumentPagesRequest = await req.json();
     const {
       analysis_id,
-      user_id,
-      file_name,
-      mime_type,
-      storage_path,
-      storage_bucket = "project-files",
-      persist_result = true,
+      document_id,
+      target_bucket = "document-pages",
+      only_missing = true,
     } = body;
 
-    if (!analysis_id || !file_name || !mime_type || !storage_path) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!analysis_id || !document_id) {
+      throw new HttpError(400, "analysis_id e document_id são obrigatórios.", "INVALID_INPUT");
     }
 
-    const stages: Record<string, string> = {
-      ingestion: "pending",
-      page_rendering: "pending",
-      ocr_pages: "pending",
-      classification: "pending",
-      architectural_extraction: "pending",
-      electrical_extraction: "pending",
-      quantity_generation: "pending",
-    };
+    await assertAnalysisAccess(ctx.adminClient, ctx.user.id, analysis_id);
+    await assertDocumentAccess(ctx.adminClient, analysis_id, document_id);
 
-    // 1. Ingestion
-    const ingestData = await invokeStage(supabase, authHeader, "ingest-document", {
-      analysis_id,
-      user_id,
-      file_name,
-      mime_type,
-      storage_path,
-      storage_bucket,
-      trigger_classification: false,
+    const { data: pages, error: pagesError } = await ctx.adminClient
+      .from("analysis_document_pages")
+      .select("*")
+      .eq("analysis_id", analysis_id)
+      .eq("document_id", document_id)
+      .order("page_number", { ascending: true });
+
+    if (pagesError) throw pagesError;
+
+    const candidates = (pages || []).filter((page) => {
+      if (!page.image_path) return false;
+      if (!only_missing) return true;
+      return !String(page.ocr_text || "").trim();
     });
 
-    stages.ingestion = "completed";
+    let processed = 0;
+    for (const page of candidates) {
+      const { data: fileData, error: fileError } = await ctx.adminClient.storage
+        .from(target_bucket)
+        .download(page.image_path);
 
-    const document_id = ingestData?.document_id;
-    if (!document_id) {
-      throw new Error("ingest-document did not return document_id");
-    }
+      if (fileError) throw fileError;
+      const bytes = new Uint8Array(await fileData.arrayBuffer());
+      const ocr = await runGoogleVisionOcr(bytes);
 
-    // 2. Render document pages
-    try {
-      await invokeStage(supabase, authHeader, "render-document-pages", {
-        analysis_id,
-        document_id,
-        source_bucket: storage_bucket,
-        target_bucket: "document-pages",
-      });
-      stages.page_rendering = "completed";
-    } catch (err) {
-      console.warn("page rendering skipped/failed:", err);
-      stages.page_rendering = "failed";
-    }
-
-    // 3. OCR document pages
-    try {
-      await invokeStage(supabase, authHeader, "ocr-document-pages", {
-        analysis_id,
-        document_id,
-        target_bucket: "document-pages",
-        only_missing: true,
-      });
-      stages.ocr_pages = "completed";
-    } catch (err) {
-      console.warn("ocr pages skipped/failed:", err);
-      stages.ocr_pages = "failed";
-    }
-
-    // 4. Classification
-    await invokeStage(supabase, authHeader, "classify-document-pages", {
-      analysis_id,
-      document_id,
-    });
-    stages.classification = "completed";
-
-    // 5. Architectural extraction
-    try {
-      await invokeStage(supabase, authHeader, "extract-architectural-signals", {
-        analysis_id,
-        document_id,
-      });
-      stages.architectural_extraction = "completed";
-    } catch (err) {
-      console.warn("architectural extraction skipped/failed:", err);
-      stages.architectural_extraction = "failed";
-    }
-
-    // 6. Electrical extraction
-    try {
-      await invokeStage(supabase, authHeader, "extract-electrical-signals", {
-        analysis_id,
-        document_id,
-      });
-      stages.electrical_extraction = "completed";
-    } catch (err) {
-      console.warn("electrical extraction skipped/failed:", err);
-      stages.electrical_extraction = "failed";
-    }
-
-    // 7. Quantity generation
-    const quantityData = await invokeStage(supabase, authHeader, "generate-quantity-items", {
-      analysis_id,
-    });
-    stages.quantity_generation = "completed";
-
-    const resultado_json = quantityData?.quantitativo || null;
-
-    if (persist_result && resultado_json) {
-      const { error: updateError } = await supabase
-        .from("analyses")
+      const { error: updateError } = await ctx.adminClient
+        .from("analysis_document_pages")
         .update({
-          resultado_json,
-          status: "completed",
-        } as any)
-        .eq("id", analysis_id);
+          ocr_text: ocr.fullText,
+          metadata_json: {
+            ...(page.metadata_json || {}),
+            ocr_provider: ocr.provider,
+            ocr_at: new Date().toISOString(),
+          },
+        })
+        .eq("id", page.id);
 
-      if (updateError) {
-        throw updateError;
-      }
+      if (updateError) throw updateError;
+      processed += 1;
     }
 
-    await supabase.from("analysis_extraction_runs").insert({
+    await ctx.adminClient.from("analysis_extraction_runs").insert({
       analysis_id,
       document_id,
-      stage: "pipeline_orchestration",
+      stage: "ocr",
       status: "completed",
       payload_json: {
-        file_name,
-        mime_type,
-        storage_path,
-        storage_bucket,
-        stages,
+        processed_pages: processed,
+        skipped_pages: Math.max(0, (pages?.length || 0) - processed),
+        target_bucket,
       },
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        document_id,
-        stages,
-        resultado_json,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json({
+      success: true,
+      processed_pages: processed,
+    });
   } catch (error) {
-    console.error("run-analysis-pipeline error:", error);
-
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return toErrorResponse(error, "Não foi possível executar o OCR das páginas.");
   }
 });

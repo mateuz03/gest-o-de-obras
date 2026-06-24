@@ -66,6 +66,12 @@ export default function PainelLojista() {
   const [salvandoProduto, setSalvandoProduto] = useState(false);
   const [formProduto, setFormProduto] = useState({ id: "", nome_produto: "", categoria: "Cimento e Argamassa", preco: "", unidade_medida: "un" });
   const [upgradeLojaOpen, setUpgradeLojaOpen] = useState(false);
+  const [catalogStatus, setCatalogStatus] = useState({
+    active_count: 0,
+    free_limit: 50,
+    is_pro: false,
+    can_publish: true,
+  });
 
   // ─── ESTADOS DO PERFIL ───
   const [loadingPerfil, setLoadingPerfil] = useState(true);
@@ -103,10 +109,20 @@ export default function PainelLojista() {
     
     async function carregarDados() {
       try {
-        const { data: dataProd } = await supabase.from("produtos_loja").select("*").eq("user_id", user?.id).order("created_at", { ascending: false });
-        if (dataProd) setProdutos(dataProd);
+        const [{ data: dataProd }, { data: dataPerfil }, { data: publishStatus }] = await Promise.all([
+          supabase.from("produtos_loja").select("*").eq("user_id", user?.id).order("created_at", { ascending: false }),
+          supabase.from("perfil_lojista").select("*").eq("user_id", user?.id).maybeSingle(),
+          supabase.rpc("get_publish_status", { _user_id: user.id }),
+        ]);
 
-        const { data: dataPerfil } = await supabase.from("perfil_lojista").select("*").eq("user_id", user?.id).maybeSingle();
+        if (dataProd) {
+          setProdutos(dataProd.map((produto) => ({ ...produto, preco: Number(produto.preco) })));
+        }
+
+        if (publishStatus?.[0]) {
+          setCatalogStatus(publishStatus[0] as typeof catalogStatus);
+        }
+
         if (dataPerfil) {
           setLojaExiste(true);
           const st = (dataPerfil.status as string) || "pending";
@@ -314,6 +330,172 @@ export default function PainelLojista() {
     }
   };
 
+  const sincronizarCatalogo = async () => {
+    if (!user) return;
+
+    const [{ data: dataProd, error: prodError }, { data: publishStatus, error: statusError }] =
+      await Promise.all([
+        supabase.from("produtos_loja").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.rpc("get_publish_status", { _user_id: user.id }),
+      ]);
+
+    if (prodError) throw prodError;
+    if (statusError) throw statusError;
+
+    setProdutos((dataProd || []).map((produto) => ({ ...produto, preco: Number(produto.preco) })));
+    if (publishStatus?.[0]) {
+      setCatalogStatus(publishStatus[0] as typeof catalogStatus);
+    }
+  };
+
+  const handleSalvarPerfilSeguro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSalvandoPerfil(true);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("store-onboarding", {
+        body: {
+          nome_loja: perfil.nome_loja,
+          categoria: perfil.categoria,
+          descricao: perfil.descricao,
+          cidade: perfil.cidade,
+          estado: perfil.estado,
+          whatsapp: perfil.whatsapp,
+          cnpj: perfil.cnpj,
+          instagram: perfil.instagram,
+          horario_atendimento: perfil.horario_atendimento,
+          logo_url: perfil.logo_url || null,
+          banner_url: perfil.banner_url || null,
+          logo_data_url: logoFile,
+          banner_data_url: bannerFile,
+        },
+      });
+
+      if (fnError) {
+        const status = (fnError as { context?: { status?: number } }).context?.status;
+        if (status === 403) {
+          toast.error("Acesso restrito a contas Pessoa Juridica (CNPJ).");
+          navigate("/meus-anuncios", { replace: true });
+          return;
+        }
+        throw fnError;
+      }
+
+      const saved = (data as {
+        perfil?: typeof perfil & {
+          banner_url?: string;
+          status?: string;
+          motivo_rejeicao?: string | null;
+        };
+      })?.perfil;
+
+      if (saved) {
+        setPerfil({
+          nome_loja: saved.nome_loja || "",
+          cnpj: saved.cnpj || "",
+          whatsapp: saved.whatsapp || "",
+          cidade: saved.cidade || "",
+          estado: saved.estado || "SP",
+          descricao: saved.descricao || "",
+          instagram: saved.instagram || "",
+          horario_atendimento: saved.horario_atendimento || "",
+          categoria: saved.categoria || "",
+          logo_url: saved.logo_url || "",
+          banner_url: saved.banner_url || "",
+        });
+        setLojaExiste(true);
+        setStatusLoja(((saved.status as string) || "pending") as any);
+        setMotivoRejeicao(saved.motivo_rejeicao || "");
+      }
+
+      setLogoFile(null);
+      setBannerFile(null);
+      setModoEdicao(false);
+
+      if ((saved?.status || "pending") === "pending") {
+        toast.success("Loja enviada para analise da nossa equipe!");
+      } else {
+        toast.success("Vitrine salva com sucesso!");
+      }
+    } catch (error) {
+      toast.error("Erro ao salvar o perfil.");
+    } finally {
+      setSalvandoPerfil(false);
+    }
+  };
+
+  const abrirModalNovoSeguro = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase.rpc("get_publish_status", { _user_id: user.id });
+      if (error) throw error;
+
+      const fresh = data?.[0];
+      if (fresh) {
+        setCatalogStatus(fresh as typeof catalogStatus);
+        if (!fresh.can_publish) {
+          toast.error(`Limite atingido no plano atual. Seu limite base e ${fresh.free_limit} anuncios.`);
+          return;
+        }
+      }
+
+      setFormProduto({ id: "", nome_produto: "", categoria: "Cimento e Argamassa", preco: "", unidade_medida: "un" });
+      setModalAberto(true);
+    } catch (error) {
+      toast.error("Nao foi possivel validar o limite de publicacoes.");
+    }
+  };
+
+  const handleSalvarProdutoSeguro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSalvandoProduto(true);
+
+    try {
+      const produtoAtual = produtos.find((produto) => produto.id === formProduto.id);
+      const { error } = await supabase.rpc("upsert_marketplace_product", {
+        _id: formProduto.id || null,
+        _nome_produto: formProduto.nome_produto,
+        _categoria: formProduto.categoria,
+        _preco: Number(formProduto.preco),
+        _unidade_medida: formProduto.unidade_medida,
+        _foto_url: produtoAtual?.foto_url || null,
+      });
+
+      if (error) throw error;
+
+      await sincronizarCatalogo();
+      setModalAberto(false);
+      toast.success(formProduto.id ? "Produto atualizado com sucesso!" : "Produto adicionado ao catalogo!");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("publish_limit_exceeded")) {
+        toast.error("Voce atingiu o limite do seu plano atual.");
+      } else {
+        toast.error("Erro ao salvar produto.");
+      }
+    } finally {
+      setSalvandoProduto(false);
+    }
+  };
+
+  const deletarProdutoSeguro = async (id: string) => {
+    if (!confirm("Tem certeza que deseja apagar este produto?")) return;
+
+    try {
+      const { data, error } = await supabase.rpc("delete_marketplace_product", { _id: id });
+      if (error) throw error;
+      if (!data) throw new Error("delete_failed");
+
+      await sincronizarCatalogo();
+      toast.success("Produto removido.");
+    } catch (error) {
+      toast.error("Erro ao remover produto.");
+    }
+  };
+
   if (!user) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
 
   // ─── TELAS DE MODERAÇÃO (em análise / recusada) ───
@@ -454,7 +636,7 @@ export default function PainelLojista() {
               <div className="grid lg:grid-cols-[1fr_400px] gap-8">
                 
                 {/* LADO ESQUERDO: FORMULÁRIO */}
-                <form onSubmit={handleSalvarPerfil} className="space-y-8">
+                <form onSubmit={handleSalvarPerfilSeguro} className="space-y-8">
                   
                   {/* Seção 1: Identidade */}
                   <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
@@ -669,7 +851,7 @@ export default function PainelLojista() {
                 <h1 className="text-3xl font-bold text-slate-900">Gerenciar Catálogo</h1>
                 <p className="text-slate-500 mt-1">Adicione ou edite os materiais que sua loja tem em estoque.</p>
               </div>
-              <Button onClick={abrirModalNovo} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+              <Button onClick={abrirModalNovoSeguro} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
                 <Plus className="w-4 h-4 mr-2" /> Novo Produto
               </Button>
             </div>
@@ -681,7 +863,7 @@ export default function PainelLojista() {
                 <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">Sua vitrine está vazia</h3>
                 <p className="text-slate-500 mb-6">Comece a adicionar produtos para que os engenheiros encontrem sua loja.</p>
-                <Button onClick={abrirModalNovo} variant="outline" className="border-emerald-600 text-emerald-600 hover:bg-emerald-50">
+                <Button onClick={abrirModalNovoSeguro} variant="outline" className="border-emerald-600 text-emerald-600 hover:bg-emerald-50">
                   Adicionar Primeiro Produto
                 </Button>
               </div>
@@ -712,7 +894,7 @@ export default function PainelLojista() {
                               <button onClick={() => abrirModalEdicao(p)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Editar Produto">
                                 <Pencil className="w-4 h-4" />
                               </button>
-                              <button onClick={() => deletarProduto(p.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Remover Produto">
+                              <button onClick={() => deletarProdutoSeguro(p.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Remover Produto">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -723,7 +905,9 @@ export default function PainelLojista() {
                   </table>
                 </div>
                 <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 font-medium">
-                  {produtos.length} de 50 produtos cadastrados no seu plano atual.
+                  {catalogStatus.is_pro
+                    ? `${catalogStatus.active_count} produtos ativos com publicacoes ilimitadas no plano atual.`
+                    : `${catalogStatus.active_count} de ${catalogStatus.free_limit} produtos cadastrados no seu plano atual.`}
                 </div>
               </div>
             )}
@@ -761,7 +945,7 @@ export default function PainelLojista() {
                 : "Adicione os detalhes do material para ele aparecer no marketplace."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSalvarProduto} className="space-y-4 mt-4">
+          <form onSubmit={handleSalvarProdutoSeguro} className="space-y-4 mt-4">
             <div>
               <Label>Nome do Material</Label>
               <Input 

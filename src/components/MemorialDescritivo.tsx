@@ -5,10 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { loadPdfExportDeps } from "@/lib/lazyDeps";
 import { AnalysisResult, BudgetItem } from "@/lib/types";
 import { FileText, Loader2, Download, Sparkles, Eye, Code } from "lucide-react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
 import { MaterialPerformanceCard } from "./MaterialPerformanceCard";
 import { InteractiveMemorial } from "./InteractiveMemorial";
 
@@ -50,6 +50,7 @@ export function MemorialDescritivo({
 }: MemorialDescritivoProps) {
   const [memorial, setMemorial] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [viewMode, setViewMode] = useState<"interactive" | "raw">("interactive");
   const [cardOpen, setCardOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<BudgetItem | null>(null);
@@ -162,38 +163,49 @@ export function MemorialDescritivo({
     setGenerating(false);
   }, [analysisResult, nomeProjeto, tipoConstrucao]);
 
-  const downloadPDF = useCallback(() => {
+  const downloadPDF = useCallback(async () => {
     if (!memorial) return;
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const maxWidth = pageWidth - margin * 2;
+    setExportingPdf(true);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("Memorial Descritivo", margin, 25);
+    try {
+      const { jsPDF } = await loadPdfExportDeps();
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const maxWidth = pageWidth - margin * 2;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Projeto: ${nomeProjeto}`, margin, 35);
-    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, margin, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("Memorial Descritivo", margin, 25);
 
-    doc.setLineWidth(0.5);
-    doc.line(margin, 47, pageWidth - margin, 47);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Projeto: ${nomeProjeto}`, margin, 35);
+      doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, margin, 42);
 
-    const lines = doc.splitTextToSize(memorial.replace(/[#*]/g, ""), maxWidth);
-    let y = 55;
-    const lineHeight = 5;
-    for (const line of lines) {
-      if (y > doc.internal.pageSize.getHeight() - 20) {
-        doc.addPage();
-        y = 20;
+      doc.setLineWidth(0.5);
+      doc.line(margin, 47, pageWidth - margin, 47);
+
+      const lines = doc.splitTextToSize(memorial.replace(/[#*]/g, ""), maxWidth);
+      let y = 55;
+      const lineHeight = 5;
+      for (const line of lines) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(line, margin, y);
+        y += lineHeight;
       }
-      doc.text(line, margin, y);
-      y += lineHeight;
+
+      doc.save(`Memorial_${nomeProjeto.replace(/\s+/g, "_")}.pdf`);
+      toast.success("PDF baixado!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao gerar o PDF do memorial.");
+    } finally {
+      setExportingPdf(false);
     }
-    doc.save(`Memorial_${nomeProjeto.replace(/\s+/g, "_")}.pdf`);
-    toast.success("PDF baixado!");
   }, [memorial, nomeProjeto]);
 
   return (
@@ -220,8 +232,9 @@ export function MemorialDescritivo({
                 {memorial ? "Regenerar" : "Gerar Memorial"}
               </Button>
               {memorial && (
-                <Button variant="outline" size="sm" onClick={downloadPDF}>
-                  <Download className="h-3.5 w-3.5 mr-1" /> Baixar PDF
+                <Button variant="outline" size="sm" onClick={() => void downloadPDF()} disabled={exportingPdf}>
+                  {exportingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                  Baixar PDF
                 </Button>
               )}
             </div>

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/integrations/supabase/client";
 
 interface ProfileExtra {
   data_nascimento?: string | null;
@@ -24,12 +24,14 @@ interface ProfileExtra {
 
 /** Tipo de conta normalizado para a UI: CPF (Pessoa Física) ou CNPJ (Pessoa Jurídica). */
 export type AccountType = "CPF" | "CNPJ";
+export type AccountStatus = "active" | "suspended" | "banned";
 
 export interface UserProfile {
   user_id: string;
   nome: string | null;
   nome_completo: string | null;
   account_type: string | null;
+  account_status: AccountStatus | null;
   avatar_url: string | null;
 }
 
@@ -47,6 +49,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   /** "CPF" para Pessoa Física, "CNPJ" para Pessoa Jurídica. */
   accountType: AccountType;
+  accountStatus: AccountStatus;
   loading: boolean;
   profileLoading: boolean;
   refreshProfile: () => Promise<void>;
@@ -69,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await supabase
         .from("profiles")
-        .select("user_id, nome, nome_completo, account_type, avatar_url")
+        .select("user_id, nome, nome_completo, account_type, account_status, avatar_url")
         .eq("user_id", userId)
         .maybeSingle();
       setProfile((data as UserProfile) ?? null);
@@ -109,27 +112,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, nome: string, extra?: ProfileExtra) => {
     const redirectUrl = `${window.location.origin}/`;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedName = nome.trim();
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
-      options: { data: { nome }, emailRedirectTo: redirectUrl },
+      options: { data: { nome: normalizedName }, emailRedirectTo: redirectUrl },
     });
     if (error) throw error;
 
     // Update the profile with extra fields if provided
     if (extra && data.user) {
+      const profilePayload = {
+        nome_completo: normalizedName,
+        data_nascimento: extra.data_nascimento ?? null,
+        celular_whatsapp: extra.celular_whatsapp ?? null,
+        tipo_empresa: extra.tipo_empresa ?? null,
+        nome_empresa: extra.nome_empresa ?? null,
+        qtd_funcionarios: extra.qtd_funcionarios ?? null,
+        qtd_obras_atual: extra.qtd_obras_atual ?? null,
+        ano_criacao_negocio: extra.ano_criacao_negocio ?? null,
+        cidade: extra.cidade ?? null,
+        estado: extra.estado ?? null,
+        area_atuacao: extra.area_atuacao ?? null,
+        motivo_uso: extra.motivo_uso ?? null,
+        como_conheceu: extra.como_conheceu ?? null,
+        account_type: extra.account_type ?? null,
+        cpf: extra.cpf ?? null,
+        cnpj: extra.cnpj ?? null,
+        inscricao_estadual: extra.inscricao_estadual ?? null,
+        telefone_comercial: extra.telefone_comercial ?? null,
+      };
+
       await supabase
         .from("profiles")
-        .update({
-          nome_completo: nome,
-          ...extra,
-        } as any)
+        .update(profilePayload as any)
         .eq("user_id", data.user.id);
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = email.trim().toLowerCase();
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        password,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const authError = new Error(
+        typeof payload?.error === "string" ? payload.error : "Nao foi possivel concluir o login.",
+      ) as Error & { code?: string };
+      authError.code = typeof payload?.code === "string" ? payload.code : "LOGIN_FAILED";
+      throw authError;
+    }
+
+    const accessToken = payload?.session?.access_token;
+    const refreshToken = payload?.session?.refresh_token;
+    if (typeof accessToken !== "string" || typeof refreshToken !== "string") {
+      const authError = new Error("Resposta de autenticacao invalida.") as Error & { code?: string };
+      authError.code = "INVALID_AUTH_RESPONSE";
+      throw authError;
+    }
+
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
     if (error) throw error;
   };
 
@@ -165,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         accountType: normalizeAccountType(profile?.account_type),
+        accountStatus: profile?.account_status ?? "active",
         loading,
         profileLoading,
         refreshProfile,

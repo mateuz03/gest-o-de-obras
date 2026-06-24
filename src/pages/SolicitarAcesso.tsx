@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Box, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -69,21 +69,6 @@ export default function SolicitarAcesso() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      <nav className="border-b border-slate-200 bg-white">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-            <Box className="h-6 w-6 text-emerald-600" />
-            <span>Obra Link</span>
-          </Link>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Link>
-        </div>
-      </nav>
-
       <div className="container py-12 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center max-w-6xl mx-auto">
           {/* Left */}
@@ -251,7 +236,7 @@ export default function SolicitarAcesso() {
 
                 <p className="text-xs text-slate-500 text-center leading-relaxed pt-2">
                   Ao enviar este formulário, você concorda com os nossos{" "}
-                  <a href="#" className="underline hover:text-slate-700">Termos de Uso</a>{" "}
+                  <Link to="/termos-de-uso" className="underline hover:text-slate-700">Termos de Uso</Link>{" "}
                   e nossa{" "}
                   <a href="#" className="underline hover:text-slate-700">Política de Privacidade</a>.
                 </p>

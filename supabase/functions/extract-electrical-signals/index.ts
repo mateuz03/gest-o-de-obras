@@ -1,11 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { assertAnalysisAccess, corsHeaders, getAuthenticatedContext, HttpError, json, toErrorResponse } from "../_shared/security.ts";
 
 interface ExtractElectricalRequest {
   analysis_id: string;
@@ -21,31 +14,28 @@ function normalize(text: string) {
 
 function extractAmperagens(text: string): number[] {
   const matches = [...text.matchAll(/(\d+(?:[.,]\d+)?)\s*a\b/gi)];
-  const values = matches
-    .map((m) => parseFloat(m[1].replace(",", ".")))
-    .filter((n) => !isNaN(n) && n > 0 && n < 1000);
-
-  return [...new Set(values)].sort((a, b) => a - b);
+  return [...new Set(matches
+    .map((match) => parseFloat(match[1].replace(",", ".")))
+    .filter((value) => !isNaN(value) && value > 0 && value < 1000))]
+    .sort((a, b) => a - b);
 }
 
 function extractBitolas(text: string): number[] {
   const matches = [...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:mm2|mm²)/gi)];
-  const values = matches
-    .map((m) => parseFloat(m[1].replace(",", ".")))
-    .filter((n) => !isNaN(n) && n > 0 && n < 1000);
-
-  return [...new Set(values)].sort((a, b) => a - b);
+  return [...new Set(matches
+    .map((match) => parseFloat(match[1].replace(",", ".")))
+    .filter((value) => !isNaN(value) && value > 0 && value < 1000))]
+    .sort((a, b) => a - b);
 }
 
-function countKeyword(text: string, regex: RegExp): number {
+function countKeyword(text: string, regex: RegExp) {
   const matches = text.match(regex);
   return matches ? matches.length : 0;
 }
 
 function extractCircuitLabels(text: string): string[] {
   const matches = [...text.matchAll(/\b(circuito|circ\.?|c)\s*[-:]?\s*(\d{1,3})\b/gi)];
-  const labels = matches.map((m) => `C${m[2]}`);
-  return [...new Set(labels)];
+  return [...new Set(matches.map((match) => `C${match[2]}`))];
 }
 
 function extractCircuitRows(text: string) {
@@ -68,9 +58,6 @@ function extractCircuitRows(text: string) {
     const ampMatch = line.match(/(\d+(?:[.,]\d+)?)\s*a\b/i);
     const bitolaMatch = line.match(/(\d+(?:[.,]\d+)?)\s*(?:mm2|mm²)/i);
 
-    const amperagem = ampMatch ? parseFloat(ampMatch[1].replace(",", ".")) : null;
-    const bitola = bitolaMatch ? parseFloat(bitolaMatch[1].replace(",", ".")) : null;
-
     let descricao = line
       .replace(/\b(circuito|circ\.?|c)\s*[-:]?\s*\d{1,3}\b/i, "")
       .replace(/(\d+(?:[.,]\d+)?)\s*a\b/i, "")
@@ -78,19 +65,17 @@ function extractCircuitRows(text: string) {
       .replace(/\s+/g, " ")
       .trim();
 
-    if (!descricao) descricao = undefined;
-
     circuits.push({
       circuito,
-      descricao,
-      amperagem,
-      bitola_mm2: bitola,
+      descricao: descricao || undefined,
+      amperagem: ampMatch ? parseFloat(ampMatch[1].replace(",", ".")) : null,
+      bitola_mm2: bitolaMatch ? parseFloat(bitolaMatch[1].replace(",", ".")) : null,
     });
   }
 
-  const dedup = new Map<string, { circuito: string; descricao?: string; amperagem?: number | null; bitola_mm2?: number | null }>();
-  for (const c of circuits) {
-    if (!dedup.has(c.circuito)) dedup.set(c.circuito, c);
+  const dedup = new Map<string, typeof circuits[number]>();
+  for (const circuit of circuits) {
+    if (!dedup.has(circuit.circuito)) dedup.set(circuit.circuito, circuit);
   }
 
   return Array.from(dedup.values());
@@ -138,34 +123,21 @@ function inferConfidence(params: {
   return "baixa";
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
+    const ctx = await getAuthenticatedContext(req);
     const body: ExtractElectricalRequest = await req.json();
     const { analysis_id, document_id } = body;
 
     if (!analysis_id) {
-      return new Response(JSON.stringify({ error: "Missing analysis_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new HttpError(400, "analysis_id é obrigatório", "INVALID_INPUT");
     }
 
-    let pagesQuery = supabase
+    await assertAnalysisAccess(ctx.adminClient, ctx.user.id, analysis_id);
+
+    let pagesQuery = ctx.adminClient
       .from("analysis_document_pages")
       .select("*")
       .eq("analysis_id", analysis_id)
@@ -180,46 +152,31 @@ serve(async (req) => {
     if (pagesError) throw pagesError;
 
     if (!pages || pages.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "No electrical pages found",
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json({ success: false, error: "No electrical pages found" }, 404);
     }
 
     const mergedText = pages
-      .map((p) => [p.embedded_text || "", p.ocr_text || ""].filter(Boolean).join("\n"))
+      .map((page) => [page.embedded_text || "", page.ocr_text || ""].filter(Boolean).join("\n"))
       .join("\n\n");
-
     const normalizedText = normalize(mergedText);
-
     const amperagens = extractAmperagens(mergedText);
     const bitolas = extractBitolas(mergedText);
     const circuits = extractCircuitRows(mergedText);
     const circuitLabels = extractCircuitLabels(mergedText);
-
     const tugCount = countKeyword(normalizedText, /\btug\b/g);
     const tueCount = countKeyword(normalizedText, /\btue\b/g);
     const lightingPointsCount =
       countKeyword(normalizedText, /ponto[s]?\s+de\s+iluminacao/g) +
       countKeyword(normalizedText, /\biluminacao\b/g);
-
     const showerCount = countKeyword(normalizedText, /\bchuveiro\b/g);
     const acCount =
       countKeyword(normalizedText, /ar\s*condicionado/g) +
       countKeyword(normalizedText, /\bac\b/g);
-
     const disjuntorCount = countKeyword(normalizedText, /\bdisjuntor(?:es)?\b/g);
     const quadroCount =
       countKeyword(normalizedText, /quadro\s+de\s+distribuicao/g) +
       countKeyword(normalizedText, /\bqdlf?\b/g);
-
-    const hasQuadroDeCargas = pages.some((p) => p.page_class === "quadro_de_cargas");
+    const hasQuadroDeCargas = pages.some((page) => page.page_class === "quadro_de_cargas");
     const signals = detectElectricalSignals(mergedText);
 
     const confidence = inferConfidence({
@@ -234,11 +191,11 @@ serve(async (req) => {
       discipline: "electrical",
       analysis_id,
       document_id: document_id || null,
-      pages_analyzed: pages.map((p) => ({
-        id: p.id,
-        page_number: p.page_number,
-        page_class: p.page_class,
-        confidence: p.classification_confidence,
+      pages_analyzed: pages.map((page) => ({
+        id: page.id,
+        page_number: page.page_number,
+        page_class: page.page_class,
+        confidence: page.classification_confidence,
       })),
       has_quadro_de_cargas: hasQuadroDeCargas,
       quadros_detectados: quadroCount,
@@ -259,37 +216,18 @@ serve(async (req) => {
       extracted_at: new Date().toISOString(),
     };
 
-    const { error: runError } = await supabase
-      .from("analysis_extraction_runs")
-      .insert({
-        analysis_id,
-        document_id: document_id || pages[0]?.document_id || null,
-        stage: "electrical_extraction",
-        status: "completed",
-        payload_json: payload,
-      });
+    const { error: runError } = await ctx.adminClient.from("analysis_extraction_runs").insert({
+      analysis_id,
+      document_id: document_id || pages[0]?.document_id || null,
+      stage: "electrical_extraction",
+      status: "completed",
+      payload_json: payload,
+    });
 
     if (runError) throw runError;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        extraction: payload,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json({ success: true, extraction: payload });
   } catch (error) {
-    console.error("extract-electrical-signals error:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return toErrorResponse(error, "Não foi possível extrair os sinais elétricos.");
   }
 });

@@ -1,8 +1,5 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { AnalysisResult, BudgetItem } from "./types";
+import { loadPdfExportDeps, loadSpreadsheetExportDeps } from "./lazyDeps";
 
 function fmt(v: number | string) {
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -27,7 +24,8 @@ function budgetRows(items: BudgetItem[]) {
 
 const BUDGET_HEAD = [["Item", "Descrição", "Local", "Fornec.", "Marca", "Quant", "Unid", "R$ Unit.", "R$ Total", "SINAPI"]];
 
-export function exportToPDF(projectName: string, result: AnalysisResult) {
+export async function exportToPDF(projectName: string, result: AnalysisResult) {
+  const { jsPDF, autoTable } = await loadPdfExportDeps();
   const doc = new jsPDF({ orientation: "landscape" });
   let y = 15;
 
@@ -106,7 +104,8 @@ export function exportToPDF(projectName: string, result: AnalysisResult) {
   doc.save(`${projectName.replace(/\s+/g, "_")}_orcamento.pdf`);
 }
 
-export function exportToExcel(projectName: string, result: AnalysisResult) {
+export async function exportToExcel(projectName: string, result: AnalysisResult) {
+  const { XLSX, saveAs } = await loadSpreadsheetExportDeps();
   const wb = XLSX.utils.book_new();
 
   const budgetToSheet = (items: BudgetItem[]) =>

@@ -1,11 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { assertAnalysisAccess, corsHeaders, getAuthenticatedContext, HttpError, json, toErrorResponse } from "../_shared/security.ts";
 
 interface ExtractArchitecturalRequest {
   analysis_id: string;
@@ -51,22 +44,13 @@ function extractRoomAreas(text: string) {
     const cleaned = line.trim();
     if (!cleaned) continue;
 
-    const match = cleaned.match(
-      /^([A-Za-zÀ-ÿ0-9\s\/\-\(\)]+?)\s+(\d+(?:[.,]\d+)?)\s*m(?:2|²)$/i
-    );
+    const match = cleaned.match(/^([A-Za-zÀ-ÿ0-9\s\/\-\(\)]+?)\s+(\d+(?:[.,]\d+)?)\s*m(?:2|²)$/i);
+    if (!match) continue;
 
-    if (match) {
-      const nome = match[1].trim();
-      const area = parseFloat(match[2].replace(",", "."));
-
-      if (
-        nome.length >= 3 &&
-        !isNaN(area) &&
-        area > 1 &&
-        area < 1000
-      ) {
-        rooms.push({ nome, area_m2: area });
-      }
+    const nome = match[1].trim();
+    const area = parseFloat(match[2].replace(",", "."));
+    if (nome.length >= 3 && !isNaN(area) && area > 1 && area < 1000) {
+      rooms.push({ nome, area_m2: area });
     }
   }
 
@@ -99,46 +83,31 @@ function inferConfidence(params: {
   signalsCount: number;
 }) {
   let score = 0;
-
   if (params.areaTotal) score += 40;
   if (params.scale) score += 20;
   if (params.roomCount >= 3) score += 25;
   else if (params.roomCount > 0) score += 15;
   if (params.signalsCount >= 3) score += 15;
-
   if (score >= 75) return "alta";
   if (score >= 40) return "media";
   return "baixa";
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
+    const ctx = await getAuthenticatedContext(req);
     const body: ExtractArchitecturalRequest = await req.json();
     const { analysis_id, document_id } = body;
 
     if (!analysis_id) {
-      return new Response(JSON.stringify({ error: "Missing analysis_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new HttpError(400, "analysis_id é obrigatório", "INVALID_INPUT");
     }
 
-    let pagesQuery = supabase
+    await assertAnalysisAccess(ctx.adminClient, ctx.user.id, analysis_id);
+
+    let pagesQuery = ctx.adminClient
       .from("analysis_document_pages")
       .select("*")
       .eq("analysis_id", analysis_id)
@@ -153,20 +122,11 @@ serve(async (req) => {
     if (pagesError) throw pagesError;
 
     if (!pages || pages.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "No architectural pages found",
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json({ success: false, error: "No architectural pages found" }, 404);
     }
 
     const mergedText = pages
-      .map((p) => [p.embedded_text || "", p.ocr_text || ""].filter(Boolean).join("\n"))
+      .map((page) => [page.embedded_text || "", page.ocr_text || ""].filter(Boolean).join("\n"))
       .join("\n\n");
 
     const areaTotal = extractAreaTotal(mergedText);
@@ -184,52 +144,33 @@ serve(async (req) => {
       discipline: "architectural",
       analysis_id,
       document_id: document_id || null,
-      pages_analyzed: pages.map((p) => ({
-        id: p.id,
-        page_number: p.page_number,
-        page_class: p.page_class,
-        confidence: p.classification_confidence,
+      pages_analyzed: pages.map((page) => ({
+        id: page.id,
+        page_number: page.page_number,
+        page_class: page.page_class,
+        confidence: page.classification_confidence,
       })),
       area_total_m2: areaTotal,
       escala_detectada: scale || "—",
       rooms,
-      has_area_table: pages.some((p) => p.page_class === "quadro_de_areas"),
+      has_area_table: pages.some((page) => page.page_class === "quadro_de_areas"),
       signals,
       confidence,
       extracted_at: new Date().toISOString(),
     };
 
-    const { error: runError } = await supabase
-      .from("analysis_extraction_runs")
-      .insert({
-        analysis_id,
-        document_id: document_id || pages[0]?.document_id || null,
-        stage: "architectural_extraction",
-        status: "completed",
-        payload_json: payload,
-      });
+    const { error: runError } = await ctx.adminClient.from("analysis_extraction_runs").insert({
+      analysis_id,
+      document_id: document_id || pages[0]?.document_id || null,
+      stage: "architectural_extraction",
+      status: "completed",
+      payload_json: payload,
+    });
 
     if (runError) throw runError;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        extraction: payload,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json({ success: true, extraction: payload });
   } catch (error) {
-    console.error("extract-architectural-signals error:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return toErrorResponse(error, "Não foi possível extrair os sinais arquitetônicos.");
   }
 });
