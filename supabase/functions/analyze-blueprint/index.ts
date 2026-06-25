@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { jsonrepair } from "npm:jsonrepair@^3.13.0";
+import { getAuthenticatedContext, toErrorResponse } from "../_shared/security.ts";
 import { HttpError, getAuthenticatedContext, toErrorResponse } from "../_shared/security.ts";
 
 const corsHeaders = {
@@ -644,6 +645,7 @@ async function generateWithOpenAI(opts: {
       if (response.status >= 500) throw new Error("O provedor de IA está indisponível no momento.");
 
       throw new Error(errorData?.error?.message || `Falha do provedor de IA (${response.status}).`);
+      throw new Error(errorData?.error?.message || `Falha do provedor de IA (${response.status}).`);
     }
 
     const data = JSON.parse(rawBody);
@@ -654,6 +656,7 @@ async function generateWithOpenAI(opts: {
   } catch (error: any) {
     clearTimeout(timeout);
     if (error.name === 'AbortError') {
+      console.error("OpenAI timeout during analyze-blueprint");
       console.error("OpenAI timeout during analyze-blueprint");
       throw new Error("A análise excedeu o tempo seguro de processamento. A planta pode ser muito complexa.");
     }
@@ -771,6 +774,7 @@ serve(async (req) => {
 
   try {
     const ctx = await getAuthenticatedContext(req);
+    const ctx = await getAuthenticatedContext(req);
     const body = await req.json();
 
     const {
@@ -886,6 +890,7 @@ serve(async (req) => {
       });
     } catch (err: any) {
       console.error("OpenAI error during analyze-blueprint:", err?.message || err);
+      console.error("OpenAI error during analyze-blueprint:", err?.message || err);
       if (err instanceof Error && err.message.includes("tempo seguro de processamento")) {
         throw new HttpError(
           504,
@@ -927,6 +932,10 @@ serve(async (req) => {
         length: rawText?.length ?? 0,
         message: parseErr?.message || String(parseErr),
       });
+      console.error("Falha ao parsear resposta da IA em analyze-blueprint:", {
+        length: rawText?.length ?? 0,
+        message: parseErr?.message || String(parseErr),
+      });
       throw new Error(`Falha ao converter resposta da IA em JSON. Erro: ${parseErr?.message || parseErr}`);
     }
 
@@ -955,6 +964,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: ctx.authHeader,
               Authorization: ctx.authHeader,
             },
             body: JSON.stringify({ items: itemsToMatch }),
@@ -1001,6 +1011,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    return toErrorResponse(error, "Não foi possível processar a análise agora.");
     return toErrorResponse(error, "Não foi possível processar a análise agora.");
   }
 });

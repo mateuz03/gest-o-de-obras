@@ -127,6 +127,33 @@ async function loadPdfJs() {
   return pdfJsLoader;
 }
 
+type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.js");
+
+let pdfJsLoader:
+  | Promise<PdfJsModule & { GlobalWorkerOptions?: { workerSrc?: string } }>
+  | null = null;
+
+async function loadPdfJs() {
+  if (!pdfJsLoader) {
+    pdfJsLoader = Promise.all([
+      import("pdfjs-dist/legacy/build/pdf.js"),
+      import("pdfjs-dist/legacy/build/pdf.worker.min.js?url"),
+    ]).then(([pdfjsModule, workerModule]) => {
+      const pdfjsLib =
+        (pdfjsModule.default ??
+          pdfjsModule) as PdfJsModule & { GlobalWorkerOptions?: { workerSrc?: string } };
+
+      if (pdfjsLib.GlobalWorkerOptions) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerModule.default;
+      }
+
+      return pdfjsLib;
+    });
+  }
+
+  return pdfJsLoader;
+}
+
 type AnalysisMode = "planta" | "foto_ambiente";
 
 const MODE_CONFIG = {

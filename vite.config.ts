@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+<<<<<<< HEAD
+=======
+  assetsInclude: ["**/*.worker.min.js"],
+>>>>>>> ec638779cf1cbc03e73d2bd2051a5e1799d11b3d
   optimizeDeps: {
     exclude: ["pdfjs-dist", "recharts", "jspdf", "jspdf-autotable", "xlsx"],
   },
@@ -47,6 +51,13 @@ export default defineConfig(({ mode }) => ({
           // chunks do not end up depending on each other at bootstrap time.
           if (normalized.includes("commonjsHelpers")) return "chunk-helpers";
 
+<<<<<<< HEAD
+=======
+          if (normalized.includes("/node_modules/pdfjs-dist/legacy/build/pdf.worker.min.js")) {
+            return "pdf-worker";
+          }
+
+>>>>>>> ec638779cf1cbc03e73d2bd2051a5e1799d11b3d
           if (!normalized.includes("/node_modules/")) return undefined;
 
           const packageName = getPackageName(normalized);
